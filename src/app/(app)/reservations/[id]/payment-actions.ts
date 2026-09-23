@@ -128,6 +128,7 @@ export async function addDeductionAction(
       data: {
         amountPesos: readString(formData, "amountPesos"),
         reason: readString(formData, "reason"),
+        damageReportId: readString(formData, "damageReportId") || undefined,
       },
     });
   } catch (error) {

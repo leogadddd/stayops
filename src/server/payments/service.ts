@@ -4,6 +4,7 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   auditEvents,
+  damageReports,
   depositDeductions,
   paymentEntries,
   paymentProofs,
@@ -402,7 +403,44 @@ export async function addDeduction(input: {
   const amountCents = parseAmount(data.amountPesos);
 
   return db.transaction(async (tx) => {
-    await assertReservationInOrg(tx, input.organizationId, input.reservationId);
+    const [reservation] = await tx
+      .select({ id: reservations.id, unitId: reservations.unitId })
+      .from(reservations)
+      .where(
+        and(
+          eq(reservations.id, input.reservationId),
+          eq(reservations.organizationId, input.organizationId),
+        ),
+      )
+      .limit(1);
+    if (!reservation) {
+      throw new PaymentError("Reservation not found.", "reservationId");
+    }
+
+    let damageReportId: string | null = null;
+    if (data.damageReportId) {
+      const [report] = await tx
+        .select({ id: damageReports.id, unitId: damageReports.unitId })
+        .from(damageReports)
+        .where(
+          and(
+            eq(damageReports.id, data.damageReportId),
+            eq(damageReports.organizationId, input.organizationId),
+          ),
+        )
+        .limit(1);
+      if (!report) {
+        throw new PaymentError("Damage report not found.", "damageReportId");
+      }
+      if (report.unitId !== reservation.unitId) {
+        throw new PaymentError(
+          "That damage report belongs to a different unit.",
+          "damageReportId",
+        );
+      }
+      damageReportId = report.id;
+    }
+
     const balances = await ledgerCaps(tx, input.organizationId, input.reservationId);
     const settleable = depositSettleableCents({
       paidDepositCents: balances.paidDepositCents,
@@ -421,6 +459,7 @@ export async function addDeduction(input: {
       .values({
         organizationId: input.organizationId,
         reservationId: input.reservationId,
+        damageReportId,
         amountCents,
         reason: data.reason,
         createdBy: input.actorUserId,
@@ -435,7 +474,11 @@ export async function addDeduction(input: {
       entity: "deposit_deduction",
       entityId: entry.id,
       action: "deposit.deducted",
-      metadata: { reservationId: input.reservationId, amountCents },
+      metadata: {
+        reservationId: input.reservationId,
+        amountCents,
+        damageReportId,
+      },
     });
     return entry;
   });

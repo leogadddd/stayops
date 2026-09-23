@@ -13,6 +13,11 @@ import {
   createGuestLink,
   revokeGuestLink,
 } from "@/server/reservations/guest-link";
+import {
+  checkIn,
+  checkOut,
+  OperationsError,
+} from "@/server/operations/service";
 import { ReservationError } from "@/server/reservations/validation";
 import type { ChargeLineInput } from "@/server/reservations/validation";
 
@@ -28,6 +33,9 @@ function readString(formData: FormData, key: string): string {
 
 function toFormError(error: unknown): ReservationFormState {
   if (error instanceof ReservationError) {
+    return { error: error.message };
+  }
+  if (error instanceof OperationsError) {
     return { error: error.message };
   }
   if (error instanceof ZodError) {
@@ -154,6 +162,49 @@ export async function cancelReservationAction(
   revalidatePath(`/reservations/${reservationId}`);
   revalidatePath("/reservations");
   revalidatePath("/calendar");
+  return { success: true };
+}
+
+export async function checkInAction(
+  reservationId: string,
+  _prev: ReservationFormState,
+  formData: FormData,
+): Promise<ReservationFormState> {
+  const membership = await requireMembership();
+  try {
+    await checkIn({
+      organizationId: membership.organizationId,
+      actorUserId: membership.userId,
+      reservationId,
+      data: { note: readString(formData, "note") },
+    });
+  } catch (error) {
+    return toFormError(error);
+  }
+  revalidatePath(`/reservations/${reservationId}`);
+  revalidatePath("/calendar");
+  return { success: true };
+}
+
+export async function checkOutAction(
+  reservationId: string,
+  _prev: ReservationFormState,
+  formData: FormData,
+): Promise<ReservationFormState> {
+  const membership = await requireMembership();
+  try {
+    await checkOut({
+      organizationId: membership.organizationId,
+      actorUserId: membership.userId,
+      reservationId,
+      data: { note: readString(formData, "note") },
+    });
+  } catch (error) {
+    return toFormError(error);
+  }
+  revalidatePath(`/reservations/${reservationId}`);
+  revalidatePath("/calendar");
+  revalidatePath("/tasks");
   return { success: true };
 }
 

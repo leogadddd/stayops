@@ -1,8 +1,10 @@
 import type {
+  DamageStatus,
   ExpenseCategory,
   PaymentAllocation,
   PaymentMethod,
   ReservationStatus,
+  TaskStatus,
   UnitStatus,
 } from "@/lib/db/schema";
 
@@ -64,4 +66,14 @@ export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
   platform_fees: "Platform fees",
   renovation: "Renovation",
   other: "Other",
+};
+
+export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
+  open: "Needs cleaning",
+  ready: "Ready",
+};
+
+export const DAMAGE_STATUS_LABELS: Record<DamageStatus, string> = {
+  open: "Open",
+  resolved: "Resolved",
 };

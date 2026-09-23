@@ -6,7 +6,18 @@ import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label, Textarea } from "@/components/ui/input";
 import { addDeductionAction, type PaymentFormState } from "./payment-actions";
 
-export function AddDeductionForm({ reservationId }: { reservationId: string }) {
+interface DamageOption {
+  id: string;
+  description: string;
+}
+
+export function AddDeductionForm({
+  reservationId,
+  damageReports = [],
+}: {
+  reservationId: string;
+  damageReports?: DamageOption[];
+}) {
   const [state, formAction, pending] = useActionState<PaymentFormState, FormData>(
     addDeductionAction.bind(null, reservationId),
     {},
@@ -63,6 +74,24 @@ export function AddDeductionForm({ reservationId }: { reservationId: string }) {
               className="min-h-16"
             />
           </div>
+          {damageReports.length > 0 ? (
+            <div>
+              <Label htmlFor="deduction-damage">Link to a damage report (optional)</Label>
+              <select
+                id="deduction-damage"
+                name="damageReportId"
+                className="mt-1 w-full rounded-xl border border-pine/20 bg-cream px-3 py-2 text-sm text-pine focus:outline-none focus:ring-2 focus:ring-pine/30"
+                defaultValue=""
+              >
+                <option value="">No link</option>
+                {damageReports.map((report) => (
+                  <option key={report.id} value={report.id}>
+                    {report.description}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
           <FieldError message={state.error} />
           <Button type="submit" variant="primary" disabled={pending}>
             {pending ? "Recording…" : "Record deduction"}

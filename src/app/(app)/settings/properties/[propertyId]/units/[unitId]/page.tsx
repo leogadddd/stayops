@@ -5,6 +5,7 @@ import { requireMembership } from "@/lib/auth/session";
 import { todayInTimeZone } from "@/lib/dates";
 import { UNIT_STATUS_LABELS } from "@/lib/labels";
 import { centavosToPesosInput, formatPHP } from "@/lib/money";
+import { normalizeChecklistTemplate } from "@/lib/turnover";
 import {
   getPropertyOrThrow,
   getUnitOrThrow,
@@ -14,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { BlockForms } from "../block-forms";
 import { UnitEditForm } from "../unit-edit-form";
+import { ChecklistTemplateEditor } from "../checklist-template-editor";
 
 export const metadata: Metadata = { title: "Unit" };
 
@@ -106,6 +108,24 @@ export default async function UnitDetailPage({
               endDate: block.endDate,
               reason: block.reason,
             }))}
+          />
+        </CardBody>
+      </Card>
+
+      <Card className="mt-8">
+        <CardHeader>
+          <h2 className="font-display text-xl text-pine">Turnover checklist</h2>
+        </CardHeader>
+        <CardBody className="space-y-3">
+          <p className="text-sm text-ink/60">
+            Every checkout opens a turnover task from this checklist. Changes
+            here apply to future turnovers — tasks already in progress keep
+            their snapshot.
+          </p>
+          <ChecklistTemplateEditor
+            propertyId={property.id}
+            unitId={unit.id}
+            items={normalizeChecklistTemplate(unit.checklistTemplate)}
           />
         </CardBody>
       </Card>

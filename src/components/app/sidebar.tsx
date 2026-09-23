@@ -2,18 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, Building2, Calendar, Receipt, Settings, Users } from "lucide-react";
+import { BookOpen, Building2, Calendar, ClipboardList, Receipt, Settings, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/logo";
 
 /**
  * App navigation. Entries are added per slice so there is never a dead link:
- * tasks, expenses and reports join as their slices land.
+ * reports joins with its slice.
  */
 const NAV_ITEMS = [
   { href: "/calendar", label: "Calendar", icon: Calendar },
   { href: "/reservations", label: "Reservations", icon: BookOpen },
   { href: "/guests", label: "Guests", icon: Users },
+  { href: "/tasks", label: "Tasks", icon: ClipboardList },
   { href: "/expenses", label: "Expenses", icon: Receipt },
   { href: "/settings/properties", label: "Properties", icon: Building2 },
   { href: "/settings", label: "Settings", icon: Settings, exact: true },

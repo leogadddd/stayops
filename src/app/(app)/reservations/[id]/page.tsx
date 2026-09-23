@@ -15,10 +15,17 @@ import {
 } from "@/server/reservations/service";
 import { expireStaleHolds } from "@/server/reservations/holds";
 import { getReservationLedger } from "@/server/payments/service";
+import {
+  getTaskForReservation,
+  listOpenDamageReports,
+} from "@/server/operations/service";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { ConfirmHoldForm } from "./confirm-hold-form";
 import { CancelReservationForm } from "./cancel-reservation-form";
+import { CheckInForm } from "./check-in-form";
+import { CheckOutForm } from "./check-out-form";
+import { DamageReportForm } from "../../tasks/damage-report-form";
 import { GuestLinkCard } from "./guest-link-card";
 import { PaymentsCard } from "./payments-card";
 import { RecordPaymentForm } from "./record-payment-form";
@@ -80,6 +87,14 @@ export default async function ReservationDetailPage({
   const { reservation, guest, unit, property, charges, transitions, activeToken } =
     detail;
   const ledger = await getReservationLedger(membership.organizationId, id);
+  const openDamage = await listOpenDamageReports(
+    membership.organizationId,
+    unit.id,
+  );
+  const turnoverTask =
+    reservation.status === "checked_out"
+      ? await getTaskForReservation(membership.organizationId, id)
+      : null;
   const totals = computeTotals(charges);
   const nights = listNights(reservation.checkInDate, reservation.checkOutDate);
   const liveHold = isLiveHold(reservation.status, reservation.expiresAt);
@@ -277,6 +292,64 @@ export default async function ReservationDetailPage({
             </Card>
           ) : null}
 
+          {reservation.status === "confirmed" ? (
+            <Card>
+              <CardHeader>
+                <h2 className="font-display text-lg text-pine">Check in</h2>
+              </CardHeader>
+              <CardBody>
+                <CheckInForm reservationId={reservation.id} />
+              </CardBody>
+            </Card>
+          ) : null}
+
+          {reservation.status === "checked_in" ? (
+            <>
+              <Card>
+                <CardHeader>
+                  <h2 className="font-display text-lg text-pine">Check out</h2>
+                </CardHeader>
+                <CardBody>
+                  <CheckOutForm reservationId={reservation.id} />
+                </CardBody>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <h2 className="font-display text-lg text-clay-deep">
+                    Report damage
+                  </h2>
+                </CardHeader>
+                <CardBody>
+                  <DamageReportForm
+                    unitId={unit.id}
+                    reservationId={reservation.id}
+                  />
+                </CardBody>
+              </Card>
+            </>
+          ) : null}
+
+          {reservation.status === "checked_out" && turnoverTask ? (
+            <Card>
+              <CardHeader>
+                <h2 className="font-display text-lg text-pine">Turnover</h2>
+              </CardHeader>
+              <CardBody>
+                <p className="text-sm text-ink/70">
+                  {turnoverTask.doneItems} of {turnoverTask.totalItems} checklist
+                  items done.
+                </p>
+                <Link
+                  href={`/tasks/${turnoverTask.id}`}
+                  className="mt-2 inline-block text-sm font-medium text-pine underline-offset-4 hover:underline"
+                >
+                  Open turnover task →
+                </Link>
+              </CardBody>
+            </Card>
+          ) : null}
+
           {reservation.status === "hold" || reservation.status === "confirmed" ? (
             <Card>
               <CardHeader>
@@ -327,7 +400,13 @@ export default async function ReservationDetailPage({
                     </h2>
                   </CardHeader>
                   <CardBody>
-                    <AddDeductionForm reservationId={reservation.id} />
+                    <AddDeductionForm
+                      reservationId={reservation.id}
+                      damageReports={openDamage.map((report) => ({
+                        id: report.id,
+                        description: report.description,
+                      }))}
+                    />
                   </CardBody>
                 </Card>
               ) : null}

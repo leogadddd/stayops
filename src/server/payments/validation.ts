@@ -52,6 +52,8 @@ export const addDeductionSchema = z.object({
     .trim()
     .min(2, "Describe what the deduction is for.")
     .max(500, "Reason must be 500 characters or fewer."),
+  // Optional link to the damage report this deduction covers.
+  damageReportId: z.string().uuid().optional(),
 });
 
 export type AddDeductionInput = z.infer<typeof addDeductionSchema>;

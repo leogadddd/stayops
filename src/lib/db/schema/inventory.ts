@@ -4,6 +4,7 @@ import {
   date,
   foreignKey,
   integer,
+  jsonb,
   numeric,
   pgEnum,
   pgTable,
@@ -14,6 +15,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
 import { organizations } from "./orgs";
+import { DEFAULT_CHECKLIST, type ChecklistTemplateItem } from "@/lib/turnover";
 
 export const UNIT_STATUSES = [
   "renovating",
@@ -59,6 +61,14 @@ export const properties = pgTable(
 
 export type Unit = typeof units.$inferSelect;
 
+/**
+ * Frozen PRD default used as the column default; labels contain no single
+ * quotes, so embedding the JSON in a SQL literal is safe.
+ */
+const DEFAULT_CHECKLIST_SQL = sql.raw(
+  `'${JSON.stringify(DEFAULT_CHECKLIST)}'::jsonb`,
+);
+
 export const units = pgTable(
   "units",
   {
@@ -79,6 +89,11 @@ export const units = pgTable(
     cleaningFeeCents: integer("cleaning_fee_cents"),
     securityDepositCents: integer("security_deposit_cents"),
     status: unitStatus("status").notNull().default("renovating"),
+    // Turnover template snapshot source; checkout copies it onto the task.
+    checklistTemplate: jsonb("checklist_template")
+      .$type<ChecklistTemplateItem[]>()
+      .notNull()
+      .default(DEFAULT_CHECKLIST_SQL),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

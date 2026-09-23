@@ -15,6 +15,7 @@ import { user } from "./auth";
 import { organizations } from "./orgs";
 import { properties, units } from "./inventory";
 import { reservations } from "./reservations";
+import { damageReports } from "./operations";
 
 export const PAYMENT_ALLOCATIONS = ["booking", "security_deposit"] as const;
 export type PaymentAllocation = (typeof PAYMENT_ALLOCATIONS)[number];
@@ -145,6 +146,10 @@ export const depositDeductions = pgTable(
       columns: [table.organizationId, table.reservationId],
       foreignColumns: [reservations.organizationId, reservations.id],
     }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.organizationId, table.damageReportId],
+      foreignColumns: [damageReports.organizationId, damageReports.id],
+    }).onDelete("set null"),
   ],
 );
 

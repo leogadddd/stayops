@@ -271,7 +271,7 @@ async function recordAudit(
   });
 }
 
-async function insertTransition(
+export async function insertTransition(
   tx: Tx,
   input: {
     organizationId: string;

@@ -2,9 +2,14 @@ import "dotenv/config";
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { expenses, memberships, organizations, user } from "@/lib/db/schema";
+import { expenses, memberships, organizations, tasks, user } from "@/lib/db/schema";
 import { addDaysLocal } from "@/lib/dates";
 import { createOrganization } from "@/server/orgs/service";
+import {
+  createDamageReport,
+  checkIn,
+  checkOut,
+} from "@/server/operations/service";
 import {
   addUnitBlock,
   createProperty,
@@ -342,6 +347,82 @@ async function main() {
       });
     }
     console.log("seed: demo expenses ensured (one operating, one capital)");
+  }
+
+  // Demo stay operations. Idempotent: skipped once any turnover task exists,
+  // so it also backfills databases seeded before slice 4.
+  const existingTasks = await db
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(eq(tasks.organizationId, organizationId))
+    .limit(1);
+  if (existingTasks.length === 0 && seededProperty) {
+    const units = await listPropertyUnits(organizationId, seededProperty.id);
+    const activeUnit = units.find((unit) => unit.status === "active");
+    if (activeUnit) {
+      const today = new Date().toISOString().slice(0, 10);
+      const nightly = activeUnit.defaultNightlyRateCents;
+      const cleaning = activeUnit.cleaningFeeCents ?? 0;
+
+      const pastStay = await createConfirmed({
+        organizationId,
+        actorUserId: userId,
+        guest: {
+          newGuest: {
+            name: "Pedro Reyes (demo)",
+            email: "pedro.reyes.demo@example.com",
+            notes: "Clearly fake seed guest for the checked-out stay.",
+          },
+        },
+        idempotencyKey: "seed-checkedout-pedro",
+        data: {
+          unitId: activeUnit.id,
+          checkIn: addDaysLocal(today, -4),
+          checkOut: addDaysLocal(today, -2),
+          guestCount: 1,
+          acknowledgeUnpaid: true,
+          charges: [
+            {
+              type: "accommodation",
+              description: "Nightly rate",
+              quantity: 2,
+              unitAmountCents: nightly,
+            },
+            {
+              type: "cleaning",
+              description: "Cleaning fee",
+              quantity: 1,
+              unitAmountCents: cleaning,
+            },
+          ],
+        },
+      });
+      await checkIn({
+        organizationId,
+        actorUserId: userId,
+        reservationId: pastStay.id,
+        data: { note: "Demo check-in." },
+      });
+      const { task } = await checkOut({
+        organizationId,
+        actorUserId: userId,
+        reservationId: pastStay.id,
+        data: { note: "Demo check-out." },
+      });
+      await createDamageReport({
+        organizationId,
+        actorUserId: userId,
+        unitId: activeUnit.id,
+        reservationId: pastStay.id,
+        data: {
+          description: "Demo damage: stained bedsheet set (fake).",
+          estimatedAmountPesos: "800",
+        },
+      });
+      console.log(
+        `seed: demo checked-out stay ${pastStay.id} → open turnover task ${task.id} + open damage report`,
+      );
+    }
   }
 
   const orgs = await db.select().from(organizations).limit(1);

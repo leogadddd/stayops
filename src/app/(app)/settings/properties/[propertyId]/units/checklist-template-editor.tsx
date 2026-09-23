@@ -1,0 +1,105 @@
+"use client";
+
+import { useActionState, useState } from "react";
+import { CheckCircle2, Plus, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { FieldError, Input } from "@/components/ui/input";
+import {
+  updateChecklistTemplateAction,
+  type InventoryFormState,
+} from "../../actions";
+
+interface TemplateRow {
+  label: string;
+  required: boolean;
+}
+
+export function ChecklistTemplateEditor({
+  propertyId,
+  unitId,
+  items,
+}: {
+  propertyId: string;
+  unitId: string;
+  items: TemplateRow[];
+}) {
+  const [state, formAction, pending] = useActionState<InventoryFormState, FormData>(
+    updateChecklistTemplateAction.bind(null, propertyId, unitId),
+    {},
+  );
+  const [rows, setRows] = useState<TemplateRow[]>(items);
+
+  const updateRow = (index: number, patch: Partial<TemplateRow>) => {
+    setRows((current) =>
+      current.map((row, i) => (i === index ? { ...row, ...patch } : row)),
+    );
+  };
+
+  const removeRow = (index: number) => {
+    setRows((current) => current.filter((_, i) => i !== index));
+  };
+
+  if (state.success) {
+    return (
+      <p className="inline-flex items-center gap-1.5 text-sm text-pine" role="status">
+        <CheckCircle2 className="h-4 w-4" aria-hidden />
+        Checklist saved. It applies to future turnovers only.
+      </p>
+    );
+  }
+
+  return (
+    <form action={formAction} className="space-y-3">
+      <input type="hidden" name="templateJson" value={JSON.stringify(rows)} />
+      <ul className="space-y-2">
+        {rows.map((row, index) => (
+          <li key={index} className="flex items-center gap-2">
+            <Input
+              aria-label={`Checklist item ${index + 1}`}
+              value={row.label}
+              onChange={(event) => updateRow(index, { label: event.target.value })}
+              maxLength={120}
+              className="flex-1"
+            />
+            <label className="flex items-center gap-1.5 text-xs text-ink/60">
+              <input
+                type="checkbox"
+                checked={row.required}
+                onChange={(event) =>
+                  updateRow(index, { required: event.target.checked })
+                }
+                className="h-4 w-4 accent-pine"
+              />
+              Required
+            </label>
+            <button
+              type="button"
+              onClick={() => removeRow(index)}
+              disabled={rows.length === 1}
+              aria-label={`Remove item ${index + 1}`}
+              className="rounded-lg p-1.5 text-ink/40 hover:bg-clay-mist/60 hover:text-clay-deep disabled:opacity-40"
+            >
+              <X className="h-4 w-4" aria-hidden />
+            </button>
+          </li>
+        ))}
+      </ul>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => setRows((current) => [...current, { label: "", required: true }])}
+        disabled={rows.length >= 30}
+      >
+        <Plus className="h-4 w-4" aria-hidden />
+        Add item
+      </Button>
+      <FieldError message={state.error} />
+      <div>
+        <Button type="submit" variant="primary" disabled={pending}>
+          {pending ? "Saving…" : "Save checklist"}
+        </Button>
+      </div>
+    </form>
+  );
+}
