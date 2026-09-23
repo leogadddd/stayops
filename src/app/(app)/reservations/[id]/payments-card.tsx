@@ -16,9 +16,11 @@ const TIME_LABEL = new Intl.DateTimeFormat("en-PH", {
 export function PaymentsCard({
   reservationId,
   ledger,
+  isOwner,
 }: {
   reservationId: string;
   ledger: ReservationLedger;
+  isOwner: boolean;
 }) {
   const { balances, payments, refunds, deductions, proofs } = ledger;
   const unverifiedProofs = proofs.filter((proof) => proof.status === "unverified");
@@ -185,7 +187,7 @@ export function PaymentsCard({
           </p>
         )}
 
-        {unverifiedProofs.length > 0 ? (
+        {isOwner && unverifiedProofs.length > 0 ? (
           <div className="border-t border-pine/10 pt-4">
             <ProofQueue
               reservationId={reservationId}

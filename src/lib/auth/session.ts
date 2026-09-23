@@ -66,6 +66,30 @@ export async function requireMembership(): Promise<MembershipContext> {
   };
 }
 
+/**
+ * Owner-only guard for money, reports, settings and staff management. Returns
+ * null for staff members so callers can render a permission-denied state
+ * instead of silently redirecting.
+ */
+export async function requireOwner(): Promise<MembershipContext | null> {
+  const membership = await requireMembership();
+  return membership.role === "owner" ? membership : null;
+}
+
+/** Thrown by server actions when a staff member attempts an owner-only mutation. */
+export class PermissionError extends Error {
+  constructor(message = "Only the organization owner can do that.") {
+    super(message);
+    this.name = "PermissionError";
+  }
+}
+
+export function assertOwner(membership: MembershipContext): void {
+  if (membership.role !== "owner") {
+    throw new PermissionError();
+  }
+}
+
 export async function listMemberships(userId: string) {
   return db
     .select({

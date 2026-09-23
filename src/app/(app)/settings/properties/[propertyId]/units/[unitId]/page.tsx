@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { requireMembership } from "@/lib/auth/session";
+import { requireOwner } from "@/lib/auth/session";
+import { PermissionDenied } from "@/components/app/permission-denied";
 import { todayInTimeZone } from "@/lib/dates";
 import { UNIT_STATUS_LABELS } from "@/lib/labels";
 import { centavosToPesosInput, formatPHP } from "@/lib/money";
@@ -24,9 +25,10 @@ export default async function UnitDetailPage({
 }: {
   params: Promise<{ propertyId: string; unitId: string }>;
 }) {
-  const { propertyId, unitId } = await params;
-  const membership = await requireMembership();
+  const membership = await requireOwner();
+  if (!membership) return <PermissionDenied />;
 
+  const { propertyId, unitId } = await params;
   let property;
   let unit;
   try {

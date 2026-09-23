@@ -27,7 +27,7 @@ export interface UnitOption {
   id: string;
   label: string;
   capacity: number;
-  nightlyRateCents: number;
+  nightlyRateCents: number | null;
   cleaningFeeCents: number | null;
   securityDepositCents: number | null;
 }
@@ -80,7 +80,9 @@ export function ReservationForm({
   defaultCheckIn,
   defaultCheckOut,
   requestedUnitId,
+  isOwner,
 }: {
+  isOwner: boolean;
   units: UnitOption[];
   guests: { id: string; name: string }[];
   defaultCheckIn: string;
@@ -114,7 +116,7 @@ export function ReservationForm({
 
   const defaultCharges = useMemo(() => {
     const unit = units.find((candidate) => candidate.id === unitId);
-    if (!unit) return [];
+    if (!unit || unit.nightlyRateCents === null) return [];
     try {
       return toDraft(
         buildDefaultCharges({
@@ -181,6 +183,7 @@ export function ReservationForm({
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     setClientError(null);
+    if (!isOwner) return;
     if (submittableLines.length === 0) {
       event.preventDefault();
       setClientError("Add at least one charge with a description, quantity and amount.");
@@ -371,7 +374,7 @@ export function ReservationForm({
         </CardBody>
       </Card>
 
-      <Card>
+      {isOwner ? <Card>
         <CardHeader className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-display text-lg text-pine">Charges</h2>
           {customCharges !== null ? (
@@ -480,7 +483,7 @@ export function ReservationForm({
             </div>
           </dl>
         </CardBody>
-      </Card>
+      </Card> : <p className="text-sm text-ink/60">Holds use the unit&apos;s default prices. Only the owner can change prices or confirm a booking.</p>}
 
       <Card>
         <CardHeader>
@@ -501,7 +504,7 @@ export function ReservationForm({
             </p>
           </div>
 
-          {totals.bookingTotalCents > 0 ? (
+          {isOwner && totals.bookingTotalCents > 0 ? (
             <label className="flex items-start gap-2 text-sm text-ink">
               <input
                 type="checkbox"
@@ -530,18 +533,20 @@ export function ReservationForm({
             >
               {pending && submitMode === "hold" ? "Placing hold…" : "Place hold"}
             </Button>
-            <Button
-              type="submit"
-              name="mode"
-              value="confirmed"
-              variant="primary"
-              disabled={pending}
-              onClick={() => setSubmitMode("confirmed")}
-            >
-              {pending && submitMode === "confirmed"
-                ? "Creating booking…"
-                : "Create confirmed booking"}
-            </Button>
+            {isOwner ? (
+              <Button
+                type="submit"
+                name="mode"
+                value="confirmed"
+                variant="primary"
+                disabled={pending}
+                onClick={() => setSubmitMode("confirmed")}
+              >
+                {pending && submitMode === "confirmed"
+                  ? "Creating booking…"
+                  : "Create confirmed booking"}
+              </Button>
+            ) : null}
           </div>
         </CardBody>
       </Card>

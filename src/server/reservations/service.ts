@@ -293,6 +293,7 @@ export async function insertTransition(
 }
 
 function isUniqueViolation(error: unknown): boolean {
+  if (error instanceof Error && error.cause) return isUniqueViolation(error.cause);
   return (
     typeof error === "object" &&
     error !== null &&
@@ -301,6 +302,7 @@ function isUniqueViolation(error: unknown): boolean {
 }
 
 function isExclusionViolation(error: unknown): boolean {
+  if (error instanceof Error && error.cause) return isExclusionViolation(error.cause);
   return (
     typeof error === "object" &&
     error !== null &&
@@ -359,14 +361,6 @@ async function createReservation(
   const segments = (
     await getOccupancySegments(organizationId, [unit.id], values.checkIn, values.checkOut)
   ).get(unit.id) ?? [];
-  const check = checkIntervalAvailability(segments, values.checkIn, values.checkOut);
-  if (!check.available) {
-    throw new ReservationError(
-      `Those dates conflict with ${check.conflict.reason} (${check.conflict.startDate} → ${check.conflict.endDate}).`,
-      "checkIn",
-    );
-  }
-
   if (args.idempotencyKey) {
     const [existing] = await db
       .select()
@@ -379,6 +373,14 @@ async function createReservation(
       )
       .limit(1);
     if (existing) return existing;
+  }
+
+  const check = checkIntervalAvailability(segments, values.checkIn, values.checkOut);
+  if (!check.available) {
+    throw new ReservationError(
+      `Those dates conflict with ${check.conflict.reason} (${check.conflict.startDate} → ${check.conflict.endDate}).`,
+      "checkIn",
+    );
   }
 
   try {
@@ -489,13 +491,7 @@ async function createReservation(
       return reservation;
     });
   } catch (error) {
-    if (isExclusionViolation(error)) {
-      throw new ReservationError(
-        "Those dates are no longer available — another hold or booking overlaps them.",
-        "checkIn",
-      );
-    }
-    if (isUniqueViolation(error) && args.idempotencyKey) {
+    if ((isUniqueViolation(error) || isExclusionViolation(error)) && args.idempotencyKey) {
       const [existing] = await db
         .select()
         .from(reservations)
@@ -507,6 +503,12 @@ async function createReservation(
         )
         .limit(1);
       if (existing) return existing;
+    }
+    if (isExclusionViolation(error)) {
+      throw new ReservationError(
+        "Those dates are no longer available — another hold or booking overlaps them.",
+        "checkIn",
+      );
     }
     throw error;
   }

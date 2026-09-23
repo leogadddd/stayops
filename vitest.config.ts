@@ -14,6 +14,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/**/*.test.ts", "src/**/*.test.ts"],
+    exclude: ["tests/integration/**"],
     env: {
       // The db client is constructed at import time; unit tests never
       // connect, they just need the module to load.

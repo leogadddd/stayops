@@ -1,7 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Plus } from "lucide-react";
-import { requireMembership } from "@/lib/auth/session";
+import { requireOwner } from "@/lib/auth/session";
+import { PermissionDenied } from "@/components/app/permission-denied";
 import { listProperties } from "@/server/inventory/service";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -10,7 +11,9 @@ import { PropertyForm } from "./property-form";
 export const metadata: Metadata = { title: "Properties" };
 
 export default async function PropertiesPage() {
-  const membership = await requireMembership();
+  const membership = await requireOwner();
+  if (!membership) return <PermissionDenied />;
+
   const properties = await listProperties(membership.organizationId);
 
   return (

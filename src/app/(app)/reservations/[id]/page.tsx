@@ -74,6 +74,7 @@ export default async function ReservationDetailPage({
 }) {
   const { id } = await params;
   const membership = await requireMembership();
+  const isOwner = membership.role === "owner";
   await expireStaleHolds(db, membership.organizationId);
 
   let detail;
@@ -86,7 +87,9 @@ export default async function ReservationDetailPage({
 
   const { reservation, guest, unit, property, charges, transitions, activeToken } =
     detail;
-  const ledger = await getReservationLedger(membership.organizationId, id);
+  const ledger = isOwner
+    ? await getReservationLedger(membership.organizationId, id)
+    : null;
   const openDamage = await listOpenDamageReports(
     membership.organizationId,
     unit.id,
@@ -200,88 +203,98 @@ export default async function ReservationDetailPage({
             </CardBody>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <h2 className="font-display text-lg text-pine">Charges</h2>
-            </CardHeader>
-            <CardBody>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs font-medium uppercase tracking-wide text-ink/45">
-                    <th className="pb-2 pr-3">Description</th>
-                    <th className="pb-2 pr-3 text-right">Qty</th>
-                    <th className="pb-2 pr-3 text-right">Unit price</th>
-                    <th className="pb-2 text-right">Amount</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-pine/10">
-                  {charges.map((charge) => (
-                    <tr key={charge.id}>
-                      <td className="py-2.5 pr-3">
-                        <span className="text-pine">{charge.description}</span>
-                        <span className="ml-1.5 text-xs text-ink/45">
-                          {CHARGE_TYPE_LABELS[charge.type]}
-                        </span>
-                      </td>
-                      <td className="py-2.5 pr-3 text-right text-ink/70">
-                        {charge.quantity}
-                      </td>
-                      <td className="py-2.5 pr-3 text-right text-ink/70">
-                        {formatPHP(charge.unitAmountCents)}
-                      </td>
-                      <td className="py-2.5 text-right font-medium text-pine">
-                        {formatPHP(charge.amountCents)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t border-pine/15 text-sm">
-                    <td colSpan={3} className="pt-3 pr-3 text-ink/60">
-                      Booking total (excl. deposit)
-                    </td>
-                    <td className="pt-3 text-right font-semibold text-pine">
-                      {formatPHP(totals.bookingTotalCents)}
-                    </td>
-                  </tr>
-                  <tr className="text-sm">
-                    <td colSpan={3} className="pt-1.5 pr-3 text-ink/60">
-                      Refundable deposit
-                    </td>
-                    <td className="pt-1.5 text-right font-medium text-pine">
-                      {formatPHP(totals.depositTotalCents)}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </CardBody>
-          </Card>
+          {isOwner && ledger ? (
+            <>
+              <Card>
+                <CardHeader>
+                  <h2 className="font-display text-lg text-pine">Charges</h2>
+                </CardHeader>
+                <CardBody>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-xs font-medium uppercase tracking-wide text-ink/45">
+                        <th className="pb-2 pr-3">Description</th>
+                        <th className="pb-2 pr-3 text-right">Qty</th>
+                        <th className="pb-2 pr-3 text-right">Unit price</th>
+                        <th className="pb-2 text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-pine/10">
+                      {charges.map((charge) => (
+                        <tr key={charge.id}>
+                          <td className="py-2.5 pr-3">
+                            <span className="text-pine">{charge.description}</span>
+                            <span className="ml-1.5 text-xs text-ink/45">
+                              {CHARGE_TYPE_LABELS[charge.type]}
+                            </span>
+                          </td>
+                          <td className="py-2.5 pr-3 text-right text-ink/70">
+                            {charge.quantity}
+                          </td>
+                          <td className="py-2.5 pr-3 text-right text-ink/70">
+                            {formatPHP(charge.unitAmountCents)}
+                          </td>
+                          <td className="py-2.5 text-right font-medium text-pine">
+                            {formatPHP(charge.amountCents)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t border-pine/15 text-sm">
+                        <td colSpan={3} className="pt-3 pr-3 text-ink/60">
+                          Booking total (excl. deposit)
+                        </td>
+                        <td className="pt-3 text-right font-semibold text-pine">
+                          {formatPHP(totals.bookingTotalCents)}
+                        </td>
+                      </tr>
+                      <tr className="text-sm">
+                        <td colSpan={3} className="pt-1.5 pr-3 text-ink/60">
+                          Refundable deposit
+                        </td>
+                        <td className="pt-1.5 text-right font-medium text-pine">
+                          {formatPHP(totals.depositTotalCents)}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </CardBody>
+              </Card>
 
-          <PaymentsCard reservationId={reservation.id} ledger={ledger} />
-
-          <Card>
-            <CardHeader>
-              <h2 className="font-display text-lg text-pine">Guest link</h2>
-            </CardHeader>
-            <CardBody>
-              <GuestLinkCard
+              <PaymentsCard
                 reservationId={reservation.id}
-                activeToken={
-                  activeToken
-                    ? {
-                        id: activeToken.id,
-                        createdAt: activeToken.createdAt,
-                        expiresAt: activeToken.expiresAt,
-                      }
-                    : null
-                }
+                ledger={ledger}
+                isOwner={isOwner}
               />
-            </CardBody>
-          </Card>
+            </>
+          ) : null}
+
+          {isOwner ? (
+            <Card>
+              <CardHeader>
+                <h2 className="font-display text-lg text-pine">Guest link</h2>
+              </CardHeader>
+              <CardBody>
+                <GuestLinkCard
+                  reservationId={reservation.id}
+                  activeToken={
+                    activeToken
+                      ? {
+                          id: activeToken.id,
+                          createdAt: activeToken.createdAt,
+                          expiresAt: activeToken.expiresAt,
+                        }
+                      : null
+                  }
+                />
+              </CardBody>
+            </Card>
+          ) : null}
         </div>
 
         <div className="space-y-6 lg:col-span-2">
-          {reservation.status === "hold" && liveHold ? (
+          {isOwner && reservation.status === "hold" && liveHold ? (
             <Card>
               <CardHeader>
                 <h2 className="font-display text-lg text-pine">Confirm hold</h2>
@@ -350,7 +363,8 @@ export default async function ReservationDetailPage({
             </Card>
           ) : null}
 
-          {reservation.status === "hold" || reservation.status === "confirmed" ? (
+          {isOwner &&
+          (reservation.status === "hold" || reservation.status === "confirmed") ? (
             <Card>
               <CardHeader>
                 <h2 className="font-display text-lg text-clay-deep">
@@ -372,7 +386,7 @@ export default async function ReservationDetailPage({
             </Card>
           ) : null}
 
-          {moneyEditable ? (
+          {isOwner && moneyEditable ? (
             <>
               <Card>
                 <CardHeader>

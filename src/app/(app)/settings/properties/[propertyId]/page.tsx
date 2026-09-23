@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { requireMembership } from "@/lib/auth/session";
+import { requireOwner } from "@/lib/auth/session";
+import { PermissionDenied } from "@/components/app/permission-denied";
 import { formatPHP } from "@/lib/money";
 import { UNIT_STATUS_LABELS } from "@/lib/labels";
 import {
@@ -21,9 +22,10 @@ export default async function PropertyDetailPage({
 }: {
   params: Promise<{ propertyId: string }>;
 }) {
-  const { propertyId } = await params;
-  const membership = await requireMembership();
+  const membership = await requireOwner();
+  if (!membership) return <PermissionDenied />;
 
+  const { propertyId } = await params;
   let property;
   try {
     property = await getPropertyOrThrow(membership.organizationId, propertyId);

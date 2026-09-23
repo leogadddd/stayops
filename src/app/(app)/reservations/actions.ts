@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { ZodError } from "zod";
-import { requireMembership } from "@/lib/auth/session";
+import { requireMembership, assertOwner, PermissionError } from "@/lib/auth/session";
 import {
   cancelReservation,
   confirmHold,
@@ -18,7 +18,11 @@ import {
   checkOut,
   OperationsError,
 } from "@/server/operations/service";
-import { ReservationError } from "@/server/reservations/validation";
+import { ReservationError, reservationDetailsSchema } from "@/server/reservations/validation";
+import { getUnitOrThrow } from "@/server/inventory/service";
+import { InventoryError } from "@/server/inventory/validation";
+import { buildDefaultCharges } from "@/lib/charges";
+import { nightsBetween } from "@/lib/dates";
 import type { ChargeLineInput } from "@/server/reservations/validation";
 
 export interface ReservationFormState {
@@ -32,10 +36,13 @@ function readString(formData: FormData, key: string): string {
 }
 
 function toFormError(error: unknown): ReservationFormState {
-  if (error instanceof ReservationError) {
+  if (error instanceof ReservationError || error instanceof InventoryError) {
     return { error: error.message };
   }
   if (error instanceof OperationsError) {
+    return { error: error.message };
+  }
+  if (error instanceof PermissionError) {
     return { error: error.message };
   }
   if (error instanceof ZodError) {
@@ -64,6 +71,9 @@ export async function createReservationAction(
 ): Promise<ReservationFormState> {
   const membership = await requireMembership();
   const mode = readString(formData, "mode") === "confirmed" ? "confirmed" : "hold";
+  if (mode === "confirmed") {
+    assertOwner(membership);
+  }
 
   const guestMode = readString(formData, "guestMode") === "new" ? "new" : "existing";
   const guest =
@@ -78,15 +88,29 @@ export async function createReservationAction(
         }
       : { guestId: readString(formData, "guestId") };
 
-  const base = {
-    unitId: readString(formData, "unitId"),
-    checkIn: readString(formData, "checkIn"),
-    checkOut: readString(formData, "checkOut"),
-    guestCount: Number(readString(formData, "guestCount") || "1"),
-    charges: readChargeLines(formData),
-  };
-
   try {
+    const details = reservationDetailsSchema.parse({
+      unitId: readString(formData, "unitId"),
+      checkIn: readString(formData, "checkIn"),
+      checkOut: readString(formData, "checkOut"),
+      guestCount: Number(readString(formData, "guestCount") || "1"),
+    });
+    if (details.checkOut <= details.checkIn) {
+      throw new ReservationError("Check-out must be after check-in.", "checkOut");
+    }
+    let charges: ChargeLineInput[];
+    if (membership.role === "owner") {
+      charges = readChargeLines(formData);
+    } else {
+      const unit = await getUnitOrThrow(membership.organizationId, details.unitId);
+      charges = buildDefaultCharges({
+        nightlyRateCents: unit.defaultNightlyRateCents,
+        cleaningFeeCents: unit.cleaningFeeCents,
+        securityDepositCents: unit.securityDepositCents,
+        nights: nightsBetween(details.checkIn, details.checkOut),
+      });
+    }
+    const base = { ...details, charges };
     const idempotencyKey = readString(formData, "idempotencyKey") || undefined;
     const reservation =
       mode === "hold"
@@ -128,6 +152,7 @@ export async function confirmHoldAction(
   formData: FormData,
 ): Promise<ReservationFormState> {
   const membership = await requireMembership();
+  assertOwner(membership);
   try {
     await confirmHold({
       organizationId: membership.organizationId,
@@ -149,6 +174,7 @@ export async function cancelReservationAction(
   formData: FormData,
 ): Promise<ReservationFormState> {
   const membership = await requireMembership();
+  assertOwner(membership);
   try {
     await cancelReservation({
       organizationId: membership.organizationId,
@@ -221,6 +247,7 @@ export async function createGuestLinkAction(
   _formData: FormData,
 ): Promise<GuestLinkFormState> {
   const membership = await requireMembership();
+  assertOwner(membership);
   try {
     const link = await createGuestLink({
       organizationId: membership.organizationId,
@@ -230,7 +257,7 @@ export async function createGuestLinkAction(
     revalidatePath(`/reservations/${reservationId}`);
     return { token: link.token, tokenId: link.tokenId };
   } catch (error) {
-    if (error instanceof ReservationError) {
+    if (error instanceof ReservationError || error instanceof PermissionError) {
       return { error: error.message };
     }
     throw error;
@@ -244,6 +271,7 @@ export async function revokeGuestLinkAction(
   _formData: FormData,
 ): Promise<GuestLinkFormState> {
   const membership = await requireMembership();
+  assertOwner(membership);
   try {
     await revokeGuestLink({
       organizationId: membership.organizationId,
@@ -251,7 +279,7 @@ export async function revokeGuestLinkAction(
       tokenId,
     });
   } catch (error) {
-    if (error instanceof ReservationError) {
+    if (error instanceof ReservationError || error instanceof PermissionError) {
       return { error: error.message };
     }
     throw error;

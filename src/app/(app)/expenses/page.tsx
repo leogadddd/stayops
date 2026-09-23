@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import { requireMembership } from "@/lib/auth/session";
+import { requireOwner } from "@/lib/auth/session";
 import { todayInTimeZone } from "@/lib/dates";
 import { EXPENSE_CATEGORY_LABELS } from "@/lib/labels";
 import { formatPHP } from "@/lib/money";
 import { listExpenses } from "@/server/expenses/service";
 import { listOrgUnits, listProperties } from "@/server/inventory/service";
+import { PermissionDenied } from "@/components/app/permission-denied";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -31,7 +32,12 @@ export default async function ExpensesPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const membership = await requireMembership();
+  const membership = await requireOwner();
+  if (!membership) {
+    return (
+      <PermissionDenied description="Expenses are limited to the organization owner. Staff members can use the calendar, reservations, guests and tasks pages." />
+    );
+  }
   const params = await searchParams;
   const readParam = (key: string) => {
     const value = params[key];

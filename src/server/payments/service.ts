@@ -180,6 +180,7 @@ async function propertyTimeZone(
 }
 
 function isUniqueViolation(error: unknown): boolean {
+  if (error instanceof Error && error.cause) return isUniqueViolation(error.cause);
   return (
     typeof error === "object" &&
     error !== null &&

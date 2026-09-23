@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { ZodError } from "zod";
-import { requireMembership } from "@/lib/auth/session";
+import { requireMembership, assertOwner, PermissionError } from "@/lib/auth/session";
 import {
   addDeduction,
   dismissProof,
@@ -24,6 +24,9 @@ function toFormError(error: unknown): PaymentFormState {
   if (error instanceof PaymentError) {
     return { error: error.message };
   }
+  if (error instanceof PermissionError) {
+    return { error: error.message };
+  }
   if (error instanceof ZodError) {
     const first = error.issues[0];
     return { error: first ? first.message : "Check the form and try again." };
@@ -37,6 +40,7 @@ export async function recordPaymentAction(
   formData: FormData,
 ): Promise<PaymentFormState> {
   const membership = await requireMembership();
+  assertOwner(membership);
   try {
     await recordPayment({
       organizationId: membership.organizationId,
@@ -66,6 +70,7 @@ export async function recordProofPaymentAction(
   formData: FormData,
 ): Promise<PaymentFormState> {
   const membership = await requireMembership();
+  assertOwner(membership);
   try {
     await recordPayment({
       organizationId: membership.organizationId,
@@ -94,6 +99,7 @@ export async function recordRefundAction(
   formData: FormData,
 ): Promise<PaymentFormState> {
   const membership = await requireMembership();
+  assertOwner(membership);
   try {
     await recordRefund({
       organizationId: membership.organizationId,
@@ -120,6 +126,7 @@ export async function addDeductionAction(
   formData: FormData,
 ): Promise<PaymentFormState> {
   const membership = await requireMembership();
+  assertOwner(membership);
   try {
     await addDeduction({
       organizationId: membership.organizationId,
@@ -145,6 +152,7 @@ export async function dismissProofAction(
   _formData: FormData,
 ): Promise<PaymentFormState> {
   const membership = await requireMembership();
+  assertOwner(membership);
   try {
     await dismissProof({
       organizationId: membership.organizationId,

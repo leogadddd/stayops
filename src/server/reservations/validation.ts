@@ -80,7 +80,7 @@ export type ChargeLineInput = z.infer<typeof chargeLineSchema>;
 export const HOLD_MINUTES_DEFAULT = 24 * 60;
 export const HOLD_MINUTES_MAX = 24 * 60;
 
-const reservationBaseSchema = z.object({
+export const reservationDetailsSchema = z.object({
   unitId: z.string().uuid("Choose a unit."),
   checkIn: localDateField,
   checkOut: localDateField,
@@ -89,6 +89,9 @@ const reservationBaseSchema = z.object({
     .int("Guest count must be a whole number.")
     .min(1, "At least one guest.")
     .max(50, "Guest count must be 50 or fewer."),
+});
+
+const reservationBaseSchema = reservationDetailsSchema.extend({
   charges: z
     .array(chargeLineSchema)
     .min(1, "Add at least one charge.")

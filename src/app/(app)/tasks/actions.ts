@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { ZodError } from "zod";
-import { requireMembership } from "@/lib/auth/session";
+import { requireMembership, assertOwner, PermissionError } from "@/lib/auth/session";
 import {
   createDamageReport,
   markTaskReady,
@@ -23,6 +23,9 @@ function readString(formData: FormData, key: string): string {
 
 function toFormError(error: unknown): TaskFormState {
   if (error instanceof OperationsError) {
+    return { error: error.message };
+  }
+  if (error instanceof PermissionError) {
     return { error: error.message };
   }
   if (error instanceof ZodError) {
@@ -134,6 +137,7 @@ export async function resolveDamageReportAction(
   formData: FormData,
 ): Promise<DamageFormState> {
   const membership = await requireMembership();
+  assertOwner(membership);
   try {
     await resolveDamageReport({
       organizationId: membership.organizationId,

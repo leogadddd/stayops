@@ -40,18 +40,21 @@ export default async function NewReservationPage({
     <div className="mx-auto max-w-3xl">
       <h1 className="font-display text-3xl text-pine">New reservation</h1>
       <p className="mt-1 text-sm text-ink/60">
-        Place a time-limited hold or a confirmed booking. Dates use each
-        property&apos;s local timezone; the check-out day is free.
+        {membership.role === "owner"
+          ? "Place a time-limited hold or a confirmed booking."
+          : "Place a time-limited hold for the owner to review."}{" "}
+        Dates use each property&apos;s local timezone; the check-out day is free.
       </p>
 
       <ReservationForm
+        isOwner={membership.role === "owner"}
         units={activeUnits.map((unit) => ({
           id: unit.id,
           label: unitLabel(unit),
           capacity: unit.capacity,
-          nightlyRateCents: unit.defaultNightlyRateCents,
-          cleaningFeeCents: unit.cleaningFeeCents,
-          securityDepositCents: unit.securityDepositCents,
+          nightlyRateCents: membership.role === "owner" ? unit.defaultNightlyRateCents : null,
+          cleaningFeeCents: membership.role === "owner" ? unit.cleaningFeeCents : null,
+          securityDepositCents: membership.role === "owner" ? unit.securityDepositCents : null,
         }))}
         guests={guestRows.map((guest) => ({ id: guest.id, name: guest.name }))}
         defaultCheckIn={params.checkIn ?? today}

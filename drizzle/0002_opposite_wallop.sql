@@ -90,9 +90,5 @@ ALTER TABLE "reservation_transitions" ADD CONSTRAINT "reservation_transitions_or
 ALTER TABLE "reservations" ADD CONSTRAINT "reservations_organization_id_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "reservations" ADD CONSTRAINT "reservations_organization_id_unit_id_units_organization_id_id_fk" FOREIGN KEY ("organization_id","unit_id") REFERENCES "public"."units"("organization_id","id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "reservations" ADD CONSTRAINT "reservations_organization_id_guest_id_guests_organization_id_id_fk" FOREIGN KEY ("organization_id","guest_id") REFERENCES "public"."guests"("organization_id","id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "reservations" ADD CONSTRAINT "reservations_no_active_overlap" EXCLUDE USING gist ("unit_id" WITH =, daterange("check_in_date", "check_out_date", '[)') WITH &&) WHERE ("reservations"."status" IN ('hold','confirmed','checked_in','checked_out'));
 CREATE EXTENSION IF NOT EXISTS btree_gist;--> statement-breakpoint
--- Active occupancy (holds, confirmed and in-house stays) cannot overlap per
--- unit. Half-open dateranges make check-out-exclusive semantics exact, and
--- the constraint holds under concurrent transactions. Cancelled/expired
--- rows fall outside the predicate and release their dates.
+ALTER TABLE "reservations" ADD CONSTRAINT "reservations_no_active_overlap" EXCLUDE USING gist ("unit_id" WITH =, daterange("check_in_date", "check_out_date", '[)') WITH &&) WHERE ("reservations"."status" IN ('hold','confirmed','checked_in','checked_out'));

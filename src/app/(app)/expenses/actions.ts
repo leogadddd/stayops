@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { ZodError } from "zod";
-import { requireMembership } from "@/lib/auth/session";
+import { requireMembership, assertOwner, PermissionError } from "@/lib/auth/session";
 import { createExpense, ExpenseError } from "@/server/expenses/service";
 
 export interface ExpenseFormState {
@@ -18,6 +18,9 @@ function toFormError(error: unknown): ExpenseFormState {
   if (error instanceof ExpenseError) {
     return { error: error.message };
   }
+  if (error instanceof PermissionError) {
+    return { error: error.message };
+  }
   if (error instanceof ZodError) {
     const first = error.issues[0];
     return { error: first ? first.message : "Check the form and try again." };
@@ -30,6 +33,7 @@ export async function createExpenseAction(
   formData: FormData,
 ): Promise<ExpenseFormState> {
   const membership = await requireMembership();
+  assertOwner(membership);
   try {
     await createExpense({
       organizationId: membership.organizationId,

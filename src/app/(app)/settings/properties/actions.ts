@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireMembership } from "@/lib/auth/session";
+import { requireMembership, assertOwner, PermissionError } from "@/lib/auth/session";
 import { MoneyParseError, pesosToCentavos } from "@/lib/money";
 import {
   updateChecklistTemplate,
@@ -37,6 +37,9 @@ function toFormError(error: unknown): InventoryFormState {
   if (error instanceof OperationsError) {
     return { error: error.message };
   }
+  if (error instanceof PermissionError) {
+    return { error: error.message };
+  }
   throw error;
 }
 
@@ -45,6 +48,7 @@ export async function createPropertyAction(
   formData: FormData,
 ): Promise<InventoryFormState> {
   const membership = await requireMembership();
+  assertOwner(membership);
   try {
     await createProperty({
       organizationId: membership.organizationId,
@@ -72,6 +76,7 @@ export async function updatePropertyAction(
   formData: FormData,
 ): Promise<InventoryFormState> {
   const membership = await requireMembership();
+  assertOwner(membership);
   try {
     await updateProperty({
       organizationId: membership.organizationId,
@@ -119,6 +124,7 @@ export async function createUnitAction(
   formData: FormData,
 ): Promise<InventoryFormState> {
   const membership = await requireMembership();
+  assertOwner(membership);
   try {
     await createUnit({
       organizationId: membership.organizationId,
@@ -141,6 +147,7 @@ export async function updateUnitAction(
   formData: FormData,
 ): Promise<InventoryFormState> {
   const membership = await requireMembership();
+  assertOwner(membership);
   try {
     await updateUnit({
       organizationId: membership.organizationId,
@@ -164,6 +171,7 @@ export async function updateChecklistTemplateAction(
   formData: FormData,
 ): Promise<InventoryFormState> {
   const membership = await requireMembership();
+  assertOwner(membership);
   let items: unknown;
   try {
     items = JSON.parse(readString(formData, "templateJson") || "[]");
