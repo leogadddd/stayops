@@ -105,6 +105,37 @@ export async function createOrganization(input: {
   });
 }
 
+export async function updatePaymentInstructions(input: {
+  organizationId: string;
+  instructions: string;
+  actorUserId: string;
+}): Promise<void> {
+  const instructions = input.instructions.trim();
+  if (instructions.length > 2000) {
+    throw new OrgError(
+      "Payment instructions must be 2000 characters or fewer.",
+      "paymentInstructions",
+    );
+  }
+  await db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(organizations)
+      .set({ paymentInstructions: instructions || null, updatedAt: new Date() })
+      .where(eq(organizations.id, input.organizationId))
+      .returning({ id: organizations.id });
+    if (!updated) {
+      throw new OrgError("Organization not found.");
+    }
+    await tx.insert(auditEvents).values({
+      organizationId: input.organizationId,
+      actorUserId: input.actorUserId,
+      entity: "organization",
+      entityId: input.organizationId,
+      action: "organization.payment_instructions_updated",
+    });
+  });
+}
+
 export async function updateOrganizationName(input: {
   organizationId: string;
   name: string;

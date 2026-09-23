@@ -5,6 +5,7 @@ import { requireMembership } from "@/lib/auth/session";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { OrgNameForm } from "./org-name-form";
+import { PaymentInstructionsForm } from "./payment-instructions-form";
 
 export default async function SettingsPage() {
   const membership = await requireMembership();
@@ -37,6 +38,17 @@ export default async function SettingsPage() {
           <p className="mt-3 text-xs text-ink/50">
             Slug: <code className="rounded bg-pine-mist px-1.5 py-0.5">{org?.slug}</code>
           </p>
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <h2 className="font-medium text-pine">Guest payments</h2>
+        </CardHeader>
+        <CardBody>
+          <PaymentInstructionsForm
+            defaultValue={org?.paymentInstructions ?? ""}
+          />
         </CardBody>
       </Card>
 

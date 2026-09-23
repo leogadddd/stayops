@@ -1,26 +1,49 @@
 import "server-only";
 
-import { and, gt, inArray, lt } from "drizzle-orm";
+import { and, eq, gt, inArray, lt, or } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { unitBlocks } from "@/lib/db/schema";
+import { guests, reservations, unitBlocks } from "@/lib/db/schema";
 import { listNights } from "@/lib/dates";
+import { expireStaleHolds } from "@/server/reservations/holds";
 
 /**
- * An occupied run of nights on a unit. Slice 2 adds `kind: "reservation"`
- * segments alongside blocks; the pure helpers below already key off `kind`,
- * so nothing here needs to change when that lands.
+ * An occupied run of nights on a unit: either an out-of-service block or a
+ * hold/reservation. The pure helpers below key off `kind`, so UI code can
+ * render holds and bookings differently without touching the overlap math.
  */
-export type OccupancySegment = {
-  kind: "block";
-  id: string;
-  startDate: string; // yyyy-mm-dd, inclusive
-  endDate: string; // yyyy-mm-dd, exclusive
-  reason: string;
-};
+export type OccupancySegment =
+  | {
+      kind: "block";
+      id: string;
+      startDate: string; // yyyy-mm-dd, inclusive
+      endDate: string; // yyyy-mm-dd, exclusive
+      reason: string;
+    }
+  | {
+      kind: "reservation";
+      id: string;
+      startDate: string;
+      endDate: string;
+      status: "hold" | "confirmed" | "checked_in" | "checked_out";
+      guestName: string;
+      expiresAt: Date | null;
+    };
 
 export type NightStatus =
   | { kind: "available" }
-  | { kind: "blocked"; reason: string; segmentId: string };
+  | { kind: "blocked"; reason: string; segmentId: string }
+  | {
+      kind: "held";
+      guestName: string;
+      expiresAt: Date | null;
+      segmentId: string;
+    }
+  | {
+      kind: "booked";
+      guestName: string;
+      status: "confirmed" | "checked_in" | "checked_out";
+      segmentId: string;
+    };
 
 export type IntervalCheck =
   | { available: true; nights: string[] }
@@ -29,9 +52,16 @@ export type IntervalCheck =
       conflict: { startDate: string; endDate: string; reason: string };
     };
 
+function reservationReason(segment: Extract<OccupancySegment, { kind: "reservation" }>): string {
+  return segment.status === "hold"
+    ? `Hold for ${segment.guestName}`
+    : `Booking for ${segment.guestName}`;
+}
+
 /**
- * Fetch out-of-service segments overlapping [rangeStart, rangeEnd) for the
- * given units. Reservation occupancy merges into this same shape in slice 2.
+ * Fetch out-of-service blocks and live reservation occupancy overlapping
+ * [rangeStart, rangeEnd) for the given units. Stale holds are expired first
+ * so this never reports dates that a confirm/create would refuse.
  */
 export async function getOccupancySegments(
   organizationId: string,
@@ -39,13 +69,15 @@ export async function getOccupancySegments(
   rangeStart: string,
   rangeEnd: string,
 ): Promise<Map<string, OccupancySegment[]>> {
+  await expireStaleHolds(db, organizationId);
+
   const segments = new Map<string, OccupancySegment[]>();
   for (const unitId of unitIds) {
     segments.set(unitId, []);
   }
   if (unitIds.length === 0) return segments;
 
-  const rows = await db
+  const blockRows = await db
     .select({
       id: unitBlocks.id,
       unitId: unitBlocks.unitId,
@@ -62,7 +94,44 @@ export async function getOccupancySegments(
       ),
     );
 
-  for (const row of rows) {
+  const reservationRows = await db
+    .select({
+      id: reservations.id,
+      unitId: reservations.unitId,
+      startDate: reservations.checkInDate,
+      endDate: reservations.checkOutDate,
+      status: reservations.status,
+      guestName: guests.name,
+      expiresAt: reservations.expiresAt,
+    })
+    .from(reservations)
+    .innerJoin(
+      guests,
+      and(
+        eq(reservations.guestId, guests.id),
+        eq(reservations.organizationId, guests.organizationId),
+      ),
+    )
+    .where(
+      and(
+        inArray(reservations.unitId, unitIds),
+        lt(reservations.checkInDate, rangeEnd),
+        gt(reservations.checkOutDate, rangeStart),
+        or(
+          inArray(reservations.status, [
+            "confirmed",
+            "checked_in",
+            "checked_out",
+          ]),
+          and(
+            eq(reservations.status, "hold"),
+            gt(reservations.expiresAt, new Date()),
+          ),
+        ),
+      ),
+    );
+
+  for (const row of blockRows) {
     segments.get(row.unitId)?.push({
       kind: "block",
       id: row.id,
@@ -71,12 +140,29 @@ export async function getOccupancySegments(
       reason: row.reason,
     });
   }
+  for (const row of reservationRows) {
+    // The WHERE clause above restricts status to the four active values.
+    const status = row.status as
+      | "hold"
+      | "confirmed"
+      | "checked_in"
+      | "checked_out";
+    segments.get(row.unitId)?.push({
+      kind: "reservation",
+      id: row.id,
+      startDate: row.startDate,
+      endDate: row.endDate,
+      status,
+      guestName: row.guestName,
+      expiresAt: row.expiresAt,
+    });
+  }
   return segments;
 }
 
 /**
  * Per-night availability for a half-open range. Nights outside segment ranges
- * are available; the earliest overlapping segment wins a blocked night.
+ * are available; the earliest overlapping segment wins a contested night.
  */
 export function buildNightStatusMap(
   rangeStart: string,
@@ -91,16 +177,33 @@ export function buildNightStatusMap(
     a.startDate < b.startDate ? -1 : a.startDate > b.startDate ? 1 : 0,
   );
   for (const segment of ordered) {
-    const overlapStart = segment.startDate < rangeStart ? rangeStart : segment.startDate;
+    const overlapStart =
+      segment.startDate < rangeStart ? rangeStart : segment.startDate;
     const overlapEnd = segment.endDate > rangeEnd ? rangeEnd : segment.endDate;
     if (overlapStart >= overlapEnd) continue;
     for (const night of listNights(overlapStart, overlapEnd)) {
-      if (map.get(night)?.kind === "blocked") continue;
-      map.set(night, {
-        kind: "blocked",
-        reason: segment.reason,
-        segmentId: segment.id,
-      });
+      if (map.get(night)?.kind !== "available") continue;
+      if (segment.kind === "block") {
+        map.set(night, {
+          kind: "blocked",
+          reason: segment.reason,
+          segmentId: segment.id,
+        });
+      } else if (segment.status === "hold") {
+        map.set(night, {
+          kind: "held",
+          guestName: segment.guestName,
+          expiresAt: segment.expiresAt,
+          segmentId: segment.id,
+        });
+      } else {
+        map.set(night, {
+          kind: "booked",
+          guestName: segment.guestName,
+          status: segment.status,
+          segmentId: segment.id,
+        });
+      }
     }
   }
   return map;
@@ -127,7 +230,10 @@ export function checkIntervalAvailability(
       conflict: {
         startDate: conflict.startDate,
         endDate: conflict.endDate,
-        reason: conflict.reason,
+        reason:
+          conflict.kind === "block"
+            ? conflict.reason
+            : reservationReason(conflict),
       },
     };
   }

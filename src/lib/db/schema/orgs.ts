@@ -14,6 +14,9 @@ export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
+  // Shown to guests on the private booking-status page (e.g. GCash number
+  // and transfer instructions). Never displayed publicly.
+  paymentInstructions: text("payment_instructions"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

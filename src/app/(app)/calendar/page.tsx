@@ -9,7 +9,7 @@ import {
   shiftMonth,
   todayInTimeZone,
 } from "@/lib/dates";
-import { UNIT_STATUS_LABELS } from "@/lib/labels";
+import { UNIT_STATUS_LABELS, RESERVATION_STATUS_LABELS } from "@/lib/labels";
 import {
   buildNightStatusMap,
   getOccupancySegments,
@@ -37,6 +37,7 @@ const NIGHT_LABEL = new Intl.DateTimeFormat("en-PH", {
   day: "numeric",
   timeZone: "UTC",
 });
+const TIME_LABEL = new Intl.DateTimeFormat("en-PH", { timeStyle: "short" });
 
 export default async function CalendarPage({
   searchParams,
@@ -240,26 +241,56 @@ export default async function CalendarPage({
                         const status = map.get(night) ?? {
                           kind: "available" as const,
                         };
-                        const blocked = status.kind === "blocked";
+                        let title: string;
+                        let cellClass: string;
+                        let reservationLink: string | null = null;
+                        if (status.kind === "blocked") {
+                          title = `Out of service — ${status.reason}`;
+                          cellClass = "bg-clay-mist";
+                        } else if (status.kind === "held") {
+                          title = `Hold for ${status.guestName} — expires ${
+                            status.expiresAt
+                              ? TIME_LABEL.format(status.expiresAt)
+                              : "soon"
+                          }`;
+                          cellClass = "bg-clay/45";
+                          reservationLink = `/reservations/${status.segmentId}`;
+                        } else if (status.kind === "booked") {
+                          title = `${RESERVATION_STATUS_LABELS[status.status]} — ${status.guestName}`;
+                          cellClass = "bg-pine/75";
+                          reservationLink = `/reservations/${status.segmentId}`;
+                        } else if (inactive) {
+                          title = `Not accepting bookings — ${UNIT_STATUS_LABELS[unit.status]}`;
+                          cellClass = "bg-pine-mist/50";
+                        } else {
+                          title = "Available";
+                          cellClass = "bg-sage/40";
+                        }
+                        const ariaLabel = `${unitLabel(unit.id)} ${NIGHT_LABEL.format(new Date(`${night}T00:00:00Z`))}: ${title}`;
                         return (
                           <td
                             key={night}
-                            title={
-                              blocked
-                                ? `Out of service — ${status.reason}`
-                                : inactive
-                                  ? `Not accepting bookings — ${UNIT_STATUS_LABELS[unit.status]}`
-                                  : "Available"
-                            }
-                            aria-label={`${unitLabel(unit.id)} ${NIGHT_LABEL.format(new Date(`${night}T00:00:00Z`))}: ${blocked ? `out of service — ${status.reason}` : inactive ? UNIT_STATUS_LABELS[unit.status] : "available"}`}
-                            className={`h-9 border-l border-pine/5 px-0 text-center ${
-                              blocked
-                                ? "bg-clay-mist"
-                                : inactive
-                                  ? "bg-pine-mist/50"
-                                  : "bg-sage/40"
-                            } ${night === today ? "ring-1 ring-inset ring-clay/50" : ""}`}
-                          />
+                            className={`h-9 border-l border-pine/5 px-0 text-center ${cellClass} ${
+                              night === today
+                                ? "ring-1 ring-inset ring-clay/50"
+                                : ""
+                            }`}
+                          >
+                            {reservationLink ? (
+                              <Link
+                                href={reservationLink}
+                                title={title}
+                                aria-label={ariaLabel}
+                                className="block h-full w-full"
+                              />
+                            ) : (
+                              <span
+                                title={title}
+                                aria-label={ariaLabel}
+                                className="block h-full w-full"
+                              />
+                            )}
+                          </td>
                         );
                       })}
                     </tr>
@@ -270,6 +301,13 @@ export default async function CalendarPage({
             <div className="flex flex-wrap gap-4 border-t border-pine/10 px-4 py-3 text-xs text-ink/55">
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-3 w-3 rounded-sm bg-sage/70" /> Available
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-3 w-3 rounded-sm bg-clay/45" /> Hold
+                (expires)
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-3 w-3 rounded-sm bg-pine/75" /> Booked
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-3 w-3 rounded-sm bg-clay-mist" /> Out of
@@ -306,11 +344,22 @@ export default async function CalendarPage({
                         kind: "available" as const,
                       };
                       const inactive = unit.status !== "active";
-                      return (
-                        <li
-                          key={unit.id}
-                          className="flex items-center justify-between gap-3 px-4 py-3"
-                        >
+                      const reservationLink =
+                        status.kind === "held" || status.kind === "booked"
+                          ? `/reservations/${status.segmentId}`
+                          : null;
+                      const statusText =
+                        status.kind === "blocked"
+                          ? `Out of service — ${status.reason}`
+                          : status.kind === "held"
+                            ? `Hold — ${status.guestName}`
+                            : status.kind === "booked"
+                              ? `${RESERVATION_STATUS_LABELS[status.status]} — ${status.guestName}`
+                              : inactive
+                                ? UNIT_STATUS_LABELS[unit.status]
+                                : "Available";
+                      const content = (
+                        <>
                           <span className="min-w-0 truncate text-sm font-medium text-pine">
                             {unitLabel(unit.id)}
                           </span>
@@ -318,17 +367,32 @@ export default async function CalendarPage({
                             className={`shrink-0 text-sm ${
                               status.kind === "blocked"
                                 ? "text-clay-deep"
-                                : inactive
-                                  ? "text-ink/50"
-                                  : "text-pine/70"
+                                : status.kind === "held" ||
+                                    status.kind === "booked"
+                                  ? "text-pine"
+                                  : inactive
+                                    ? "text-ink/50"
+                                    : "text-pine/70"
                             }`}
                           >
-                            {status.kind === "blocked"
-                              ? `Out of service — ${status.reason}`
-                              : inactive
-                                ? UNIT_STATUS_LABELS[unit.status]
-                                : "Available"}
+                            {statusText}
                           </span>
+                        </>
+                      );
+                      return (
+                        <li key={unit.id}>
+                          {reservationLink ? (
+                            <Link
+                              href={reservationLink}
+                              className="flex items-center justify-between gap-3 px-4 py-3"
+                            >
+                              {content}
+                            </Link>
+                          ) : (
+                            <div className="flex items-center justify-between gap-3 px-4 py-3">
+                              {content}
+                            </div>
+                          )}
                         </li>
                       );
                     })}

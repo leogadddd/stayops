@@ -14,6 +14,12 @@ import {
   listUnitBlocks,
 } from "@/server/inventory/service";
 import { eq } from "drizzle-orm";
+import {
+  createConfirmed,
+  createHold,
+  listReservations,
+} from "@/server/reservations/service";
+import { createGuestLink } from "@/server/reservations/guest-link";
 
 /**
  * Seed clearly-fake demo data. Idempotent: safe to run repeatedly.
@@ -162,6 +168,102 @@ async function main() {
         });
         console.log("seed: demo out-of-service block added");
       }
+    }
+  }
+
+  const existingReservations = await listReservations(organizationId);
+  if (existingReservations.length > 0) {
+    console.log("seed: reservations already exist, nothing more to do");
+  } else if (seededProperty) {
+    const units = await listPropertyUnits(organizationId, seededProperty.id);
+    const activeUnit = units.find((unit) => unit.status === "active");
+    if (activeUnit) {
+      const today = new Date().toISOString().slice(0, 10);
+      const nightly = activeUnit.defaultNightlyRateCents;
+      const cleaning = activeUnit.cleaningFeeCents ?? 0;
+      const deposit = activeUnit.securityDepositCents ?? 0;
+
+      // Clearly fake repeat guest shared by both demo stays.
+      const hold = await createHold({
+        organizationId,
+        actorUserId: userId,
+        guest: {
+          newGuest: {
+            name: "Maria Santos (demo)",
+            email: "maria.santos.demo@example.com",
+            notes: "Clearly fake seed guest.",
+          },
+        },
+        idempotencyKey: "seed-hold-maria",
+        data: {
+          unitId: activeUnit.id,
+          checkIn: addDaysLocal(today, 7),
+          checkOut: addDaysLocal(today, 9),
+          guestCount: 2,
+          holdMinutes: 1440,
+          charges: [
+            {
+              type: "accommodation",
+              description: "Nightly rate",
+              quantity: 2,
+              unitAmountCents: nightly,
+            },
+            {
+              type: "cleaning",
+              description: "Cleaning fee",
+              quantity: 1,
+              unitAmountCents: cleaning,
+            },
+          ],
+        },
+      });
+      console.log(
+        `seed: demo hold ${hold.id} (${addDaysLocal(today, 7)} → ${addDaysLocal(today, 9)})`,
+      );
+
+      const confirmed = await createConfirmed({
+        organizationId,
+        actorUserId: userId,
+        guest: { guestId: hold.guestId },
+        idempotencyKey: "seed-confirmed-maria",
+        data: {
+          unitId: activeUnit.id,
+          checkIn: addDaysLocal(today, 20),
+          checkOut: addDaysLocal(today, 23),
+          guestCount: 2,
+          acknowledgeUnpaid: true,
+          charges: [
+            {
+              type: "accommodation",
+              description: "Nightly rate",
+              quantity: 3,
+              unitAmountCents: nightly,
+            },
+            {
+              type: "cleaning",
+              description: "Cleaning fee",
+              quantity: 1,
+              unitAmountCents: cleaning,
+            },
+            {
+              type: "security_deposit",
+              description: "Security deposit (refundable)",
+              quantity: 1,
+              unitAmountCents: deposit,
+            },
+          ],
+        },
+      });
+      console.log(
+        `seed: demo confirmed reservation ${confirmed.id} (${addDaysLocal(today, 20)} → ${addDaysLocal(today, 23)})`,
+      );
+
+      const link = await createGuestLink({
+        organizationId,
+        actorUserId: userId,
+        reservationId: confirmed.id,
+      });
+      console.log(`seed: guest status link for the confirmed stay → /g/${link.token}`);
     }
   }
 

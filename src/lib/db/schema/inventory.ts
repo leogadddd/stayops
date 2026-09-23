@@ -57,6 +57,8 @@ export const properties = pgTable(
   ],
 );
 
+export type Unit = typeof units.$inferSelect;
+
 export const units = pgTable(
   "units",
   {

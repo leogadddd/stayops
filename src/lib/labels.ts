@@ -1,4 +1,4 @@
-import type { UnitStatus } from "@/lib/db/schema";
+import type { ReservationStatus, UnitStatus } from "@/lib/db/schema";
 
 /** Plain-language labels required by the PRD's status vocabulary. */
 export const UNIT_STATUS_LABELS: Record<UnitStatus, string> = {
@@ -17,4 +17,22 @@ export const UNIT_STATUS_DESCRIPTIONS: Record<UnitStatus, string> = {
   active: "Accepts new holds and reservations.",
   maintenance: "Temporarily paused for repairs; existing bookings stay.",
   inactive: "Retired; hidden from new booking flows.",
+};
+
+export const RESERVATION_STATUS_LABELS: Record<ReservationStatus, string> = {
+  hold: "Hold",
+  confirmed: "Confirmed",
+  checked_in: "Checked in",
+  checked_out: "Checked out",
+  cancelled: "Cancelled",
+  expired: "Expired",
+};
+
+export const RESERVATION_STATUS_DESCRIPTIONS: Record<ReservationStatus, string> = {
+  hold: "Dates are held until the hold expires.",
+  confirmed: "Booking confirmed; balance may still be due.",
+  checked_in: "Guest has checked in.",
+  checked_out: "Stay finished; turnover may still be pending.",
+  cancelled: "Cancelled; inventory released, ledger entries kept.",
+  expired: "Hold expired without confirmation; dates released.",
 };
