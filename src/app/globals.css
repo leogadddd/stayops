@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+@theme {
+  /* StayOps brand palette — from the brand sheet:
+     Pine #203A35 · Paper #F6F3ED · Sage #CFDDD3 · Clay #A64E37 */
+  --color-pine: #203a35;
+  --color-pine-deep: #162925;
+  --color-pine-soft: #2c4a44;
+  --color-pine-mist: #e3eae7;
+
+  --color-paper: #f6f3ed;
+  --color-cream: #efe9de;
+  --color-linen: #fbfaf7;
+
+  --color-sage: #cfddd3;
+  --color-sage-deep: #9fb8a9;
+
+  --color-clay: #a64e37;
+  --color-clay-deep: #8c3f2c;
+  --color-clay-mist: #f3e4de;
+
+  --color-ink: #22312d;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
+}
+
+@layer base {
+  body {
+    @apply bg-paper font-sans text-ink antialiased;
+  }
+
+  ::selection {
+    @apply bg-sage text-pine-deep;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-pine;
+  }
+}
