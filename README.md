@@ -52,6 +52,6 @@ Demo credentials (from the seed, clearly fake):
 - [x] **0 · Foundation** — auth, organizations, app shell, seed
 - [x] **1 · Inventory & availability** — properties, units, blocks, calendar
 - [x] **2 · Reservations** — guests, holds, confirmation, guest link
-- [ ] **3 · Money** — payments, security deposits, refunds, expenses
+- [x] **3 · Money** — payments, security deposits, refunds, expenses
 - [ ] **4 · Stay operations** — check-in/out, turnover tasks, damage
 - [ ] **5 · Reports & hardening** — reports, audit, permissions, tests

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, Building2, Calendar, Settings, Users } from "lucide-react";
+import { BookOpen, Building2, Calendar, Receipt, Settings, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/logo";
 
@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { href: "/calendar", label: "Calendar", icon: Calendar },
   { href: "/reservations", label: "Reservations", icon: BookOpen },
   { href: "/guests", label: "Guests", icon: Users },
+  { href: "/expenses", label: "Expenses", icon: Receipt },
   { href: "/settings/properties", label: "Properties", icon: Building2 },
   { href: "/settings", label: "Settings", icon: Settings, exact: true },
 ] as const;

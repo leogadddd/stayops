@@ -2,7 +2,7 @@ import "dotenv/config";
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { memberships, organizations, user } from "@/lib/db/schema";
+import { expenses, memberships, organizations, user } from "@/lib/db/schema";
 import { addDaysLocal } from "@/lib/dates";
 import { createOrganization } from "@/server/orgs/service";
 import {
@@ -20,6 +20,8 @@ import {
   listReservations,
 } from "@/server/reservations/service";
 import { createGuestLink } from "@/server/reservations/guest-link";
+import { recordPayment } from "@/server/payments/service";
+import { createExpense } from "@/server/expenses/service";
 
 /**
  * Seed clearly-fake demo data. Idempotent: safe to run repeatedly.
@@ -265,6 +267,81 @@ async function main() {
       });
       console.log(`seed: guest status link for the confirmed stay → /g/${link.token}`);
     }
+  }
+
+  // Demo money data. Idempotent so it also backfills databases seeded before
+  // slice 3: payments carry fixed idempotency keys, expenses are matched by
+  // their unique descriptions.
+  const confirmedSeeds = existingReservations.filter(
+    (reservation) => reservation.status === "confirmed",
+  );
+  if (seededProperty && confirmedSeeds.length > 0) {
+    const reservation = confirmedSeeds[0]!;
+    const paymentSeeds = [
+      {
+        idempotencyKey: "seed-payment-booking-1",
+        amountPesos: "5000",
+        allocation: "booking",
+        method: "gcash",
+        reference: "SEED-GCASH-REF-0001",
+      },
+      {
+        idempotencyKey: "seed-payment-deposit-1",
+        amountPesos: "2000",
+        allocation: "security_deposit",
+        method: "bank_transfer",
+        reference: "SEED-BANK-REF-0002",
+      },
+    ] as const;
+    for (const payment of paymentSeeds) {
+      await recordPayment({
+        organizationId,
+        actorUserId: userId,
+        reservationId: reservation.id,
+        data: { ...payment },
+      });
+    }
+    console.log(
+      "seed: demo payments ensured (₱5,000 booking via GCash + ₱2,000 deposit via bank transfer)",
+    );
+
+    const today = new Date().toISOString().slice(0, 10);
+    const expenseSeeds = [
+      {
+        propertyId: seededProperty.id,
+        unitId: reservation.unitId,
+        amountPesos: "850",
+        category: "supplies",
+        classification: "operating",
+        paidDate: today,
+        description: "Seeded demo expense: cleaning supplies restock (fake).",
+      },
+      {
+        propertyId: seededProperty.id,
+        amountPesos: "4500",
+        category: "maintenance",
+        classification: "capital",
+        paidDate: today,
+        description: "Seeded demo expense: hallway repainting, capital improvement (fake).",
+      },
+    ] as const;
+    const existingDescriptions = new Set(
+      (
+        await db
+          .select({ description: expenses.description })
+          .from(expenses)
+          .where(eq(expenses.organizationId, organizationId))
+      ).map((row) => row.description),
+    );
+    for (const expense of expenseSeeds) {
+      if (existingDescriptions.has(expense.description)) continue;
+      await createExpense({
+        organizationId,
+        actorUserId: userId,
+        data: { ...expense },
+      });
+    }
+    console.log("seed: demo expenses ensured (one operating, one capital)");
   }
 
   const orgs = await db.select().from(organizations).limit(1);

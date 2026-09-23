@@ -6,13 +6,18 @@ import { db } from "@/lib/db";
 import {
   accessTokens,
   auditEvents,
+  depositDeductions,
   guests,
   organizations,
+  paymentEntries,
+  paymentProofs,
   properties,
+  refundEntries,
   reservationCharges,
   reservations,
   units,
 } from "@/lib/db/schema";
+import { computeBalances } from "@/lib/balances";
 import { computeTotals, getReservationDetail, ReservationError } from "./service";
 
 const TOKEN_TTL_DAYS = 30;
@@ -153,18 +158,37 @@ export interface GuestView {
   status: string;
   bookingTotalCents: number;
   depositTotalCents: number;
-  receivedCents: number;
+  /** Booking payments recorded by the owner (excludes the deposit). */
+  paidBookingCents: number;
+  /** Booking-allocation refunds (they increase the balance owed). */
+  refundedBookingCents: number;
+  /** Positive = balance due; negative = overpaid (refund owed). */
+  bookingBalanceCents: number;
+  /** Deposit payments recorded by the owner. */
+  depositPaidCents: number;
+  /** Collected deposit still held (paid − refunds − deductions). */
+  depositHeldCents: number;
+  /** Unverified guest-submitted references awaiting owner review. */
+  pendingProofs: number;
   paymentInstructions: string | null;
+  houseRules: string | null;
+}
+
+export interface ActiveGuestToken {
+  id: string;
+  organizationId: string;
+  reservationId: string;
 }
 
 /**
- * Resolve a raw guest-link token to its booking summary. Returns null for
- * unknown, revoked, expired or rate-limited tokens — the page shows a single
- * generic message so tokens can't be probed for existence.
+ * Resolve a raw token to its active access-token row, or null for unknown,
+ * revoked, expired or rate-limited tokens. Bumps last_used_at. Shared by the
+ * guest page (read) and payment-proof submission (write) so both pay the same
+ * rate-limit cost and show the same generic invalid-link message.
  */
-export async function getGuestViewByToken(
+export async function findActiveGuestToken(
   token: string,
-): Promise<GuestView | null> {
+): Promise<ActiveGuestToken | null> {
   if (!token || token.length > 200) return null;
   const hash = hashGuestToken(token);
   if (!checkRateLimit(hash)) return null;
@@ -179,6 +203,29 @@ export async function getGuestViewByToken(
   const now = new Date();
   if (row.revokedAt !== null || row.expiresAt <= now) return null;
 
+  await db
+    .update(accessTokens)
+    .set({ lastUsedAt: now })
+    .where(eq(accessTokens.id, row.id));
+
+  return {
+    id: row.id,
+    organizationId: row.organizationId,
+    reservationId: row.reservationId,
+  };
+}
+
+/**
+ * Resolve a raw guest-link token to its booking summary. Returns null for
+ * unknown, revoked, expired or rate-limited tokens — the page shows a single
+ * generic message so tokens can't be probed for existence.
+ */
+export async function getGuestViewByToken(
+  token: string,
+): Promise<GuestView | null> {
+  const tokenRow = await findActiveGuestToken(token);
+  if (!tokenRow) return null;
+
   const [view] = await db
     .select({
       guestName: guests.name,
@@ -188,6 +235,7 @@ export async function getGuestViewByToken(
       checkOutDate: reservations.checkOutDate,
       status: reservations.status,
       paymentInstructions: organizations.paymentInstructions,
+      houseRules: properties.houseRules,
     })
     .from(reservations)
     .innerJoin(
@@ -208,14 +256,14 @@ export async function getGuestViewByToken(
       properties,
       and(
         eq(units.propertyId, properties.id),
-        eq(properties.organizationId, row.organizationId),
+        eq(properties.organizationId, tokenRow.organizationId),
       ),
     )
     .innerJoin(organizations, eq(reservations.organizationId, organizations.id))
     .where(
       and(
-        eq(reservations.id, row.reservationId),
-        eq(reservations.organizationId, row.organizationId),
+        eq(reservations.id, tokenRow.reservationId),
+        eq(reservations.organizationId, tokenRow.organizationId),
       ),
     )
     .limit(1);
@@ -229,13 +277,49 @@ export async function getGuestViewByToken(
       unitAmountCents: reservationCharges.unitAmountCents,
     })
     .from(reservationCharges)
-    .where(eq(reservationCharges.reservationId, row.reservationId));
+    .where(eq(reservationCharges.reservationId, tokenRow.reservationId));
   const { bookingTotalCents, depositTotalCents } = computeTotals(chargeRows);
 
-  await db
-    .update(accessTokens)
-    .set({ lastUsedAt: now })
-    .where(eq(accessTokens.id, row.id));
+  const [payments, refunds, deductions, proofs] = await Promise.all([
+    db
+      .select()
+      .from(paymentEntries)
+      .where(
+        and(
+          eq(paymentEntries.reservationId, tokenRow.reservationId),
+          eq(paymentEntries.organizationId, tokenRow.organizationId),
+        ),
+      ),
+    db
+      .select()
+      .from(refundEntries)
+      .where(
+        and(
+          eq(refundEntries.reservationId, tokenRow.reservationId),
+          eq(refundEntries.organizationId, tokenRow.organizationId),
+        ),
+      ),
+    db
+      .select()
+      .from(depositDeductions)
+      .where(
+        and(
+          eq(depositDeductions.reservationId, tokenRow.reservationId),
+          eq(depositDeductions.organizationId, tokenRow.organizationId),
+        ),
+      ),
+    db
+      .select({ id: paymentProofs.id })
+      .from(paymentProofs)
+      .where(
+        and(
+          eq(paymentProofs.reservationId, tokenRow.reservationId),
+          eq(paymentProofs.organizationId, tokenRow.organizationId),
+          eq(paymentProofs.status, "unverified"),
+        ),
+      ),
+  ]);
+  const balances = computeBalances({ charges: chargeRows, payments, refunds, deductions });
 
   return {
     guestName: view.guestName,
@@ -246,8 +330,13 @@ export async function getGuestViewByToken(
     status: view.status,
     bookingTotalCents,
     depositTotalCents,
-    // No payment ledger until slice 3; nothing recorded means received = 0.
-    receivedCents: 0,
+    paidBookingCents: balances.paidBookingCents,
+    refundedBookingCents: balances.refundedBookingCents,
+    bookingBalanceCents: balances.bookingBalanceCents,
+    depositPaidCents: balances.paidDepositCents,
+    depositHeldCents: balances.depositHeldCents,
+    pendingProofs: proofs.length,
     paymentInstructions: view.paymentInstructions,
+    houseRules: view.houseRules,
   };
 }

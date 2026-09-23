@@ -1,4 +1,10 @@
-import type { ReservationStatus, UnitStatus } from "@/lib/db/schema";
+import type {
+  ExpenseCategory,
+  PaymentAllocation,
+  PaymentMethod,
+  ReservationStatus,
+  UnitStatus,
+} from "@/lib/db/schema";
 
 /** Plain-language labels required by the PRD's status vocabulary. */
 export const UNIT_STATUS_LABELS: Record<UnitStatus, string> = {
@@ -35,4 +41,27 @@ export const RESERVATION_STATUS_DESCRIPTIONS: Record<ReservationStatus, string> 
   checked_out: "Stay finished; turnover may still be pending.",
   cancelled: "Cancelled; inventory released, ledger entries kept.",
   expired: "Hold expired without confirmation; dates released.",
+};
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  gcash: "GCash",
+  maya: "Maya",
+  bank_transfer: "Bank transfer",
+  cash: "Cash",
+};
+
+export const PAYMENT_ALLOCATION_LABELS: Record<PaymentAllocation, string> = {
+  booking: "Booking payment",
+  security_deposit: "Security deposit",
+};
+
+export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
+  cleaning: "Cleaning",
+  utilities: "Utilities",
+  supplies: "Supplies",
+  maintenance: "Maintenance",
+  internet: "Internet",
+  platform_fees: "Platform fees",
+  renovation: "Renovation",
+  other: "Other",
 };

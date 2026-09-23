@@ -3,6 +3,7 @@ import {
   addDaysLocal,
   isLocalDate,
   listNights,
+  localDateTimeToUtc,
   nightsBetween,
   rangesOverlap,
 } from "@/lib/dates";
@@ -70,5 +71,40 @@ describe("addDaysLocal", () => {
 
   it("round-trips with nightsBetween", () => {
     expect(nightsBetween("2026-09-28", addDaysLocal("2026-09-28", 4))).toBe(4);
+  });
+});
+
+describe("localDateTimeToUtc", () => {
+  it("converts Asia/Manila wall time (UTC+8, no DST) to UTC", () => {
+    expect(
+      localDateTimeToUtc("2026-09-23T15:30", "Asia/Manila")?.toISOString(),
+    ).toBe("2026-09-23T07:30:00.000Z");
+  });
+
+  it("converts timezones behind UTC using the date's offset", () => {
+    // September in New York is EDT (UTC-4).
+    expect(
+      localDateTimeToUtc("2026-09-23T12:00", "America/New_York")?.toISOString(),
+    ).toBe("2026-09-23T16:00:00.000Z");
+  });
+
+  it("can shift the UTC day backwards across the zone offset", () => {
+    // September in Sydney is AEST (UTC+10).
+    expect(
+      localDateTimeToUtc("2026-09-23T08:00", "Australia/Sydney")?.toISOString(),
+    ).toBe("2026-09-22T22:00:00.000Z");
+  });
+
+  it("rejects malformed values", () => {
+    expect(localDateTimeToUtc("2026-09-23", "Asia/Manila")).toBeNull();
+    expect(localDateTimeToUtc("2026-09-23 15:30", "Asia/Manila")).toBeNull();
+    expect(localDateTimeToUtc("2026-9-3T1:05", "Asia/Manila")).toBeNull();
+    expect(localDateTimeToUtc("not-a-time", "Asia/Manila")).toBeNull();
+  });
+
+  it("rejects calendar overflow and out-of-range clock parts", () => {
+    expect(localDateTimeToUtc("2026-02-30T10:00", "Asia/Manila")).toBeNull();
+    expect(localDateTimeToUtc("2026-09-23T24:00", "Asia/Manila")).toBeNull();
+    expect(localDateTimeToUtc("2026-09-23T10:60", "Asia/Manila")).toBeNull();
   });
 });

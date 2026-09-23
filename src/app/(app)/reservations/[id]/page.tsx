@@ -14,11 +14,16 @@ import {
   ReservationError,
 } from "@/server/reservations/service";
 import { expireStaleHolds } from "@/server/reservations/holds";
+import { getReservationLedger } from "@/server/payments/service";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { ConfirmHoldForm } from "./confirm-hold-form";
 import { CancelReservationForm } from "./cancel-reservation-form";
 import { GuestLinkCard } from "./guest-link-card";
+import { PaymentsCard } from "./payments-card";
+import { RecordPaymentForm } from "./record-payment-form";
+import { RecordRefundForm } from "./record-refund-form";
+import { AddDeductionForm } from "./add-deduction-form";
 
 export const metadata: Metadata = { title: "Reservation" };
 
@@ -74,9 +79,12 @@ export default async function ReservationDetailPage({
 
   const { reservation, guest, unit, property, charges, transitions, activeToken } =
     detail;
+  const ledger = await getReservationLedger(membership.organizationId, id);
   const totals = computeTotals(charges);
   const nights = listNights(reservation.checkInDate, reservation.checkOutDate);
   const liveHold = isLiveHold(reservation.status, reservation.expiresAt);
+  const moneyEditable =
+    reservation.status !== "cancelled" && reservation.status !== "expired";
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -229,22 +237,12 @@ export default async function ReservationDetailPage({
                       {formatPHP(totals.depositTotalCents)}
                     </td>
                   </tr>
-                  <tr className="text-sm">
-                    <td colSpan={3} className="pt-1.5 pr-3 text-ink/60">
-                      Recorded so far
-                    </td>
-                    <td className="pt-1.5 text-right font-medium text-pine">
-                      {formatPHP(0)}
-                    </td>
-                  </tr>
                 </tfoot>
               </table>
-              <p className="mt-3 text-xs text-ink/45">
-                Payments arrive in slice 3 — nothing is recorded against this
-                booking yet.
-              </p>
             </CardBody>
           </Card>
+
+          <PaymentsCard reservationId={reservation.id} ledger={ledger} />
 
           <Card>
             <CardHeader>
@@ -299,6 +297,41 @@ export default async function ReservationDetailPage({
                 />
               </CardBody>
             </Card>
+          ) : null}
+
+          {moneyEditable ? (
+            <>
+              <Card>
+                <CardHeader>
+                  <h2 className="font-display text-lg text-pine">Record payment</h2>
+                </CardHeader>
+                <CardBody>
+                  <RecordPaymentForm reservationId={reservation.id} />
+                </CardBody>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <h2 className="font-display text-lg text-pine">Record refund</h2>
+                </CardHeader>
+                <CardBody>
+                  <RecordRefundForm reservationId={reservation.id} />
+                </CardBody>
+              </Card>
+
+              {totals.depositTotalCents > 0 ? (
+                <Card>
+                  <CardHeader>
+                    <h2 className="font-display text-lg text-pine">
+                      Deposit deduction
+                    </h2>
+                  </CardHeader>
+                  <CardBody>
+                    <AddDeductionForm reservationId={reservation.id} />
+                  </CardBody>
+                </Card>
+              ) : null}
+            </>
           ) : null}
 
           <Card>

@@ -6,6 +6,7 @@ import { formatPHP } from "@/lib/money";
 import { RESERVATION_STATUS_LABELS } from "@/lib/labels";
 import type { ReservationStatus } from "@/lib/db/schema";
 import { getGuestViewByToken } from "@/server/reservations/guest-link";
+import { SubmitProofForm } from "./submit-proof-form";
 
 export const metadata: Metadata = { title: "Your booking" };
 export const dynamic = "force-dynamic";
@@ -26,6 +27,12 @@ const STATUS_TONE: Record<string, "sage" | "clay" | "neutral"> = {
   cancelled: "neutral",
   expired: "neutral",
 };
+
+const PROOF_SUBMISSION_STATUSES = new Set([
+  "hold",
+  "confirmed",
+  "checked_in",
+]);
 
 export default async function GuestStatusPage({
   params,
@@ -98,27 +105,66 @@ export default async function GuestStatusPage({
                     </dd>
                   </div>
                   <div className="flex justify-between">
-                    <dt className="text-ink/60">Refundable security deposit</dt>
+                    <dt className="text-ink/60">Paid towards booking</dt>
                     <dd className="font-medium text-pine">
-                      {formatPHP(view.depositTotalCents)}
+                      {formatPHP(view.paidBookingCents)}
                     </dd>
                   </div>
+                  {view.refundedBookingCents > 0 ? (
+                    <div className="flex justify-between">
+                      <dt className="text-ink/60">Refunded</dt>
+                      <dd className="font-medium text-clay-deep">
+                        -{formatPHP(view.refundedBookingCents)}
+                      </dd>
+                    </div>
+                  ) : null}
                   <div className="flex justify-between border-t border-pine/10 pt-2">
-                    <dt className="text-ink/60">Received so far</dt>
-                    <dd className="font-medium text-pine">
-                      {formatPHP(view.receivedCents)}
-                    </dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="font-medium text-ink">Balance due</dt>
-                    <dd className="font-semibold text-pine">
-                      {formatPHP(view.bookingTotalCents - view.receivedCents)}
+                    <dt className="font-medium text-ink">
+                      {view.bookingBalanceCents >= 0
+                        ? "Balance due"
+                        : "Overpaid by"}
+                    </dt>
+                    <dd
+                      className={`font-semibold ${
+                        view.bookingBalanceCents >= 0
+                          ? "text-pine"
+                          : "text-clay-deep"
+                      }`}
+                    >
+                      {formatPHP(Math.abs(view.bookingBalanceCents))}
                     </dd>
                   </div>
                 </dl>
+
+                {view.depositTotalCents > 0 || view.depositPaidCents > 0 ? (
+                  <dl className="mt-4 space-y-2 border-t border-pine/10 pt-3 text-sm">
+                    <div className="flex justify-between">
+                      <dt className="text-ink/60">Refundable security deposit</dt>
+                      <dd className="font-medium text-pine">
+                        {formatPHP(view.depositTotalCents)}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-ink/60">Deposit collected</dt>
+                      <dd className="font-medium text-pine">
+                        {formatPHP(view.depositPaidCents)}
+                      </dd>
+                    </div>
+                    {view.depositHeldCents !== view.depositPaidCents ? (
+                      <div className="flex justify-between">
+                        <dt className="text-ink/60">Deposit still held</dt>
+                        <dd className="font-medium text-pine">
+                          {formatPHP(view.depositHeldCents)}
+                        </dd>
+                      </div>
+                    ) : null}
+                  </dl>
+                ) : null}
+
                 <p className="mt-3 text-xs text-ink/45">
-                  The deposit is returned after your stay unless there are
-                  deductions for damage or extra cleaning.
+                  The refundable deposit is separate from the booking balance
+                  and comes back after your stay unless there are deductions
+                  for damage or extra cleaning.
                 </p>
               </CardBody>
             </Card>
@@ -130,6 +176,41 @@ export default async function GuestStatusPage({
                   <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-ink/70">
                     {view.paymentInstructions}
                   </p>
+                </CardBody>
+              </Card>
+            ) : null}
+
+            {view.houseRules ? (
+              <Card>
+                <CardBody>
+                  <h2 className="font-display text-lg text-pine">House rules</h2>
+                  <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-ink/70">
+                    {view.houseRules}
+                  </p>
+                </CardBody>
+              </Card>
+            ) : null}
+
+            {PROOF_SUBMISSION_STATUSES.has(view.status) ? (
+              <Card>
+                <CardBody>
+                  <h2 className="font-display text-lg text-pine">
+                    Sent a payment?
+                  </h2>
+                  <p className="mt-2 text-sm leading-relaxed text-ink/60">
+                    Share the reference number or your sender name so your host
+                    can match it to their account.
+                  </p>
+                  {view.pendingProofs > 0 ? (
+                    <p className="mt-2 text-xs text-ink/50">
+                      You&apos;ve sent {view.pendingProofs}{" "}
+                      {view.pendingProofs === 1 ? "reference" : "references"} —
+                      waiting for your host to verify.
+                    </p>
+                  ) : null}
+                  <div className="mt-3">
+                    <SubmitProofForm token={token} />
+                  </div>
                 </CardBody>
               </Card>
             ) : null}

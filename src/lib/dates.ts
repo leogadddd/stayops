@@ -82,6 +82,57 @@ export function todayInTimeZone(timeZone: string): string {
   }).format(new Date());
 }
 
+/**
+ * Convert a `datetime-local` value ("yyyy-mm-ddTHH:mm", the wall clock in the
+ * given IANA timezone) to a UTC Date. Returns null for malformed input.
+ */
+export function localDateTimeToUtc(
+  value: string,
+  timeZone: string,
+): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value.trim());
+  if (!match) return null;
+  const [, year, month, day, hour, minute] = match;
+  const wallAsUtc = Date.UTC(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+  );
+  const wallDate = new Date(wallAsUtc);
+  if (
+    wallDate.getUTCFullYear() !== Number(year) ||
+    wallDate.getUTCMonth() !== Number(month) - 1 ||
+    wallDate.getUTCDate() !== Number(day) ||
+    wallDate.getUTCHours() !== Number(hour) ||
+    wallDate.getUTCMinutes() !== Number(minute)
+  ) {
+    return null;
+  }
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const parts: Record<string, string> = {};
+  for (const part of dtf.formatToParts(new Date(wallAsUtc))) {
+    parts[part.type] = part.value;
+  }
+  const zoneWallAsUtc = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+  );
+  return new Date(wallAsUtc - (zoneWallAsUtc - wallAsUtc));
+}
+
 /** yyyy-mm format for month navigation. */
 export function isValidMonth(value: string): boolean {
   return /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
