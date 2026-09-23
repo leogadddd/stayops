@@ -2,21 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Calendar,
-  Settings,
-} from "lucide-react";
+import { Building2, Calendar, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/logo";
 
 /**
  * App navigation. Entries are added per slice so there is never a dead link:
- * slice 0 ships Calendar + Settings; inventory, reservations, guests, tasks,
- * expenses and reports join as their slices land.
+ * slice 1 adds Properties; reservations, guests, tasks, expenses and reports
+ * join as their slices land.
  */
 const NAV_ITEMS = [
   { href: "/calendar", label: "Calendar", icon: Calendar },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/settings/properties", label: "Properties", icon: Building2 },
+  { href: "/settings", label: "Settings", icon: Settings, exact: true },
 ] as const;
 
 export function AppSidebar({
@@ -40,8 +38,11 @@ export function AppSidebar({
       </div>
 
       <nav aria-label="Primary" className="flex-1 space-y-1 px-3">
-        {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-          const active = pathname.startsWith(href);
+        {NAV_ITEMS.map(({ href, label, icon: Icon, ...rest }) => {
+          const active =
+            "exact" in rest && rest.exact
+              ? pathname === href
+              : pathname === href || pathname.startsWith(`${href}/`);
           return (
             <Link
               key={href}

@@ -56,6 +56,16 @@ export function assertIntegerCentavos(amount: number): void {
 }
 
 /**
+ * Format stored centavos as a plain whole-or-decimal peso string for
+ * prefilling a money input. Null means "no amount set" → empty field.
+ */
+export function centavosToPesosInput(centavos: number | null): string {
+  if (centavos === null) return "";
+  assertIntegerCentavos(centavos);
+  return String(centavos / 100);
+}
+
+/**
  * Format centavos for display. Whole pesos render without decimals
  * (₱5,500); amounts with centavos render two decimals (₱5,500.50).
  */

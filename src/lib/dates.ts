@@ -81,3 +81,25 @@ export function todayInTimeZone(timeZone: string): string {
     day: "2-digit",
   }).format(new Date());
 }
+
+/** yyyy-mm format for month navigation. */
+export function isValidMonth(value: string): boolean {
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
+}
+
+/** Move a yyyy-mm month forward or backward, wrapping years. */
+export function shiftMonth(month: string, delta: number): string {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const cursor = new Date(
+    Date.UTC(year!, (monthNumber ?? 1) - 1 + delta, 1),
+  );
+  return cursor.toISOString().slice(0, 7);
+}
+
+/** Half-open night range covering an entire yyyy-mm month. */
+export function monthNightRange(month: string): {
+  start: string;
+  end: string;
+} {
+  return { start: `${month}-01`, end: shiftMonth(month, 1) + "-01" };
+}
