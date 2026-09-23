@@ -1,6 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FieldError, Label, Textarea } from "@/components/ui/input";
@@ -15,8 +17,16 @@ export function TaskNotesForm({
   notes: string;
   editable: boolean;
 }) {
+  const router = useRouter();
   const [state, formAction, pending] = useActionState<TaskFormState, FormData>(
-    updateTaskNotesAction.bind(null, taskId),
+    async (previous, formData) => {
+      const result = await updateTaskNotesAction(taskId, previous, formData);
+      if (result.success) {
+        router.push(`/tasks/${taskId}`);
+        router.refresh();
+      }
+      return result;
+    },
     {},
   );
 
@@ -48,9 +58,12 @@ export function TaskNotesForm({
           Notes saved.
         </p>
       ) : (
-        <Button type="submit" variant="outline" size="sm" disabled={pending}>
-          {pending ? "Saving…" : "Save notes"}
-        </Button>
+        <div className="flex flex-wrap items-center gap-4">
+          <Button type="submit" variant="clay" disabled={pending}>
+            {pending ? "Saving…" : "Save notes"}
+          </Button>
+          <Link href={`/tasks/${taskId}`} className="text-sm text-pine hover:underline">Cancel</Link>
+        </div>
       )}
     </form>
   );

@@ -246,6 +246,8 @@ export async function createGuestLinkAction(
   _prev: GuestLinkFormState,
   _formData: FormData,
 ): Promise<GuestLinkFormState> {
+  void _prev;
+  void _formData;
   const membership = await requireMembership();
   assertOwner(membership);
   try {
@@ -270,6 +272,8 @@ export async function revokeGuestLinkAction(
   _prev: GuestLinkFormState,
   _formData: FormData,
 ): Promise<GuestLinkFormState> {
+  void _prev;
+  void _formData;
   const membership = await requireMembership();
   assertOwner(membership);
   try {

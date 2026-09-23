@@ -12,6 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input, Select } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { PageHeading } from "@/components/app/page-heading";
 import { db } from "@/lib/db";
 
 export const metadata: Metadata = { title: "Reservations" };
@@ -68,21 +70,12 @@ export default async function ReservationsPage({
 
   return (
     <div className="mx-auto max-w-6xl">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-display text-3xl text-pine">Reservations</h1>
-          <p className="mt-1 text-sm text-ink/60">
-            Holds and bookings across your units.
-          </p>
-        </div>
-        <Link
-          href="/reservations/new"
-          className={buttonClassName("primary", "md")}
-        >
+      <PageHeading title="Reservations" description="Holds and bookings across your units.">
+        <Link href="/reservations/new" className={buttonClassName("clay", "md")}>
           <Plus className="h-4 w-4" aria-hidden />
           New reservation
         </Link>
-      </div>
+      </PageHeading>
 
       <Card className="mt-6 px-4 py-4">
         <form method="get" className="flex flex-wrap items-end gap-3">
@@ -149,7 +142,7 @@ export default async function ReservationsPage({
           action={
             <Link
               href="/reservations/new"
-              className={buttonClassName("primary", "md")}
+              className={buttonClassName("clay", "md")}
             >
               New reservation
             </Link>
@@ -157,40 +150,37 @@ export default async function ReservationsPage({
         />
       ) : (
         <Card className="mt-6 overflow-hidden">
-          <ul className="divide-y divide-pine/10">
-            {reservations.map((reservation) => (
-              <li key={reservation.id}>
-                <Link
-                  href={`/reservations/${reservation.id}`}
-                  className="flex flex-wrap items-center justify-between gap-3 px-4 py-3.5 transition-colors hover:bg-pine-mist/40"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-pine">
+          <Table aria-label="Reservations">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Guest</TableHead>
+                <TableHead>Unit</TableHead>
+                <TableHead>Dates</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {reservations.map((reservation) => (
+                <TableRow key={reservation.id}>
+                  <TableCell>
+                    <Link href={`/reservations/${reservation.id}`} className="font-medium text-pine underline-offset-4 hover:underline">
                       {reservation.guestName}
-                      <span className="ml-2 font-normal text-ink/50">
-                        {reservation.unitName}
-                      </span>
-                    </p>
-                    <p className="mt-0.5 text-xs text-ink/55">
-                      {DATE_LABEL.format(
-                        new Date(`${reservation.checkInDate}T00:00:00Z`),
-                      )}{" "}
-                      →{" "}
-                      {DATE_LABEL.format(
-                        new Date(`${reservation.checkOutDate}T00:00:00Z`),
-                      )}
-                      {reservation.guestCount > 1
-                        ? ` · ${reservation.guestCount} guests`
-                        : " · 1 guest"}
-                    </p>
-                  </div>
-                  <Badge tone={STATUS_TONE[reservation.status] ?? "neutral"}>
-                    {RESERVATION_STATUS_LABELS[reservation.status]}
-                  </Badge>
-                </Link>
-              </li>
-            ))}
-          </ul>
+                    </Link>
+                    <p className="mt-1 text-xs text-ink/55">{reservation.guestCount} {reservation.guestCount === 1 ? "guest" : "guests"}</p>
+                  </TableCell>
+                  <TableCell className="text-ink/70">{reservation.unitName}</TableCell>
+                  <TableCell className="whitespace-nowrap text-ink/65">
+                    {DATE_LABEL.format(new Date(`${reservation.checkInDate}T00:00:00Z`))} → {DATE_LABEL.format(new Date(`${reservation.checkOutDate}T00:00:00Z`))}
+                  </TableCell>
+                  <TableCell><Badge tone={STATUS_TONE[reservation.status] ?? "neutral"}>{RESERVATION_STATUS_LABELS[reservation.status]}</Badge></TableCell>
+                  <TableCell className="text-right">
+                    <Link href={`/reservations/${reservation.id}`} aria-label={`View reservation for ${reservation.guestName}`} className={buttonClassName("outline", "sm")}>View</Link>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </Card>
       )}
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { UNIT_STATUSES } from "@/lib/db/schema";
 import { UNIT_STATUS_LABELS } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,13 @@ export function UnitCreateForm({ propertyId }: { propertyId: string }) {
     createUnitAction.bind(null, propertyId),
     {},
   );
+  const router = useRouter();
+  useEffect(() => {
+    if (state.success) {
+      router.push(`/settings/properties/${propertyId}`);
+      router.refresh();
+    }
+  }, [state.success, propertyId, router]);
 
   return (
     <form action={formAction} className="space-y-4">
@@ -114,7 +122,7 @@ export function UnitCreateForm({ propertyId }: { propertyId: string }) {
         </p>
       ) : null}
 
-      <Button type="submit" disabled={pending}>
+      <Button type="submit" variant="clay" disabled={pending}>
         {pending ? "Adding…" : "Add unit"}
       </Button>
     </form>

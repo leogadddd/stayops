@@ -1,6 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FieldError, Label, Textarea } from "@/components/ui/input";
@@ -17,8 +19,16 @@ export function MarkReadyForm({
   openDamageCount: number;
   actorRole: "owner" | "staff";
 }) {
+  const router = useRouter();
   const [state, formAction, pending] = useActionState<TaskFormState, FormData>(
-    markTaskReadyAction.bind(null, taskId),
+    async (previous, formData) => {
+      const result = await markTaskReadyAction(taskId, previous, formData);
+      if (result.success) {
+        router.push(`/tasks/${taskId}`);
+        router.refresh();
+      }
+      return result;
+    },
     {},
   );
 
@@ -68,17 +78,16 @@ export function MarkReadyForm({
         </div>
       ) : null}
       <FieldError message={state.error} />
-      <Button
-        type="submit"
-        variant="primary"
-        disabled={pending || (!canMarkReady && !ownerCanOverride)}
-      >
-        {pending
-          ? "Marking ready…"
-          : canMarkReady
-            ? "Mark unit ready"
-            : "Mark ready anyway"}
-      </Button>
+      <div className="flex flex-wrap items-center gap-4">
+        <Button
+          type="submit"
+          variant="clay"
+          disabled={pending || (!canMarkReady && !ownerCanOverride)}
+        >
+          {pending ? "Marking ready…" : canMarkReady ? "Mark unit ready" : "Mark ready anyway"}
+        </Button>
+        <Link href={`/tasks/${taskId}`} className="text-sm text-pine hover:underline">Cancel</Link>
+      </div>
     </form>
   );
 }

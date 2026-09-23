@@ -83,6 +83,8 @@ export async function recordProofPaymentAction(
         method: readString(formData, "method"),
         reference: readString(formData, "reference") || undefined,
         receivedAt: readString(formData, "receivedAt") || undefined,
+        // A reference can produce only one payment, including concurrent retries.
+        idempotencyKey: `proof:${proofId}`,
       },
     });
   } catch (error) {
@@ -151,6 +153,8 @@ export async function dismissProofAction(
   _prev: PaymentFormState,
   _formData: FormData,
 ): Promise<PaymentFormState> {
+  void _prev;
+  void _formData;
   const membership = await requireMembership();
   assertOwner(membership);
   try {

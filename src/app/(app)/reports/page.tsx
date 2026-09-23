@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input, Label, Select } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { requireOwner } from "@/lib/auth/session";
 import { addDaysLocal, monthNightRange, todayInTimeZone } from "@/lib/dates";
 import { formatPHP } from "@/lib/money";
@@ -349,46 +350,46 @@ function ReportBody({
               Occupancy by property
             </h2>
           </CardHeader>
-          <CardBody className="overflow-x-auto p-0">
+          <CardBody className="p-0">
             {summary.propertyBreakdown.length === 0 ? (
               <p className="px-6 py-5 text-sm text-ink/60">
                 No properties in scope for this report.
               </p>
             ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs font-medium uppercase tracking-wide text-ink/45">
-                    <th className="px-4 py-3">Property</th>
-                    <th className="px-4 py-3 text-right">Occupied nights</th>
-                    <th className="px-4 py-3 text-right">Bookable nights</th>
-                    <th className="px-4 py-3 text-right">Occupancy</th>
-                    <th className="px-4 py-3 text-right">Avg rate / night</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-pine/10">
+              <Table aria-labelledby="breakdown-heading">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead scope="col">Property</TableHead>
+                    <TableHead scope="col" className="text-right">Occupied nights</TableHead>
+                    <TableHead scope="col" className="text-right">Bookable nights</TableHead>
+                    <TableHead scope="col" className="text-right">Occupancy</TableHead>
+                    <TableHead scope="col" className="text-right">Avg rate / night</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {summary.propertyBreakdown.map((row) => (
-                    <tr key={row.propertyId}>
-                      <td className="px-4 py-3 text-pine">
+                    <TableRow key={row.propertyId}>
+                      <TableCell className="text-pine">
                         {propertyNames.get(row.propertyId) ?? "Unknown property"}
-                      </td>
-                      <td className="px-4 py-3 text-right tabular-nums text-ink/70">
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-ink/70">
                         {row.occupiedNights}
-                      </td>
-                      <td className="px-4 py-3 text-right tabular-nums text-ink/70">
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-ink/70">
                         {row.bookableNights}
-                      </td>
-                      <td className="px-4 py-3 text-right tabular-nums font-medium text-pine">
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums font-medium text-pine">
                         {formatPercent(row.occupancyRate)}
-                      </td>
-                      <td className="px-4 py-3 text-right tabular-nums text-ink/70">
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-ink/70">
                         {row.avgAccommodationRateCents === null
                           ? "—"
                           : formatPHP(row.avgAccommodationRateCents)}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             )}
           </CardBody>
         </Card>

@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { CheckCircle2, Plus, X } from "lucide-react";
+import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input } from "@/components/ui/input";
 import {
@@ -28,6 +29,13 @@ export function ChecklistTemplateEditor({
     {},
   );
   const [rows, setRows] = useState<TemplateRow[]>(items);
+  const router = useRouter();
+  useEffect(() => {
+    if (state.success) {
+      router.push(`/settings/properties/${propertyId}/units/${unitId}`);
+      router.refresh();
+    }
+  }, [state.success, propertyId, unitId, router]);
 
   const updateRow = (index: number, patch: Partial<TemplateRow>) => {
     setRows((current) =>
@@ -38,15 +46,6 @@ export function ChecklistTemplateEditor({
   const removeRow = (index: number) => {
     setRows((current) => current.filter((_, i) => i !== index));
   };
-
-  if (state.success) {
-    return (
-      <p className="inline-flex items-center gap-1.5 text-sm text-pine" role="status">
-        <CheckCircle2 className="h-4 w-4" aria-hidden />
-        Checklist saved. It applies to future turnovers only.
-      </p>
-    );
-  }
 
   return (
     <form action={formAction} className="space-y-3">

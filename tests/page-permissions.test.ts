@@ -255,7 +255,7 @@ describe("reservation financial boundary", () => {
       expect(getReservationLedger).not.toHaveBeenCalled();
       expect(getReservationDetail).toHaveBeenCalledWith(owner.organizationId, "reservation-a");
       expect(expireStaleHolds).toHaveBeenCalledWith(db, owner.organizationId);
-      expect(listOpenDamageReports).toHaveBeenCalledWith(owner.organizationId, "unit-a");
+      expect(listOpenDamageReports).not.toHaveBeenCalled();
       for (const component of [PaymentsCard, RecordPaymentForm, RecordRefundForm, AddDeductionForm, GuestLinkCard]) {
         expect(nodes.some((node) => node.type === component)).toBe(false);
       }
@@ -265,9 +265,14 @@ describe("reservation financial boundary", () => {
       for (const detail of ["Guest Example", "guest@example.com", "Operational unit", "Operational property", "Arrives late", "History", "Booking created"]) {
         expect(serialized).toContain(detail);
       }
-      expect(nodes.some((node) => node.type === CheckInForm)).toBe(status === "confirmed");
-      expect(nodes.some((node) => node.type === CheckOutForm)).toBe(status === "checked_in");
-      expect(nodes.some((node) => node.type === DamageReportForm)).toBe(status === "checked_in");
+      for (const component of [CheckInForm, CheckOutForm, DamageReportForm]) {
+        expect(nodes.some((node) => node.type === component)).toBe(false);
+      }
+      const hasLink = (suffix: string) => nodes.some((node) => node.props.href === `/reservations/reservation-a/${suffix}`);
+      expect(hasLink("check-in")).toBe(status === "confirmed");
+      expect(hasLink("check-out")).toBe(status === "checked_in");
+      expect(hasLink("damage/new")).toBe(status === "checked_in" || status === "checked_out");
+      for (const suffix of ["payments/new", "refunds/new", "deductions/new", "confirm", "cancel"]) expect(hasLink(suffix)).toBe(false);
       if (status === "checked_out") {
         expect(getTaskForReservation).toHaveBeenCalledWith(owner.organizationId, "reservation-a");
         expect(nodes.some((node) => node.props.href === "/tasks/turnover-a")).toBe(true);
@@ -286,11 +291,17 @@ describe("reservation financial boundary", () => {
     const paymentCard = nodes.find((node) => node.type === PaymentsCard);
     expect(paymentCard?.props.ledger).toEqual(await vi.mocked(getReservationLedger).mock.results[0]?.value);
     expect(paymentCard?.props.isOwner).toBe(true);
-    for (const component of [PaymentsCard, RecordPaymentForm, RecordRefundForm, AddDeductionForm, GuestLinkCard, CheckOutForm, DamageReportForm]) {
+    for (const component of [PaymentsCard, GuestLinkCard]) {
       expect(nodes.some((node) => node.type === component)).toBe(true);
     }
+    for (const component of [RecordPaymentForm, RecordRefundForm, AddDeductionForm, CheckOutForm, DamageReportForm]) {
+      expect(nodes.some((node) => node.type === component)).toBe(false);
+    }
+    for (const suffix of ["payments/new", "refunds/new", "deductions/new", "check-out", "damage/new"]) {
+      expect(nodes.some((node) => node.props.href === `/reservations/reservation-a/${suffix}`)).toBe(true);
+    }
     const serialized = JSON.stringify(tree, (_key, value) => React.isValidElement(value) ? value.props : value);
-    expect(serialized).toContain("Charges");
+    expect(serialized).toContain("Booking charges");
     expect(serialized).toContain("Private negotiated rate");
     expect(serialized).toContain("private-payment-reference");
   });

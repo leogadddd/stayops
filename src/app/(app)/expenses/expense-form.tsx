@@ -1,6 +1,8 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label, Select, Textarea } from "@/components/ui/input";
@@ -24,43 +26,34 @@ export function ExpenseForm({
   unitsByProperty: Record<string, { id: string; name: string }[]>;
   defaultPaidDate: string;
 }) {
+  const router = useRouter();
   const [state, formAction, pending] = useActionState<ExpenseFormState, FormData>(
-    createExpenseAction,
+    async (previous, formData) => {
+      const result = await createExpenseAction(previous, formData);
+      if (result.success) {
+        router.push("/expenses");
+        router.refresh();
+      }
+      return result;
+    },
     {},
   );
   const [propertyId, setPropertyId] = useState(properties[0]?.id ?? "");
-  const [formKey, setFormKey] = useState(0);
-  const [recordAnother, setRecordAnother] = useState(false);
 
   const unitOptions = unitsByProperty[propertyId] ?? [];
 
   return (
     <div className="space-y-3">
-      {state.success && !recordAnother ? (
+      {state.success ? (
         <div className="space-y-3">
           <p className="inline-flex items-center gap-1.5 text-sm text-pine" role="status">
             <CheckCircle2 className="h-4 w-4" aria-hidden />
             Expense recorded.
           </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setFormKey((key) => key + 1);
-              setRecordAnother(true);
-            }}
-          >
-            Record another expense
-          </Button>
+          <Link href="/expenses" className="block text-sm text-pine hover:underline">Back to expenses</Link>
         </div>
       ) : (
-        <form
-          key={formKey}
-          action={formAction}
-          onSubmit={() => setRecordAnother(false)}
-          className="space-y-3"
-        >
+        <form action={formAction} className="space-y-3">
           <div>
             <Label htmlFor="expense-property">Property</Label>
             <Select
@@ -146,9 +139,12 @@ export function ExpenseForm({
             />
           </div>
           <FieldError message={state.error} />
-          <Button type="submit" variant="primary" disabled={pending}>
-            {pending ? "Recording…" : "Record expense"}
-          </Button>
+          <div className="flex flex-wrap items-center gap-4">
+            <Button type="submit" variant="clay" disabled={pending}>
+              {pending ? "Recording…" : "Record expense"}
+            </Button>
+            <Link href="/expenses" className="text-sm text-pine hover:underline">Cancel</Link>
+          </div>
         </form>
       )}
     </div>

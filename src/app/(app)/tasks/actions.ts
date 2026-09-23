@@ -5,6 +5,7 @@ import { ZodError } from "zod";
 import { requireMembership, assertOwner, PermissionError } from "@/lib/auth/session";
 import {
   createDamageReport,
+  getTaskDetail,
   markTaskReady,
   OperationsError,
   resolveDamageReport,
@@ -86,6 +87,10 @@ export async function updateTaskNotesAction(
 ): Promise<TaskFormState> {
   const membership = await requireMembership();
   try {
+    const { task } = await getTaskDetail(membership.organizationId, taskId);
+    if (task.status !== "open") {
+      throw new OperationsError("This task is already marked ready and can no longer be edited.");
+    }
     await updateTaskNotes({
       organizationId: membership.organizationId,
       actorUserId: membership.userId,
@@ -127,11 +132,13 @@ export async function createDamageReportAction(
     return toFormError(error);
   }
   revalidatePath("/tasks");
+  revalidatePath("/tasks/[id]", "page");
   if (reservationId) revalidatePath(`/reservations/${reservationId}`);
   return { success: true };
 }
 
 export async function resolveDamageReportAction(
+  taskId: string,
   damageReportId: string,
   _prev: DamageFormState,
   formData: FormData,
@@ -139,6 +146,10 @@ export async function resolveDamageReportAction(
   const membership = await requireMembership();
   assertOwner(membership);
   try {
+    const { openDamage } = await getTaskDetail(membership.organizationId, taskId);
+    if (!openDamage.some((report) => report.id === damageReportId)) {
+      throw new OperationsError("Open damage report not found for this task.");
+    }
     await resolveDamageReport({
       organizationId: membership.organizationId,
       actorUserId: membership.userId,
@@ -152,5 +163,6 @@ export async function resolveDamageReportAction(
     return toFormError(error);
   }
   revalidatePath("/tasks");
+  revalidatePath("/tasks/[id]", "page");
   return { success: true };
 }

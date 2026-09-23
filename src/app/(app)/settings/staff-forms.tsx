@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useTransition } from "react";
+import { useActionState, useEffect, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label } from "@/components/ui/input";
 import { UserPlus, X } from "lucide-react";
@@ -11,10 +12,17 @@ export function InviteStaffForm() {
     inviteStaffAction,
     {},
   );
+  const router = useRouter();
+  useEffect(() => {
+    if (state.success) {
+      router.push("/settings");
+      router.refresh();
+    }
+  }, [state.success, router]);
 
   return (
-    <form action={formAction} className="flex flex-wrap items-start gap-3">
-      <div className="min-w-56 flex-1">
+    <form action={formAction} className="space-y-4">
+      <div>
         <Label htmlFor="staff-email">Email address</Label>
         <Input
           id="staff-email"
@@ -31,7 +39,7 @@ export function InviteStaffForm() {
           </p>
         ) : null}
       </div>
-      <Button type="submit" disabled={pending}>
+      <Button type="submit" variant="clay" disabled={pending}>
         <UserPlus className="h-4 w-4" aria-hidden />
         {pending ? "Adding…" : "Add staff"}
       </Button>

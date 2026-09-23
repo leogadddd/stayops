@@ -98,6 +98,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "reservation.cancelled": "Reservation cancelled",
   "reservation.checked_in": "Guest checked in",
   "reservation.checked_out": "Guest checked out",
+  "guest_link.created": "Guest link created",
   "guest_link.revoked": "Guest link revoked",
   "payment.recorded": "Payment recorded",
   "payment_proof.submitted": "Payment proof submitted",

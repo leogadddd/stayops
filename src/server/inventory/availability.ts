@@ -88,6 +88,7 @@ export async function getOccupancySegments(
     .from(unitBlocks)
     .where(
       and(
+        eq(unitBlocks.organizationId, organizationId),
         inArray(unitBlocks.unitId, unitIds),
         lt(unitBlocks.startDate, rangeEnd),
         gt(unitBlocks.endDate, rangeStart),
@@ -114,6 +115,7 @@ export async function getOccupancySegments(
     )
     .where(
       and(
+        eq(reservations.organizationId, organizationId),
         inArray(reservations.unitId, unitIds),
         lt(reservations.checkInDate, rangeEnd),
         gt(reservations.checkOutDate, rangeStart),
@@ -158,6 +160,48 @@ export async function getOccupancySegments(
     });
   }
   return segments;
+}
+
+// Check hold expiry here too, because the concurrent expiry sweep may not have finished.
+export async function listCalendarActivity(
+  organizationId: string,
+  unitDays: readonly { unitId: string; today: string }[],
+) {
+  if (unitDays.length === 0) return [];
+  return db
+    .select({
+      id: reservations.id,
+      unitId: reservations.unitId,
+      startDate: reservations.checkInDate,
+      endDate: reservations.checkOutDate,
+      status: reservations.status,
+      guestName: guests.name,
+      guestCount: reservations.guestCount,
+      expiresAt: reservations.expiresAt,
+    })
+    .from(reservations)
+    .innerJoin(
+      guests,
+      and(
+        eq(reservations.guestId, guests.id),
+        eq(reservations.organizationId, guests.organizationId),
+      ),
+    )
+    .where(and(
+      eq(reservations.organizationId, organizationId),
+      inArray(reservations.unitId, unitDays.map(({ unitId }) => unitId)),
+      or(
+        and(eq(reservations.status, "hold"), gt(reservations.expiresAt, new Date())),
+        and(
+          inArray(reservations.status, ["confirmed", "checked_in", "checked_out"]),
+          or(...unitDays.map(({ unitId, today }) => and(
+            eq(reservations.unitId, unitId),
+            or(eq(reservations.checkInDate, today), eq(reservations.checkOutDate, today)),
+          ))),
+        ),
+      ),
+    ))
+    .orderBy(reservations.checkInDate, reservations.id);
 }
 
 /**

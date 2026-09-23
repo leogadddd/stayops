@@ -1,14 +1,19 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Logo } from "@/components/logo";
 import { Badge } from "@/components/ui/badge";
+import { buttonClassName } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { formatPHP } from "@/lib/money";
 import { RESERVATION_STATUS_LABELS } from "@/lib/labels";
 import type { ReservationStatus } from "@/lib/db/schema";
 import { getGuestViewByToken } from "@/server/reservations/guest-link";
-import { SubmitProofForm } from "./submit-proof-form";
 
-export const metadata: Metadata = { title: "Your booking" };
+export const metadata: Metadata = {
+  title: "Your booking",
+  robots: { index: false, follow: false },
+  referrer: "no-referrer",
+};
 export const dynamic = "force-dynamic";
 
 const DATE_LABEL = new Intl.DateTimeFormat("en-PH", {
@@ -192,7 +197,7 @@ export default async function GuestStatusPage({
             ) : null}
 
             {PROOF_SUBMISSION_STATUSES.has(view.status) ? (
-              <Card>
+              <Card className="bg-sage/35">
                 <CardBody>
                   <h2 className="font-display text-lg text-pine">
                     Sent a payment?
@@ -208,9 +213,10 @@ export default async function GuestStatusPage({
                       waiting for your host to verify.
                     </p>
                   ) : null}
-                  <div className="mt-3">
-                    <SubmitProofForm token={token} />
-                  </div>
+                  <Link href={`/g/${encodeURIComponent(token)}/payment-proof/new`} prefetch={false} className={buttonClassName("clay", "lg", "mt-4 w-full")}>
+                    Submit payment reference
+                  </Link>
+                  <p className="mt-2 text-xs text-ink/55">Your host verifies payments manually.</p>
                 </CardBody>
               </Card>
             ) : null}

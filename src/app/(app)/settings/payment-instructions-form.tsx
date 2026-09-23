@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FieldError, Label, Textarea } from "@/components/ui/input";
@@ -15,6 +16,13 @@ export function PaymentInstructionsForm({
     savePaymentInstructions,
     {},
   );
+  const router = useRouter();
+  useEffect(() => {
+    if (state.success) {
+      router.push("/settings");
+      router.refresh();
+    }
+  }, [state.success, router]);
 
   return (
     <form action={formAction}>

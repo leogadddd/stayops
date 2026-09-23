@@ -1,30 +1,25 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { Plus } from "lucide-react";
 import { requireOwner } from "@/lib/auth/session";
 import { PermissionDenied } from "@/components/app/permission-denied";
+import { PageHeading } from "@/components/app/page-heading";
 import { todayInTimeZone } from "@/lib/dates";
 import { UNIT_STATUS_LABELS } from "@/lib/labels";
-import { centavosToPesosInput, formatPHP } from "@/lib/money";
+import { formatPHP } from "@/lib/money";
 import { normalizeChecklistTemplate } from "@/lib/turnover";
-import {
-  getPropertyOrThrow,
-  getUnitOrThrow,
-  listUnitBlocks,
-} from "@/server/inventory/service";
+import { getPropertyOrThrow, getUnitOrThrow, listUnitBlocks } from "@/server/inventory/service";
+import { InventoryError } from "@/server/inventory/validation";
 import { Badge } from "@/components/ui/badge";
+import { buttonClassName } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { BlockForms } from "../block-forms";
-import { UnitEditForm } from "../unit-edit-form";
-import { ChecklistTemplateEditor } from "../checklist-template-editor";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { RemoveBlockButton } from "../block-forms";
 
 export const metadata: Metadata = { title: "Unit" };
 
-export default async function UnitDetailPage({
-  params,
-}: {
-  params: Promise<{ propertyId: string; unitId: string }>;
-}) {
+export default async function UnitDetailPage({ params }: { params: Promise<{ propertyId: string; unitId: string }> }) {
   const membership = await requireOwner();
   if (!membership) return <PermissionDenied />;
 
@@ -34,101 +29,69 @@ export default async function UnitDetailPage({
   try {
     property = await getPropertyOrThrow(membership.organizationId, propertyId);
     unit = await getUnitOrThrow(membership.organizationId, unitId);
-  } catch {
-    notFound();
+  } catch (error) {
+    if (error instanceof InventoryError) notFound();
+    throw error;
   }
-  if (unit.propertyId !== property.id) {
-    notFound();
-  }
+  if (unit.propertyId !== property.id) notFound();
 
-  const today = todayInTimeZone(property.timezone);
-  const blocks = await listUnitBlocks(membership.organizationId, unit.id, today);
+  const blocks = await listUnitBlocks(membership.organizationId, unit.id, todayInTimeZone(property.timezone));
+  const checklist = normalizeChecklistTemplate(unit.checklistTemplate);
+  const unitHref = `/settings/properties/${property.id}/units/${unit.id}`;
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <Link
-        href={`/settings/properties/${property.id}`}
-        className="text-sm text-pine/70 underline-offset-4 hover:text-pine hover:underline"
-      >
-        ← {property.name}
-      </Link>
-      <div className="mt-2 flex flex-wrap items-center gap-3">
-        <h1 className="font-display text-3xl text-pine">{unit.name}</h1>
-        <Badge
-          tone={
-            unit.status === "active"
-              ? "sage"
-              : unit.status === "maintenance"
-                ? "clay"
-                : "neutral"
-          }
-        >
-          {UNIT_STATUS_LABELS[unit.status]}
-        </Badge>
-      </div>
-      <p className="mt-1 text-sm text-ink/60">
-        {formatPHP(unit.defaultNightlyRateCents)}/night
-        {unit.cleaningFeeCents !== null &&
-          ` · ${formatPHP(unit.cleaningFeeCents)} cleaning fee`}
-        {unit.securityDepositCents !== null &&
-          ` · ${formatPHP(unit.securityDepositCents)} refundable deposit`}
-      </p>
+    <div className="mx-auto max-w-5xl space-y-6">
+      <PageHeading title={unit.name} description={`${property.name} · ${formatPHP(unit.defaultNightlyRateCents)} per night`} backHref={`/settings/properties/${property.id}`} backLabel={property.name}>
+        <Link href={`${unitHref}/edit`} className={buttonClassName("outline")}>Edit unit</Link>
+      </PageHeading>
 
-      <Card className="mt-8">
-        <CardHeader>
+      <Card className="bg-[#FFFDFA]">
+        <CardHeader className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-display text-xl text-pine">Unit details</h2>
+          <Badge tone={unit.status === "active" ? "sage" : unit.status === "maintenance" ? "clay" : "neutral"}>{UNIT_STATUS_LABELS[unit.status]}</Badge>
         </CardHeader>
         <CardBody>
-          <UnitEditForm
-            propertyId={property.id}
-            unitId={unit.id}
-            values={{
-              name: unit.name,
-              capacity: unit.capacity,
-              bedrooms: unit.bedrooms,
-              bathrooms: unit.bathrooms,
-              nightlyRate: centavosToPesosInput(unit.defaultNightlyRateCents),
-              cleaningFee: centavosToPesosInput(unit.cleaningFeeCents),
-              securityDeposit: centavosToPesosInput(unit.securityDepositCents),
-              status: unit.status,
-            }}
-          />
+          <dl className="grid gap-5 text-sm sm:grid-cols-3">
+            <div><dt className="text-ink/55">Capacity</dt><dd className="mt-1 text-pine">{unit.capacity} guests</dd></div>
+            <div><dt className="text-ink/55">Bedrooms</dt><dd className="mt-1 text-pine">{unit.bedrooms}</dd></div>
+            <div><dt className="text-ink/55">Bathrooms</dt><dd className="mt-1 text-pine">{unit.bathrooms}</dd></div>
+            <div><dt className="text-ink/55">Nightly rate</dt><dd className="mt-1 text-pine">{formatPHP(unit.defaultNightlyRateCents)}</dd></div>
+            <div><dt className="text-ink/55">Cleaning fee</dt><dd className="mt-1 text-pine">{unit.cleaningFeeCents === null ? "Not set" : formatPHP(unit.cleaningFeeCents)}</dd></div>
+            <div><dt className="text-ink/55">Refundable deposit</dt><dd className="mt-1 text-pine">{unit.securityDepositCents === null ? "Not set" : formatPHP(unit.securityDepositCents)}</dd></div>
+          </dl>
         </CardBody>
       </Card>
 
-      <Card className="mt-8">
-        <CardHeader>
-          <h2 className="font-display text-xl text-pine">Availability</h2>
+      <Card className="overflow-hidden bg-[#FFFDFA]">
+        <CardHeader className="flex flex-wrap items-center justify-between gap-3">
+          <div><h2 className="font-display text-xl text-pine">Out-of-service blocks</h2><p className="mt-1 text-xs text-ink/55">Current and upcoming blocks. The end date is the first bookable night.</p></div>
+          <Link href={`${unitHref}/blocks/new`} className={buttonClassName("clay", "sm")}><Plus className="h-4 w-4" aria-hidden />Add block</Link>
         </CardHeader>
-        <CardBody>
-          <BlockForms
-            propertyId={property.id}
-            unitId={unit.id}
-            blocks={blocks.map((block) => ({
-              id: block.id,
-              startDate: block.startDate,
-              endDate: block.endDate,
-              reason: block.reason,
-            }))}
-          />
-        </CardBody>
+        <Table aria-label="Out-of-service blocks">
+          <TableHeader><TableRow><TableHead>Start date</TableHead><TableHead>End date · exclusive</TableHead><TableHead>Reason</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+          <TableBody>
+            {blocks.length === 0 ? <TableRow><TableCell colSpan={4} className="py-8 text-center text-ink/55">No current or upcoming blocks. Active units can accept bookings on available dates.</TableCell></TableRow> : blocks.map((block) => (
+              <TableRow key={block.id}>
+                <TableCell className="whitespace-nowrap">{block.startDate}</TableCell>
+                <TableCell className="whitespace-nowrap">{block.endDate}</TableCell>
+                <TableCell>{block.reason}</TableCell>
+                <TableCell className="text-right"><RemoveBlockButton propertyId={property.id} unitId={unit.id} blockId={block.id} label={`${block.startDate} to ${block.endDate}`} /></TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </Card>
 
-      <Card className="mt-8">
-        <CardHeader>
-          <h2 className="font-display text-xl text-pine">Turnover checklist</h2>
+      <Card className="bg-[#FFFDFA]">
+        <CardHeader className="flex flex-wrap items-center justify-between gap-3">
+          <div><h2 className="font-display text-xl text-pine">Turnover checklist</h2><p className="mt-1 text-xs text-ink/55">{checklist.length} items · {checklist.filter((item) => item.required).length} required</p></div>
+          <Link href={`${unitHref}/checklist/edit`} className={buttonClassName("outline", "sm")}>Edit checklist</Link>
         </CardHeader>
-        <CardBody className="space-y-3">
-          <p className="text-sm text-ink/60">
-            Every checkout opens a turnover task from this checklist. Changes
-            here apply to future turnovers — tasks already in progress keep
-            their snapshot.
-          </p>
-          <ChecklistTemplateEditor
-            propertyId={property.id}
-            unitId={unit.id}
-            items={normalizeChecklistTemplate(unit.checklistTemplate)}
-          />
+        <CardBody>
+          <p className="mb-4 text-sm text-ink/60">Every checkout opens a turnover task from this checklist. Changes apply to future turnovers only.</p>
+          <ol className="divide-y divide-pine/10">
+            {checklist.map((item, index) => <li key={index} className="flex items-start justify-between gap-4 py-3 text-sm"><span className="text-pine">{index + 1}. {item.label}</span><span className="shrink-0 text-xs text-ink/55">{item.required ? "Required" : "Optional"}</span></li>)}
+          </ol>
         </CardBody>
       </Card>
     </div>

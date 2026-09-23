@@ -1,408 +1,164 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowDownToLine, BrushCleaning, Clock3, Plus } from "lucide-react";
 import { requireMembership } from "@/lib/auth/session";
-import {
-  isValidMonth,
-  listNights,
-  monthNightRange,
-  shiftMonth,
-  todayInTimeZone,
-} from "@/lib/dates";
-import { UNIT_STATUS_LABELS, RESERVATION_STATUS_LABELS } from "@/lib/labels";
-import {
-  buildNightStatusMap,
-  getOccupancySegments,
-  type NightStatus,
-} from "@/server/inventory/availability";
-import {
-  listOrgUnits,
-  listProperties,
-} from "@/server/inventory/service";
+import { calendarEventsForUnit, monthGridRange, type CalendarEvent } from "@/lib/calendar";
+import { addDaysLocal, isValidMonth, nightsBetween, shiftMonth, todayInTimeZone } from "@/lib/dates";
+import { RESERVATION_STATUS_LABELS, UNIT_STATUS_LABELS } from "@/lib/labels";
+import { getOccupancySegments, listCalendarActivity } from "@/server/inventory/availability";
+import { listOrgUnits, listProperties } from "@/server/inventory/service";
+import { listTasks } from "@/server/operations/service";
+import { PageHeading } from "@/components/app/page-heading";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Select } from "@/components/ui/input";
 import { AvailabilityCheckForm } from "./availability-check-form";
+import { MonthCalendar, type DisplayCalendarEvent } from "./month-calendar";
+import { TodayPanel } from "./today-panel";
 
 export const metadata: Metadata = { title: "Calendar" };
+const MONTH_LABEL = new Intl.DateTimeFormat("en-PH", { month: "long", year: "numeric", timeZone: "UTC" });
 
-const MONTH_LABEL = new Intl.DateTimeFormat("en-PH", {
-  month: "long",
-  year: "numeric",
-  timeZone: "UTC",
-});
-const NIGHT_LABEL = new Intl.DateTimeFormat("en-PH", {
-  weekday: "short",
-  month: "short",
-  day: "numeric",
-  timeZone: "UTC",
-});
-const TIME_LABEL = new Intl.DateTimeFormat("en-PH", { timeStyle: "short" });
-
-export default async function CalendarPage({
-  searchParams,
-}: {
+export default async function CalendarPage({ searchParams }: {
   searchParams: Promise<{ month?: string; unit?: string }>;
 }) {
   const membership = await requireMembership();
   const params = await searchParams;
-
-  const properties = await listProperties(membership.organizationId);
-  const allUnits = await listOrgUnits(membership.organizationId);
-
-  const timezone = properties[0]?.timezone ?? "Asia/Manila";
-  const today = todayInTimeZone(timezone);
-  const month = isValidMonth(params.month ?? "")
-    ? (params.month as string)
-    : today.slice(0, 7);
-  const { start, end } = monthNightRange(month);
-  const nights = listNights(start, end);
-
-  const visibleUnits = params.unit
-    ? allUnits.filter((unit) => unit.id === params.unit)
-    : allUnits;
-
-  const segmentsByUnit = await getOccupancySegments(
-    membership.organizationId,
-    visibleUnits.map((unit) => unit.id),
-    start,
-    end,
-  );
-
-  const unitLabel = (unitId: string) => {
-    const unit = allUnits.find((candidate) => candidate.id === unitId);
-    if (!unit) return "Unit";
-    const property = properties.find((item) => item.id === unit.propertyId);
-    return properties.length > 1 && property
-      ? `${property.name} · ${unit.name}`
-      : unit.name;
-  };
-
-  const monthLabel = MONTH_LABEL.format(new Date(`${month}-01T00:00:00Z`));
-
-  // Built once per unit for the whole month.
-  const nightMaps = new Map<string, Map<string, NightStatus>>();
-  for (const unit of visibleUnits) {
-    nightMaps.set(
-      unit.id,
-      buildNightStatusMap(start, end, segmentsByUnit.get(unit.id) ?? []),
-    );
-  }
+  const [properties, allUnits] = await Promise.all([
+    listProperties(membership.organizationId),
+    listOrgUnits(membership.organizationId),
+  ]);
 
   if (properties.length === 0) {
-    return (
-      <div className="mx-auto max-w-5xl">
-        <h1 className="font-display text-3xl text-pine">Calendar</h1>
-        <EmptyState
-          className="mt-8"
-          title="No properties yet"
-          description="Your calendar shows availability once you add a property and its first unit."
-          action={
-            <Link
-              href="/settings/properties"
-              className={buttonClassName("primary", "md")}
-            >
-              Add your first property
-            </Link>
-          }
-        />
-      </div>
-    );
+    return <div className="mx-auto max-w-5xl"><PageHeading title="Calendar" /><EmptyState title="No properties yet" description={membership.role === "owner" ? "Add a property and its first unit to start planning your stays." : "Ask the owner to add a property and its first unit."} action={membership.role === "owner" ? <Link href="/settings/properties" className={buttonClassName("clay", "md")}>Add your first property</Link> : undefined} /></div>;
   }
 
+  const selectedUnit = allUnits.find((unit) => unit.id === params.unit);
+  const visibleUnits = selectedUnit ? [selectedUnit] : allUnits;
+  const unitMap = new Map(allUnits.map((unit) => [unit.id, unit]));
+  const propertyMap = new Map(properties.map((property) => [property.id, property]));
+  const propertyForUnit = (unitId: string) => propertyMap.get(unitMap.get(unitId)!.propertyId)!;
+  // Resolve the selected property's timezone BEFORE deriving today or the month.
+  const timezone = selectedUnit ? propertyForUnit(selectedUnit.id).timezone : properties[0]!.timezone;
+  const today = todayInTimeZone(timezone);
+  const unitDays = visibleUnits.map((unit) => ({ unitId: unit.id, today: todayInTimeZone(propertyForUnit(unit.id).timezone) }));
+  const todayByUnit = new Map(unitDays.map((unit) => [unit.unitId, unit.today]));
+  const multipleTimezones = new Set(visibleUnits.map((unit) => propertyForUnit(unit.id).timezone)).size > 1;
+  const month = isValidMonth(params.month ?? "") ? params.month! : today.slice(0, 7);
+  const gridRange = monthGridRange(month);
+  const [segmentsByUnit, activity, taskRows] = await Promise.all([
+    // Include the preceding night so checkout on the first grid date is retained.
+    getOccupancySegments(membership.organizationId, visibleUnits.map((unit) => unit.id), addDaysLocal(gridRange.start, -1), gridRange.end),
+    listCalendarActivity(membership.organizationId, unitDays),
+    listTasks(membership.organizationId, { status: "open" }),
+  ]);
+
+  const unitLabel = (unitId: string) => {
+    const unit = unitMap.get(unitId)!;
+    return properties.length > 1 ? `${propertyForUnit(unitId).name} · ${unit.name}` : unit.name;
+  };
+  const expiryLabel = (date: Date, unitId: string) => new Intl.DateTimeFormat("en-PH", {
+    month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: propertyForUnit(unitId).timezone,
+  }).format(date);
+  const visibleIds = new Set(visibleUnits.map((unit) => unit.id));
+  const openTasks = taskRows.filter((task) => visibleIds.has(task.unitId));
+  const needsCleaning = new Set(openTasks.map((task) => task.unitId)).size;
+  const arrivals = activity.filter((reservation) => reservation.status !== "hold" && reservation.startDate === todayByUnit.get(reservation.unitId));
+  const departures = activity.filter((reservation) => reservation.status !== "hold" && reservation.endDate === todayByUnit.get(reservation.unitId));
+  const activeHolds = activity.filter((reservation) => reservation.status === "hold");
+
+  const events: CalendarEvent[] = visibleUnits.flatMap((unit) => {
+    const unitEvents = calendarEventsForUnit(unit.id, segmentsByUnit.get(unit.id) ?? []);
+    // Today's unit status is not historical status. Retain past bookings and do
+    // not project today's unavailable status backward into a previous month.
+    const statusStart = todayByUnit.get(unit.id)! > gridRange.start ? todayByUnit.get(unit.id)! : gridRange.start;
+    if (unit.status !== "active" && statusStart < gridRange.end) {
+      unitEvents.push({
+        id: `unavailable:${unit.id}`, unitId: unit.id, kind: "unavailable",
+        startDate: statusStart, endDate: gridRange.end,
+        title: unit.status === "maintenance" ? "Maintenance" : "Unit unavailable",
+        description: `${UNIT_STATUS_LABELS[unit.status]} · current status`,
+      });
+    }
+    return unitEvents;
+  });
+  const displayEvents: DisplayCalendarEvent[] = events.map((event) => {
+    const unit = unitMap.get(event.unitId)!;
+    const nights = nightsBetween(event.startDate, event.endDate);
+    const nightLabel = `${nights} night${nights === 1 ? "" : "s"}`;
+    const detail = event.kind === "checkout"
+      ? event.status === "checked_out" ? "Checked out" : "Check-out"
+      : event.kind === "hold"
+        ? `Hold · ${nightLabel}${event.expiresAt ? ` · expires ${expiryLabel(event.expiresAt, event.unitId)}` : ""}`
+        : event.kind === "stay"
+          ? `${RESERVATION_STATUS_LABELS[event.status!]} · ${nightLabel}`
+          : event.description ?? "Unit unavailable";
+    return {
+      ...event,
+      unitLabel: unitLabel(event.unitId),
+      detail,
+      href: event.reservationId ? `/reservations/${event.reservationId}` : membership.role === "owner" ? `/settings/properties/${unit.propertyId}/units/${unit.id}` : undefined,
+      accessibleLabel: `${event.title} · ${unitLabel(event.unitId)} · ${detail} · ${event.startDate}${event.kind === "checkout" ? "; checkout marker, not occupancy" : ` to ${event.endDate} (end date exclusive)`}`,
+    };
+  });
+
+  const calendarHref = (targetMonth: string) => `/calendar?${new URLSearchParams({ month: targetMonth, ...(selectedUnit ? { unit: selectedUnit.id } : {}) })}`;
+  const newReservationHref = (date: string) => `/reservations/new?${new URLSearchParams({ checkIn: date, checkOut: addDaysLocal(date, 1), ...(selectedUnit?.status === "active" ? { unit: selectedUnit.id } : {}) })}`;
+  const canBookVisibleUnit = visibleUnits.some((unit) => unit.status === "active");
+  const monthLabel = MONTH_LABEL.format(new Date(`${month}-01T00:00:00Z`));
+  // Only display-safe fields cross into the presentation components.
+  const activityDisplay = (reservation: (typeof activity)[number]) => ({
+    ...reservation,
+    unitLabel: unitLabel(reservation.unitId),
+    timezone: propertyForUnit(reservation.unitId).timezone,
+    checkInTime: propertyForUnit(reservation.unitId).checkInTime,
+    checkOutTime: propertyForUnit(reservation.unitId).checkOutTime,
+    expiryLabel: reservation.expiresAt ? expiryLabel(reservation.expiresAt, reservation.unitId) : null,
+  });
+
   return (
-    <div className="mx-auto max-w-6xl">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-display text-3xl text-pine">Calendar</h1>
-          <p className="mt-1 text-sm text-ink/60">
-            Availability, holds and reservations across your units. Nights use
-            each property&apos;s local timezone; check-out days are free.
-          </p>
+    <div className="mx-auto min-w-0 max-w-[1600px]">
+      <PageHeading title="Calendar">
+        <div className="flex flex-1 flex-wrap items-center justify-between gap-3 sm:ml-5">
+          <form method="get" className="flex min-w-0 items-center gap-2">
+            <input type="hidden" name="month" value={month} />
+            <label htmlFor="unit-filter" className="sr-only">Calendar unit</label>
+            <Select id="unit-filter" name="unit" defaultValue={selectedUnit?.id ?? ""} className="max-w-64 bg-linen sm:min-w-48">
+              <option value="">All units</option>
+              {allUnits.map((unit) => <option key={unit.id} value={unit.id}>{unitLabel(unit.id)}{unit.status !== "active" ? ` · ${UNIT_STATUS_LABELS[unit.status]}` : ""}</option>)}
+            </Select>
+            <Button type="submit" variant="outline" size="sm">Show</Button>
+          </form>
+          <Link href={newReservationHref(today)} className={buttonClassName("clay", "md")}><Plus className="h-4 w-4" aria-hidden />New reservation</Link>
         </div>
-        <Link
-          href="/settings/properties"
-          className={buttonClassName("outline", "md")}
-        >
-          Manage properties
-        </Link>
-      </div>
+      </PageHeading>
 
-      <div className="mt-6">
-        <AvailabilityCheckForm
-          units={allUnits.map((unit) => ({
-            id: unit.id,
-            name: unitLabel(unit.id),
-          }))}
-        />
-      </div>
-
-      <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Link
-            href={`/calendar?month=${shiftMonth(month, -1)}${params.unit ? `&unit=${params.unit}` : ""}`}
-            className={buttonClassName("ghost", "sm")}
-            aria-label={`Previous month, ${shiftMonth(month, -1)}`}
-          >
-            <ChevronLeft className="h-4 w-4" aria-hidden />
-          </Link>
-          <h2 className="min-w-40 text-center font-display text-xl text-pine">
-            {monthLabel}
-          </h2>
-          <Link
-            href={`/calendar?month=${shiftMonth(month, 1)}${params.unit ? `&unit=${params.unit}` : ""}`}
-            className={buttonClassName("ghost", "sm")}
-            aria-label={`Next month, ${shiftMonth(month, 1)}`}
-          >
-            <ChevronRight className="h-4 w-4" aria-hidden />
-          </Link>
-          {month !== today.slice(0, 7) ? (
-            <Link
-              href={`/calendar${params.unit ? `?unit=${params.unit}` : ""}`}
-              className="text-sm text-pine/70 underline-offset-4 hover:text-pine hover:underline"
-            >
-              Back to today
-            </Link>
-          ) : null}
-        </div>
-
-        <form method="get" className="flex items-center gap-2">
-          <input type="hidden" name="month" value={month} />
-          <label htmlFor="unit-filter" className="text-sm text-ink/60">
-            Unit
-          </label>
-          <Select id="unit-filter" name="unit" defaultValue={params.unit ?? ""}>
-            <option value="">All units</option>
-            {allUnits.map((unit) => (
-              <option key={unit.id} value={unit.id}>
-                {unitLabel(unit.id)}
-              </option>
+      <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_18rem] 2xl:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="min-w-0">
+          <div className="mb-5 grid grid-cols-3 gap-2 sm:gap-4">
+            {[
+              { label: "Arriving today", count: arrivals.length, icon: ArrowDownToLine, href: "#today-arrivals", tone: "bg-sage/40", iconTone: "bg-sage" },
+              { label: "Active holds", count: activeHolds.length, icon: Clock3, href: "#active-holds", tone: "bg-[#eee6d9]", iconTone: "bg-[#e6d7c1]" },
+              { label: "Needs cleaning", count: needsCleaning, icon: BrushCleaning, href: "#needs-cleaning", tone: "bg-sage/40", iconTone: "bg-sage" },
+            ].map(({ label, count, icon: Icon, href, tone, iconTone }) => (
+              <Link key={label} href={href} className={`flex min-w-0 items-center gap-3 rounded-lg p-3 transition-[filter] hover:brightness-95 sm:p-4 ${tone}`}>
+                <span className={`hidden h-11 w-11 shrink-0 items-center justify-center rounded-full text-pine lg:inline-flex ${iconTone}`}><Icon className="h-5 w-5" strokeWidth={1.6} aria-hidden /></span>
+                <div><p className="text-[11px] leading-4 text-ink/80 sm:text-xs">{label}</p><p className="mt-1 font-display text-3xl leading-none text-pine">{count}</p></div>
+              </Link>
             ))}
-          </Select>
-          <Button type="submit" variant="outline" size="sm">
-            Filter
-          </Button>
-        </form>
+          </div>
+
+          {visibleUnits.length ? <MonthCalendar month={month} today={today} monthLabel={monthLabel} events={displayEvents} previousHref={calendarHref(shiftMonth(month, -1))} nextHref={calendarHref(shiftMonth(month, 1))} todayHref={calendarHref(today.slice(0, 7))} newReservationHref={canBookVisibleUnit ? newReservationHref : null} /> : <EmptyState title="No units to show" description="Add a unit to your property to see stays and availability here." action={membership.role === "owner" ? <Link href="/settings/properties" className={buttonClassName("outline", "md")}>Manage properties</Link> : undefined} />}
+
+          <p className="mt-2 text-xs leading-relaxed text-ink/55">{multipleTimezones ? `Dates use each property's timezone. The calendar's today highlight uses ${timezone}; the Today panel uses each unit's local date.` : `Property timezone: ${timezone}.`} Inactive units keep their booking history; gray status bars apply only from today.</p>
+          <details className="mt-6 rounded-lg border border-pine/15 bg-linen">
+            <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-pine">Check availability for specific dates</summary>
+            <div className="border-t border-pine/10 p-3"><AvailabilityCheckForm units={allUnits.map((unit) => ({ id: unit.id, name: unitLabel(unit.id) }))} /></div>
+          </details>
+        </div>
+
+        <TodayPanel today={today} timezone={timezone} multipleTimezones={multipleTimezones} scopeLabel={selectedUnit ? unitLabel(selectedUnit.id) : "All units"} arrivals={arrivals.map(activityDisplay)} departures={departures.map(activityDisplay)} activeHolds={activeHolds.map(activityDisplay)} openTasks={openTasks.map((task) => ({ ...task, unitLabel: unitLabel(task.unitId) }))} />
       </div>
-
-      {visibleUnits.length === 0 ? (
-        <EmptyState
-          className="mt-8"
-          title="No units to show"
-          description="Add a unit under Settings → Properties & units, or clear the filter."
-        />
-      ) : (
-        <>
-          {/* Desktop: night matrix */}
-          <div className="mt-4 hidden overflow-x-auto rounded-2xl border border-pine/10 bg-white shadow-[0_1px_2px_rgba(32,58,53,0.06)] lg:block">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr>
-                  <th className="sticky left-0 z-10 min-w-40 bg-white px-4 py-3 text-left font-medium text-pine">
-                    Unit
-                  </th>
-                  {nights.map((night) => (
-                    <th
-                      key={night}
-                      className={`min-w-9 px-1 py-3 text-center text-xs font-medium ${
-                        night === today
-                          ? "text-clay-deep"
-                          : "text-ink/50"
-                      }`}
-                    >
-                      {NIGHT_LABEL.format(new Date(`${night}T00:00:00Z`))}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {visibleUnits.map((unit) => {
-                  const map = nightMaps.get(unit.id)!;
-                  const inactive = unit.status !== "active";
-                  return (
-                    <tr
-                      key={unit.id}
-                      className="border-t border-pine/10"
-                    >
-                      <th
-                        scope="row"
-                        className="sticky left-0 z-10 bg-white px-4 py-2.5 text-left font-medium"
-                      >
-                        <span className="block truncate text-pine">
-                          {unitLabel(unit.id)}
-                        </span>
-                        {inactive ? (
-                          <span className="text-xs font-normal text-ink/50">
-                            {UNIT_STATUS_LABELS[unit.status]}
-                          </span>
-                        ) : null}
-                      </th>
-                      {nights.map((night) => {
-                        const status = map.get(night) ?? {
-                          kind: "available" as const,
-                        };
-                        let title: string;
-                        let cellClass: string;
-                        let reservationLink: string | null = null;
-                        if (status.kind === "blocked") {
-                          title = `Out of service — ${status.reason}`;
-                          cellClass = "bg-clay-mist";
-                        } else if (status.kind === "held") {
-                          title = `Hold for ${status.guestName} — expires ${
-                            status.expiresAt
-                              ? TIME_LABEL.format(status.expiresAt)
-                              : "soon"
-                          }`;
-                          cellClass = "bg-clay/45";
-                          reservationLink = `/reservations/${status.segmentId}`;
-                        } else if (status.kind === "booked") {
-                          title = `${RESERVATION_STATUS_LABELS[status.status]} — ${status.guestName}`;
-                          cellClass = "bg-pine/75";
-                          reservationLink = `/reservations/${status.segmentId}`;
-                        } else if (inactive) {
-                          title = `Not accepting bookings — ${UNIT_STATUS_LABELS[unit.status]}`;
-                          cellClass = "bg-pine-mist/50";
-                        } else {
-                          title = "Available";
-                          cellClass = "bg-sage/40";
-                        }
-                        const ariaLabel = `${unitLabel(unit.id)} ${NIGHT_LABEL.format(new Date(`${night}T00:00:00Z`))}: ${title}`;
-                        return (
-                          <td
-                            key={night}
-                            className={`h-9 border-l border-pine/5 px-0 text-center ${cellClass} ${
-                              night === today
-                                ? "ring-1 ring-inset ring-clay/50"
-                                : ""
-                            }`}
-                          >
-                            {reservationLink ? (
-                              <Link
-                                href={reservationLink}
-                                title={title}
-                                aria-label={ariaLabel}
-                                className="block h-full w-full"
-                              />
-                            ) : (
-                              <span
-                                title={title}
-                                aria-label={ariaLabel}
-                                className="block h-full w-full"
-                              />
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            <div className="flex flex-wrap gap-4 border-t border-pine/10 px-4 py-3 text-xs text-ink/55">
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-3 w-3 rounded-sm bg-sage/70" /> Available
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-3 w-3 rounded-sm bg-clay/45" /> Hold
-                (expires)
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-3 w-3 rounded-sm bg-pine/75" /> Booked
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-3 w-3 rounded-sm bg-clay-mist" /> Out of
-                service (hover for reason)
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-3 w-3 rounded-sm bg-pine-mist/70" /> Not
-                accepting bookings
-              </span>
-            </div>
-          </div>
-
-          {/* Mobile: date-grouped list */}
-          <div className="mt-4 space-y-4 lg:hidden">
-            {nights.map((night) => {
-              const isToday = night === today;
-              return (
-                <section
-                  key={night}
-                  className="rounded-2xl border border-pine/10 bg-white shadow-[0_1px_2px_rgba(32,58,53,0.06)]"
-                  aria-label={NIGHT_LABEL.format(new Date(`${night}T00:00:00Z`))}
-                >
-                  <h3
-                    className={`border-b border-pine/10 px-4 py-2.5 font-display text-base ${
-                      isToday ? "text-clay-deep" : "text-pine"
-                    }`}
-                  >
-                    {NIGHT_LABEL.format(new Date(`${night}T00:00:00Z`))}
-                    {isToday ? " · Today" : ""}
-                  </h3>
-                  <ul className="divide-y divide-pine/10">
-                    {visibleUnits.map((unit) => {
-                      const status = nightMaps.get(unit.id)?.get(night) ?? {
-                        kind: "available" as const,
-                      };
-                      const inactive = unit.status !== "active";
-                      const reservationLink =
-                        status.kind === "held" || status.kind === "booked"
-                          ? `/reservations/${status.segmentId}`
-                          : null;
-                      const statusText =
-                        status.kind === "blocked"
-                          ? `Out of service — ${status.reason}`
-                          : status.kind === "held"
-                            ? `Hold — ${status.guestName}`
-                            : status.kind === "booked"
-                              ? `${RESERVATION_STATUS_LABELS[status.status]} — ${status.guestName}`
-                              : inactive
-                                ? UNIT_STATUS_LABELS[unit.status]
-                                : "Available";
-                      const content = (
-                        <>
-                          <span className="min-w-0 truncate text-sm font-medium text-pine">
-                            {unitLabel(unit.id)}
-                          </span>
-                          <span
-                            className={`shrink-0 text-sm ${
-                              status.kind === "blocked"
-                                ? "text-clay-deep"
-                                : status.kind === "held" ||
-                                    status.kind === "booked"
-                                  ? "text-pine"
-                                  : inactive
-                                    ? "text-ink/50"
-                                    : "text-pine/70"
-                            }`}
-                          >
-                            {statusText}
-                          </span>
-                        </>
-                      );
-                      return (
-                        <li key={unit.id}>
-                          {reservationLink ? (
-                            <Link
-                              href={reservationLink}
-                              className="flex items-center justify-between gap-3 px-4 py-3"
-                            >
-                              {content}
-                            </Link>
-                          ) : (
-                            <div className="flex items-center justify-between gap-3 px-4 py-3">
-                              {content}
-                            </div>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </section>
-              );
-            })}
-          </div>
-        </>
-      )}
     </div>
   );
 }

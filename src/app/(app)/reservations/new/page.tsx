@@ -6,6 +6,7 @@ import {
   listProperties,
 } from "@/server/inventory/service";
 import { listGuests } from "@/server/reservations/service";
+import { PageHeading } from "@/components/app/page-heading";
 import { ReservationForm } from "./reservation-form";
 
 export const metadata: Metadata = { title: "New reservation" };
@@ -38,13 +39,12 @@ export default async function NewReservationPage({
 
   return (
     <div className="mx-auto max-w-3xl">
-      <h1 className="font-display text-3xl text-pine">New reservation</h1>
-      <p className="mt-1 text-sm text-ink/60">
-        {membership.role === "owner"
-          ? "Place a time-limited hold or a confirmed booking."
-          : "Place a time-limited hold for the owner to review."}{" "}
-        Dates use each property&apos;s local timezone; the check-out day is free.
-      </p>
+      <PageHeading
+        title="New reservation"
+        backHref="/reservations"
+        backLabel="All reservations"
+        description={`${membership.role === "owner" ? "Place a time-limited hold or a confirmed booking." : "Place a time-limited hold for the owner to review."} Dates use each property's local timezone; the check-out day is free.`}
+      />
 
       <ReservationForm
         isOwner={membership.role === "owner"}

@@ -1,0 +1,32 @@
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { requireOwner } from "@/lib/auth/session";
+import { getPropertyOrThrow } from "@/server/inventory/service";
+import { InventoryError } from "@/server/inventory/validation";
+import { PageHeading } from "@/components/app/page-heading";
+import { PermissionDenied } from "@/components/app/permission-denied";
+import { Card, CardBody } from "@/components/ui/card";
+import { UnitCreateForm } from "../../../unit-create-form";
+
+export const metadata: Metadata = { title: "Add unit" };
+
+export default async function NewUnitPage({ params }: { params: Promise<{ propertyId: string }> }) {
+  const membership = await requireOwner();
+  if (!membership) return <PermissionDenied />;
+
+  const { propertyId } = await params;
+  let property;
+  try {
+    property = await getPropertyOrThrow(membership.organizationId, propertyId);
+  } catch (error) {
+    if (error instanceof InventoryError) notFound();
+    throw error;
+  }
+
+  return (
+    <div className="mx-auto max-w-3xl">
+      <PageHeading title="Add unit" description={`Create an independently bookable space in ${property.name}.`} backHref={`/settings/properties/${property.id}`} backLabel={property.name} />
+      <Card className="bg-[#FFFDFA]"><CardBody><UnitCreateForm propertyId={property.id} /></CardBody></Card>
+    </div>
+  );
+}

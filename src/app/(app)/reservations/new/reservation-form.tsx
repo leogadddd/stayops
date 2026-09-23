@@ -538,7 +538,7 @@ export function ReservationForm({
                 type="submit"
                 name="mode"
                 value="confirmed"
-                variant="primary"
+                variant="clay"
                 disabled={pending}
                 onClick={() => setSubmitMode("confirmed")}
               >

@@ -6,44 +6,22 @@ import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label, Select } from "@/components/ui/input";
 import { PAYMENT_ALLOCATION_LABELS, PAYMENT_METHOD_LABELS } from "@/lib/labels";
 import { recordPaymentAction, type PaymentFormState } from "./payment-actions";
+import { useReservationSaved } from "./use-reservation-saved";
 
 export function RecordPaymentForm({ reservationId }: { reservationId: string }) {
-  const [state, formAction, pending] = useActionState<PaymentFormState, FormData>(
-    recordPaymentAction.bind(null, reservationId),
-    {},
-  );
-  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
-  const [formKey, setFormKey] = useState(0);
-  const [recordAnother, setRecordAnother] = useState(false);
+  const save = useReservationSaved(recordPaymentAction.bind(null, reservationId), reservationId);
+  const [state, formAction, pending] = useActionState<PaymentFormState, FormData>(save, {});
+  const [idempotencyKey] = useState(() => crypto.randomUUID());
 
   return (
     <div className="space-y-3">
-      {state.success && !recordAnother ? (
-        <div className="space-y-3">
-          <p className="inline-flex items-center gap-1.5 text-sm text-pine" role="status">
-            <CheckCircle2 className="h-4 w-4" aria-hidden />
-            Payment recorded.
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setIdempotencyKey(crypto.randomUUID());
-              setFormKey((key) => key + 1);
-              setRecordAnother(true);
-            }}
-          >
-            Record another payment
-          </Button>
-        </div>
+      {state.success ? (
+        <p className="inline-flex items-center gap-1.5 text-sm text-pine" role="status">
+          <CheckCircle2 className="h-4 w-4" aria-hidden />
+          Payment recorded. Returning to reservation…
+        </p>
       ) : (
-        <form
-          key={formKey}
-          action={formAction}
-          onSubmit={() => setRecordAnother(false)}
-          className="space-y-3"
-        >
+        <form action={formAction} className="space-y-3">
           <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
           <div>
             <Label htmlFor="payment-amount">Amount received (₱)</Label>
@@ -96,7 +74,7 @@ export function RecordPaymentForm({ reservationId }: { reservationId: string }) 
             </p>
           </div>
           <FieldError message={state.error} />
-          <Button type="submit" variant="primary" disabled={pending}>
+          <Button type="submit" variant="clay" disabled={pending}>
             {pending ? "Recording…" : "Record payment"}
           </Button>
         </form>

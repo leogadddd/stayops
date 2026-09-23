@@ -1,14 +1,24 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label, Textarea } from "@/components/ui/input";
 import { resolveDamageReportAction, type DamageFormState } from "../actions";
 
-export function ResolveDamageForm({ damageReportId }: { damageReportId: string }) {
+export function ResolveDamageForm({ taskId, damageReportId }: { taskId: string; damageReportId: string }) {
+  const router = useRouter();
   const [state, formAction, pending] = useActionState<DamageFormState, FormData>(
-    resolveDamageReportAction.bind(null, damageReportId),
+    async (previous, formData) => {
+      const result = await resolveDamageReportAction(taskId, damageReportId, previous, formData);
+      if (result.success) {
+        router.push(`/tasks/${taskId}`);
+        router.refresh();
+      }
+      return result;
+    },
     {},
   );
 
@@ -47,9 +57,12 @@ export function ResolveDamageForm({ damageReportId }: { damageReportId: string }
         />
       </div>
       <FieldError message={state.error} />
-      <Button type="submit" variant="outline" size="sm" disabled={pending}>
-        {pending ? "Resolving…" : "Mark resolved"}
-      </Button>
+      <div className="flex flex-wrap items-center gap-4">
+        <Button type="submit" variant="clay" disabled={pending}>
+          {pending ? "Resolving…" : "Mark resolved"}
+        </Button>
+        <Link href={`/tasks/${taskId}`} className="text-sm text-pine hover:underline">Cancel</Link>
+      </div>
     </form>
   );
 }

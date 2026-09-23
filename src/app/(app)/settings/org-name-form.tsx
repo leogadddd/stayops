@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label } from "@/components/ui/input";
 import { Save } from "lucide-react";
@@ -11,10 +12,17 @@ export function OrgNameForm({ defaultName }: { defaultName: string }) {
     renameOrganization,
     {},
   );
+  const router = useRouter();
+  useEffect(() => {
+    if (state.success) {
+      router.push("/settings");
+      router.refresh();
+    }
+  }, [state.success, router]);
 
   return (
-    <form action={formAction} className="flex flex-wrap items-start gap-3">
-      <div className="min-w-56 flex-1">
+    <form action={formAction} className="space-y-4">
+      <div>
         <Label htmlFor="name">Name</Label>
         <Input
           id="name"

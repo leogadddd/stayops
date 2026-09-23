@@ -5,12 +5,11 @@ import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FieldError, Label, Textarea } from "@/components/ui/input";
 import { checkInAction, type ReservationFormState } from "../actions";
+import { useReservationSaved } from "./use-reservation-saved";
 
 export function CheckInForm({ reservationId }: { reservationId: string }) {
-  const [state, formAction, pending] = useActionState<ReservationFormState, FormData>(
-    checkInAction.bind(null, reservationId),
-    {},
-  );
+  const save = useReservationSaved(checkInAction.bind(null, reservationId), reservationId);
+  const [state, formAction, pending] = useActionState<ReservationFormState, FormData>(save, {});
 
   if (state.success) {
     return (

@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import type { UnitStatus } from "@/lib/db/schema";
 import { UNIT_STATUS_LABELS } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,13 @@ export function UnitEditForm({
     updateUnitAction.bind(null, propertyId, unitId),
     {},
   );
+  const router = useRouter();
+  useEffect(() => {
+    if (state.success) {
+      router.push(`/settings/properties/${propertyId}/units/${unitId}`);
+      router.refresh();
+    }
+  }, [state.success, propertyId, unitId, router]);
 
   return (
     <form action={formAction} className="space-y-4">

@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label, Textarea } from "@/components/ui/input";
 import {
@@ -56,6 +57,13 @@ export function PropertyForm({
     {},
   );
   const values = initialValues ?? EMPTY;
+  const router = useRouter();
+  useEffect(() => {
+    if (state.success) {
+      router.push(propertyId ? `/settings/properties/${propertyId}` : "/settings/properties");
+      router.refresh();
+    }
+  }, [state.success, propertyId, router]);
 
   return (
     <form action={formAction} className="space-y-4">
@@ -139,7 +147,7 @@ export function PropertyForm({
         </p>
       ) : null}
 
-      <Button type="submit" disabled={pending}>
+      <Button type="submit" variant={propertyId ? "primary" : "clay"} disabled={pending}>
         {pending ? "Saving…" : propertyId ? "Save property" : "Add property"}
       </Button>
     </form>

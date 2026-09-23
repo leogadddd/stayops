@@ -3,10 +3,11 @@ import type { Metadata } from "next";
 import { Plus } from "lucide-react";
 import { requireOwner } from "@/lib/auth/session";
 import { PermissionDenied } from "@/components/app/permission-denied";
+import { PageHeading } from "@/components/app/page-heading";
 import { listProperties } from "@/server/inventory/service";
-import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/empty-state";
-import { PropertyForm } from "./property-form";
+import { buttonClassName } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 export const metadata: Metadata = { title: "Properties" };
 
@@ -17,62 +18,28 @@ export default async function PropertiesPage() {
   const properties = await listProperties(membership.organizationId);
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <h1 className="font-display text-3xl text-pine">Properties & units</h1>
-      <p className="mt-1 text-sm text-ink/60">
-        Where your stays happen. Add a property, then the units inside it.
-      </p>
-
-      {properties.length === 0 ? (
-        <EmptyState
-          className="mt-8"
-          title="No properties yet"
-          description="Add your first property — an apartment, a house, a building — then add the units guests can book."
-        />
-      ) : (
-        <ul className="mt-8 space-y-3">
-          {properties.map((property) => (
-            <li key={property.id}>
-              <Link
-                href={`/settings/properties/${property.id}`}
-                className="block rounded-2xl border border-pine/10 bg-white px-5 py-4 shadow-[0_1px_2px_rgba(32,58,53,0.06)] transition-colors hover:border-pine/30"
-              >
-                <div className="flex items-center justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="truncate font-medium text-pine">
-                      {property.name}
-                    </p>
-                    <p className="mt-0.5 text-sm text-ink/55">
-                      {property.timezone} · check-in {property.checkInTime} ·
-                      check-out {property.checkOutTime}
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-sm text-pine/70">
-                    Manage →
-                  </span>
-                </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <Card className="mt-10">
-        <CardHeader>
-          <h2 className="font-display text-xl text-pine">Add a property</h2>
-        </CardHeader>
-        <CardBody>
-          <PropertyForm />
-        </CardBody>
+    <div className="mx-auto max-w-5xl">
+      <PageHeading title="Properties & units" description="Where your stays happen. Manage each property and the bookable spaces inside it.">
+        <Link href="/settings/properties/new" className={buttonClassName("clay")}><Plus className="h-4 w-4" aria-hidden />Add property</Link>
+      </PageHeading>
+      <Card className="overflow-hidden bg-[#FFFDFA]">
+        <Table aria-label="Properties">
+          <TableHeader><TableRow><TableHead>Property</TableHead><TableHead>Timezone</TableHead><TableHead>Check-in</TableHead><TableHead>Check-out</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+          <TableBody>
+            {properties.length === 0 ? (
+              <TableRow><TableCell colSpan={5} className="py-12 text-center"><p className="font-medium text-pine">No properties yet</p><p className="mt-1 text-ink/55">Add your first property, then the units guests can book.</p></TableCell></TableRow>
+            ) : properties.map((property) => (
+              <TableRow key={property.id}>
+                <TableCell><Link href={`/settings/properties/${property.id}`} className="font-medium text-pine underline-offset-4 hover:underline">{property.name}</Link></TableCell>
+                <TableCell>{property.timezone}</TableCell>
+                <TableCell>{property.checkInTime}</TableCell>
+                <TableCell>{property.checkOutTime}</TableCell>
+                <TableCell className="text-right"><Link href={`/settings/properties/${property.id}`} className={buttonClassName("ghost", "sm")} aria-label={`View ${property.name}`}>View property</Link></TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </Card>
-
-      {properties.length === 0 ? null : (
-        <p className="mt-6 flex items-center gap-2 text-sm text-ink/55">
-          <Plus className="h-4 w-4" aria-hidden />
-          More properties can be added any time; each keeps its own timezone
-          and house rules.
-        </p>
-      )}
     </div>
   );
 }

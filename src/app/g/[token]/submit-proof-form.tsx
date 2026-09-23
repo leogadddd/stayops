@@ -1,8 +1,9 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClassName } from "@/components/ui/button";
 import { FieldError, Input, Label, Textarea } from "@/components/ui/input";
 import {
   submitPaymentProofAction,
@@ -17,10 +18,13 @@ export function SubmitProofForm({ token }: { token: string }) {
 
   if (state.success) {
     return (
-      <p className="inline-flex items-center gap-1.5 text-sm text-pine" role="status">
-        <CheckCircle2 className="h-4 w-4" aria-hidden />
-        Reference sent — your host will verify it against their account.
-      </p>
+      <div className="space-y-4">
+        <p className="flex items-start gap-2 rounded-lg bg-sage/40 p-4 text-sm text-pine" role="status">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          Reference sent — your host will verify it against their account.
+        </p>
+        <Link href={`/g/${encodeURIComponent(token)}`} prefetch={false} className={buttonClassName("clay", "md", "w-full")}>Back to your booking</Link>
+      </div>
     );
   }
 
@@ -48,9 +52,12 @@ export function SubmitProofForm({ token }: { token: string }) {
         />
       </div>
       <FieldError message={state.error} />
-      <Button type="submit" variant="primary" disabled={pending}>
-        {pending ? "Sending…" : "Send reference"}
-      </Button>
+      <div className="flex flex-wrap items-center gap-4">
+        <Button type="submit" variant="clay" disabled={pending}>
+          {pending ? "Sending…" : "Send reference"}
+        </Button>
+        <Link href={`/g/${encodeURIComponent(token)}`} prefetch={false} className="text-sm text-pine hover:underline">Cancel</Link>
+      </div>
     </form>
   );
 }

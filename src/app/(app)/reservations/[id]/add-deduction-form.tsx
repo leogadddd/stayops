@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label, Textarea } from "@/components/ui/input";
 import { addDeductionAction, type PaymentFormState } from "./payment-actions";
+import { useReservationSaved } from "./use-reservation-saved";
 
 interface DamageOption {
   id: string;
@@ -18,40 +19,18 @@ export function AddDeductionForm({
   reservationId: string;
   damageReports?: DamageOption[];
 }) {
-  const [state, formAction, pending] = useActionState<PaymentFormState, FormData>(
-    addDeductionAction.bind(null, reservationId),
-    {},
-  );
-  const [formKey, setFormKey] = useState(0);
-  const [recordAnother, setRecordAnother] = useState(false);
+  const save = useReservationSaved(addDeductionAction.bind(null, reservationId), reservationId);
+  const [state, formAction, pending] = useActionState<PaymentFormState, FormData>(save, {});
 
   return (
     <div className="space-y-3">
-      {state.success && !recordAnother ? (
-        <div className="space-y-3">
-          <p className="inline-flex items-center gap-1.5 text-sm text-pine" role="status">
-            <CheckCircle2 className="h-4 w-4" aria-hidden />
-            Deduction recorded.
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setFormKey((key) => key + 1);
-              setRecordAnother(true);
-            }}
-          >
-            Record another deduction
-          </Button>
-        </div>
+      {state.success ? (
+        <p className="inline-flex items-center gap-1.5 text-sm text-pine" role="status">
+          <CheckCircle2 className="h-4 w-4" aria-hidden />
+          Deduction recorded. Returning to reservation…
+        </p>
       ) : (
-        <form
-          key={formKey}
-          action={formAction}
-          onSubmit={() => setRecordAnother(false)}
-          className="space-y-3"
-        >
+        <form action={formAction} className="space-y-3">
           <div>
             <Label htmlFor="deduction-amount">Amount kept from deposit (₱)</Label>
             <Input
@@ -93,7 +72,7 @@ export function AddDeductionForm({
             </div>
           ) : null}
           <FieldError message={state.error} />
-          <Button type="submit" variant="primary" disabled={pending}>
+          <Button type="submit" variant="clay" disabled={pending}>
             {pending ? "Recording…" : "Record deduction"}
           </Button>
         </form>

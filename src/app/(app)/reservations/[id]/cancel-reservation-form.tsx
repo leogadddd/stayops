@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { FieldError, Label, Textarea } from "@/components/ui/input";
 import { cancelReservationAction, type ReservationFormState } from "../actions";
+import { useReservationSaved } from "./use-reservation-saved";
 
 export function CancelReservationForm({
   reservationId,
@@ -12,10 +13,8 @@ export function CancelReservationForm({
   reservationId: string;
   label?: string;
 }) {
-  const [state, formAction, pending] = useActionState<ReservationFormState, FormData>(
-    cancelReservationAction.bind(null, reservationId),
-    {},
-  );
+  const save = useReservationSaved(cancelReservationAction.bind(null, reservationId), reservationId);
+  const [state, formAction, pending] = useActionState<ReservationFormState, FormData>(save, {});
 
   return (
     <form action={formAction} className="space-y-3">
