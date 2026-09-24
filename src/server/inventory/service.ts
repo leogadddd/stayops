@@ -1,8 +1,8 @@
 import "server-only";
 
-import { and, asc, eq, gt, lt } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull, lt, or } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { auditEvents, properties, unitBlocks, units } from "@/lib/db/schema";
+import { auditEvents, properties, reservations, unitBlocks, units } from "@/lib/db/schema";
 import {
   InventoryError,
   propertyInputSchema,
@@ -35,7 +35,7 @@ export async function listProperties(organizationId: string) {
   return db
     .select()
     .from(properties)
-    .where(eq(properties.organizationId, organizationId))
+    .where(and(eq(properties.organizationId, organizationId), isNull(properties.deletedAt)))
     .orderBy(asc(properties.name));
 }
 
@@ -43,7 +43,7 @@ export async function listOrgUnits(organizationId: string) {
   return db
     .select()
     .from(units)
-    .where(eq(units.organizationId, organizationId))
+    .where(and(eq(units.organizationId, organizationId), isNull(units.deletedAt)))
     .orderBy(asc(units.name));
 }
 
@@ -58,6 +58,7 @@ export async function getPropertyOrThrow(
       and(
         eq(properties.id, propertyId),
         eq(properties.organizationId, organizationId),
+        isNull(properties.deletedAt),
       ),
     )
     .limit(1);
@@ -78,6 +79,7 @@ export async function listPropertyUnits(
       and(
         eq(units.organizationId, organizationId),
         eq(units.propertyId, propertyId),
+        isNull(units.deletedAt),
       ),
     )
     .orderBy(asc(units.name));
@@ -141,6 +143,7 @@ export async function updateProperty(input: {
         and(
           eq(properties.id, input.propertyId),
           eq(properties.organizationId, input.organizationId),
+          isNull(properties.deletedAt),
         ),
       );
     await recordAudit(tx, {
@@ -160,8 +163,20 @@ export async function createUnit(input: {
   data: UnitInput;
 }) {
   const data = unitInputSchema.parse(input.data);
-  await getPropertyOrThrow(input.organizationId, input.propertyId);
   return db.transaction(async (tx) => {
+    const [property] = await tx
+      .select({ id: properties.id })
+      .from(properties)
+      .where(and(
+        eq(properties.id, input.propertyId),
+        eq(properties.organizationId, input.organizationId),
+        isNull(properties.deletedAt),
+      ))
+      .limit(1)
+      .for("key share");
+    if (!property) {
+      throw new InventoryError("Property not found.", "propertyId");
+    }
     const [unit] = await tx
       .insert(units)
       .values({
@@ -190,7 +205,11 @@ export async function getUnitOrThrow(organizationId: string, unitId: string) {
     .select()
     .from(units)
     .where(
-      and(eq(units.id, unitId), eq(units.organizationId, organizationId)),
+      and(
+        eq(units.id, unitId),
+        eq(units.organizationId, organizationId),
+        isNull(units.deletedAt),
+      ),
     )
     .limit(1);
   if (!unit) {
@@ -215,6 +234,7 @@ export async function updateUnit(input: {
         and(
           eq(units.id, input.unitId),
           eq(units.organizationId, input.organizationId),
+          isNull(units.deletedAt),
         ),
       );
     if (existing.status !== data.status) {
@@ -233,6 +253,133 @@ export async function updateUnit(input: {
       entity: "unit",
       entityId: input.unitId,
       action: "unit.updated",
+    });
+  });
+}
+
+function activeReservationCondition(organizationId: string, unitIds: string[]) {
+  return and(
+    eq(reservations.organizationId, organizationId),
+    inArray(reservations.unitId, unitIds),
+    or(
+      inArray(reservations.status, ["confirmed", "checked_in"]),
+      and(eq(reservations.status, "hold"), gt(reservations.expiresAt, new Date())),
+    ),
+  );
+}
+
+export async function deleteUnit(input: {
+  organizationId: string;
+  actorUserId: string;
+  unitId: string;
+}) {
+  await db.transaction(async (tx) => {
+    const [unit] = await tx
+      .select({ id: units.id, name: units.name, propertyId: units.propertyId })
+      .from(units)
+      .where(and(
+        eq(units.id, input.unitId),
+        eq(units.organizationId, input.organizationId),
+        isNull(units.deletedAt),
+      ))
+      .limit(1)
+      .for("update");
+    if (!unit) throw new InventoryError("Unit not found.", "unitId");
+
+    const [activeReservation] = await tx
+      .select({ id: reservations.id })
+      .from(reservations)
+      .where(activeReservationCondition(input.organizationId, [unit.id]))
+      .limit(1);
+    if (activeReservation) {
+      throw new InventoryError(
+        "This unit has an active hold or stay. Cancel or complete it before deleting the unit.",
+        "unitId",
+      );
+    }
+
+    const deletedAt = new Date();
+    await tx
+      .update(units)
+      .set({ deletedAt, status: "inactive", updatedAt: deletedAt })
+      .where(and(eq(units.id, unit.id), eq(units.organizationId, input.organizationId)));
+    await recordAudit(tx, {
+      organizationId: input.organizationId,
+      actorUserId: input.actorUserId,
+      entity: "unit",
+      entityId: unit.id,
+      action: "unit.deleted",
+      metadata: { name: unit.name, propertyId: unit.propertyId },
+    });
+  });
+}
+
+export async function deleteProperty(input: {
+  organizationId: string;
+  actorUserId: string;
+  propertyId: string;
+}) {
+  await db.transaction(async (tx) => {
+    const [property] = await tx
+      .select({ id: properties.id, name: properties.name })
+      .from(properties)
+      .where(and(
+        eq(properties.id, input.propertyId),
+        eq(properties.organizationId, input.organizationId),
+        isNull(properties.deletedAt),
+      ))
+      .limit(1)
+      .for("update");
+    if (!property) throw new InventoryError("Property not found.", "propertyId");
+
+    const propertyUnits = await tx
+      .select({ id: units.id })
+      .from(units)
+      .where(and(
+        eq(units.organizationId, input.organizationId),
+        eq(units.propertyId, property.id),
+        isNull(units.deletedAt),
+      ))
+      .for("update");
+    const unitIds = propertyUnits.map((unit) => unit.id);
+    if (unitIds.length > 0) {
+      const [activeReservation] = await tx
+        .select({ id: reservations.id })
+        .from(reservations)
+        .where(activeReservationCondition(input.organizationId, unitIds))
+        .limit(1);
+      if (activeReservation) {
+        throw new InventoryError(
+          "This property has an active hold or stay. Cancel or complete it before deleting the property.",
+          "propertyId",
+        );
+      }
+    }
+
+    const deletedAt = new Date();
+    if (unitIds.length > 0) {
+      await tx
+        .update(units)
+        .set({ deletedAt, status: "inactive", updatedAt: deletedAt })
+        .where(and(
+          eq(units.organizationId, input.organizationId),
+          inArray(units.id, unitIds),
+        ));
+    }
+    await tx
+      .update(properties)
+      .set({ deletedAt, updatedAt: deletedAt })
+      .where(and(
+        eq(properties.id, property.id),
+        eq(properties.organizationId, input.organizationId),
+      ));
+    await recordAudit(tx, {
+      organizationId: input.organizationId,
+      actorUserId: input.actorUserId,
+      entity: "property",
+      entityId: property.id,
+      action: "property.deleted",
+      metadata: { name: property.name, deletedUnitCount: unitIds.length },
     });
   });
 }

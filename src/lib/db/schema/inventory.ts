@@ -5,6 +5,7 @@ import {
   foreignKey,
   integer,
   jsonb,
+  index,
   numeric,
   pgEnum,
   pgTable,
@@ -49,6 +50,7 @@ export const properties = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (table) => [
     // Composite target for units' cross-organization guard foreign key.
@@ -56,6 +58,7 @@ export const properties = pgTable(
       table.organizationId,
       table.id,
     ),
+    index("properties_org_active_idx").on(table.organizationId, table.deletedAt),
   ],
 );
 
@@ -100,12 +103,15 @@ export const units = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (table) => [
     uniqueIndex("units_organization_id_unique").on(
       table.organizationId,
       table.id,
     ),
+    index("units_org_active_idx").on(table.organizationId, table.deletedAt),
+    index("units_property_active_idx").on(table.propertyId, table.deletedAt),
     foreignKey({
       columns: [table.organizationId, table.propertyId],
       foreignColumns: [properties.organizationId, properties.id],

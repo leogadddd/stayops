@@ -53,6 +53,7 @@ vi.mock("@/app/(app)/settings/actions", () => ({
 vi.mock("@/app/(app)/settings/properties/actions", () => ({
   createPropertyAction: vi.fn(), updatePropertyAction: vi.fn(), createUnitAction: vi.fn(),
   updateUnitAction: vi.fn(), updateChecklistTemplateAction: vi.fn(),
+  deletePropertyAction: vi.fn(), deleteUnitAction: vi.fn(),
 }));
 vi.mock("@/app/(app)/settings/properties/[propertyId]/units/block-actions", () => ({
   addUnitBlockAction: vi.fn(), removeUnitBlockAction: vi.fn(),
@@ -65,12 +66,14 @@ const property = {
   id: "property-a", organizationId: owner.organizationId, name: "Test property", address: "Private address",
   timezone: "Asia/Manila", checkInTime: "15:00", checkOutTime: "11:00", houseRules: "Quiet after 10pm",
   createdAt: new Date("2026-09-01T00:00:00Z"), updatedAt: new Date("2026-09-01T00:00:00Z"),
+  deletedAt: null,
 };
 const unit = {
   id: "unit-a", organizationId: owner.organizationId, propertyId: property.id, name: "Test unit",
   status: "active" as const, capacity: 2, bedrooms: 1, bathrooms: 1, defaultNightlyRateCents: 125_050,
   cleaningFeeCents: 30_000, securityDepositCents: null, checklistTemplate: [{ label: "Clean room", required: true }],
   createdAt: new Date("2026-09-01T00:00:00Z"), updatedAt: new Date("2026-09-01T00:00:00Z"),
+  deletedAt: null,
 };
 const propertyHref = `/settings/properties/${property.id}`;
 const unitHref = `${propertyHref}/units/${unit.id}`;

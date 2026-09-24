@@ -163,6 +163,7 @@ describe("independent owner page boundaries", () => {
       securityDepositCents: null, checklistTemplate: [],
       createdAt: new Date("2026-09-01T00:00:00Z"),
       updatedAt: new Date("2026-09-01T00:00:00Z"),
+      deletedAt: null,
     });
     vi.mocked(getReport).mockRejectedValue(new Error("Report unavailable"));
 

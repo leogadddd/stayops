@@ -33,6 +33,7 @@ export function ConfirmationDialog({
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const titleId = useId();
   const descriptionId = useId();
 
@@ -42,9 +43,12 @@ export function ConfirmationDialog({
   const confirm = async () => {
     if (!onConfirm) return;
     setPending(true);
+    setError(null);
     try {
       await onConfirm();
       dialog.current?.close();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "That action could not be completed.");
     } finally {
       setPending(false);
     }
@@ -59,7 +63,10 @@ export function ConfirmationDialog({
         className={triggerClassName}
         aria-label={triggerAriaLabel}
         role={triggerRole}
-        onClick={() => dialog.current?.showModal()}
+        onClick={() => {
+          setError(null);
+          dialog.current?.showModal();
+        }}
       >
         {trigger}
       </Button>
@@ -82,6 +89,7 @@ export function ConfirmationDialog({
           <div className="min-w-0 flex-1">
             <h2 id={titleId} className="font-display text-xl text-pine">{title}</h2>
             <p id={descriptionId} className="mt-2 text-sm leading-relaxed text-ink/65">{description}</p>
+            {error ? <p className="mt-3 rounded-lg bg-clay-mist px-3 py-2 text-sm text-clay-deep" role="alert">{error}</p> : null}
           </div>
           <button type="button" onClick={close} disabled={pending} aria-label="Close confirmation" className="rounded-md p-1.5 text-ink/45 hover:bg-pine-mist hover:text-pine disabled:opacity-50">
             <X className="h-4 w-4" aria-hidden />

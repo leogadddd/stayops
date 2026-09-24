@@ -7,7 +7,9 @@ import { PageHeading } from "@/components/app/page-heading";
 import { listProperties } from "@/server/inventory/service";
 import { buttonClassName } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { TableActionsMenu } from "@/components/ui/table-actions-menu";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { deletePropertyAction } from "./actions";
 
 export const metadata: Metadata = { title: "Properties" };
 
@@ -24,7 +26,7 @@ export default async function PropertiesPage() {
       </PageHeading>
       <Card className="overflow-hidden bg-[#FFFDFA]">
         <Table aria-label="Properties">
-          <TableHeader><TableRow><TableHead>Property</TableHead><TableHead>Timezone</TableHead><TableHead>Check-in</TableHead><TableHead>Check-out</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Property</TableHead><TableHead>Timezone</TableHead><TableHead>Arrival default</TableHead><TableHead>Departure default</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
           <TableBody>
             {properties.length === 0 ? (
               <TableRow><TableCell colSpan={5} className="py-12 text-center"><p className="font-medium text-pine">No properties yet</p><p className="mt-1 text-ink/55">Add your first property, then the units guests can book.</p></TableCell></TableRow>
@@ -34,7 +36,16 @@ export default async function PropertiesPage() {
                 <TableCell>{property.timezone}</TableCell>
                 <TableCell>{property.checkInTime}</TableCell>
                 <TableCell>{property.checkOutTime}</TableCell>
-                <TableCell className="text-right"><Link href={`/settings/properties/${property.id}`} className={buttonClassName("ghost", "sm")} aria-label={`View ${property.name}`}>View property</Link></TableCell>
+                <TableCell className="text-right">
+                  <TableActionsMenu
+                    label={property.name}
+                    viewHref={`/settings/properties/${property.id}`}
+                    editHref={`/settings/properties/${property.id}/edit`}
+                    deleteLabel={`Delete ${property.name}?`}
+                    deleteDescription="The property and its units will disappear from active inventory, but reservation, payment, expense, and audit history will be preserved. Properties with an active hold or stay cannot be deleted."
+                    onDelete={deletePropertyAction.bind(null, property.id)}
+                  />
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

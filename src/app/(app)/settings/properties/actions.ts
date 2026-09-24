@@ -10,6 +10,8 @@ import {
 import {
   createProperty,
   createUnit,
+  deleteProperty,
+  deleteUnit,
   updateProperty,
   updateUnit,
 } from "@/server/inventory/service";
@@ -99,6 +101,27 @@ export async function updatePropertyAction(
   return { success: true };
 }
 
+export async function deletePropertyAction(
+  propertyId: string,
+): Promise<InventoryFormState> {
+  const membership = await requireMembership();
+  assertOwner(membership);
+  try {
+    await deleteProperty({
+      organizationId: membership.organizationId,
+      actorUserId: membership.userId,
+      propertyId,
+    });
+  } catch (error) {
+    return toFormError(error);
+  }
+  revalidatePath("/dashboard");
+  revalidatePath("/settings/properties");
+  revalidatePath("/calendar");
+  revalidatePath("/calendar/availability");
+  return { success: true };
+}
+
 function unitDataFromForm(formData: FormData) {
   return {
     name: readString(formData, "name"),
@@ -161,6 +184,29 @@ export async function updateUnitAction(
   revalidatePath(`/settings/properties/${propertyId}`);
   revalidatePath(`/settings/properties/${propertyId}/units/${unitId}`);
   revalidatePath("/calendar");
+  return { success: true };
+}
+
+export async function deleteUnitAction(
+  propertyId: string,
+  unitId: string,
+): Promise<InventoryFormState> {
+  const membership = await requireMembership();
+  assertOwner(membership);
+  try {
+    await deleteUnit({
+      organizationId: membership.organizationId,
+      actorUserId: membership.userId,
+      unitId,
+    });
+  } catch (error) {
+    return toFormError(error);
+  }
+  revalidatePath("/dashboard");
+  revalidatePath(`/settings/properties/${propertyId}`);
+  revalidatePath("/settings/properties");
+  revalidatePath("/calendar");
+  revalidatePath("/calendar/availability");
   return { success: true };
 }
 

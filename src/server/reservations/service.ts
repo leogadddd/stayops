@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, ilike, or } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, isNull, or } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   accessTokens,
@@ -192,9 +192,18 @@ export async function getReservationDetail(
     throw new ReservationError("Reservation not found.", "reservationId");
   }
 
-  const [guest, unit, charges, transitions, tokens] = await Promise.all([
+  const [guest, reservationUnits, charges, transitions, tokens] = await Promise.all([
     getGuestOrThrow(organizationId, reservation.guestId),
-    getUnitOrThrow(organizationId, reservation.unitId),
+    db
+      .select()
+      .from(units)
+      .where(
+        and(
+          eq(units.id, reservation.unitId),
+          eq(units.organizationId, organizationId),
+        ),
+      )
+      .limit(1),
     db
       .select()
       .from(reservationCharges)
@@ -227,10 +236,23 @@ export async function getReservationDetail(
       .orderBy(desc(accessTokens.createdAt)),
   ]);
 
+  // Historical reservations must remain readable after their inventory is
+  // archived. Booking flows still use getUnitOrThrow, which excludes deleted
+  // units and prevents them from being selected for a new stay.
+  const unit = reservationUnits[0];
+  if (!unit) {
+    throw new ReservationError("Reservation unit not found.", "unitId");
+  }
+
   const property = await db
     .select()
     .from(properties)
-    .where(eq(properties.id, unit.propertyId))
+    .where(
+      and(
+        eq(properties.id, unit.propertyId),
+        eq(properties.organizationId, organizationId),
+      ),
+    )
     .limit(1);
 
   const now = new Date();
@@ -388,6 +410,23 @@ async function createReservation(
       // Stale holds must be expired in the same transaction before the
       // availability decision commits (PRD §5).
       await expireStaleHolds(tx, organizationId);
+
+      // Serialize booking creation with unit deletion/status changes and
+      // re-check bookability inside the authoritative transaction.
+      const [lockedUnit] = await tx
+        .select()
+        .from(units)
+        .where(and(
+          eq(units.id, unit.id),
+          eq(units.organizationId, organizationId),
+          isNull(units.deletedAt),
+        ))
+        .limit(1)
+        .for("update");
+      if (!lockedUnit) {
+        throw new ReservationError("This unit is no longer available.", "unitId");
+      }
+      assertBookableUnit(lockedUnit);
 
       let guestId: string;
       if (args.guest.guestId) {

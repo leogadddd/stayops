@@ -12,7 +12,9 @@ import { InventoryError } from "@/server/inventory/validation";
 import { Badge } from "@/components/ui/badge";
 import { buttonClassName } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { TableActionsMenu } from "@/components/ui/table-actions-menu";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { deleteUnitAction } from "../actions";
 
 export const metadata: Metadata = { title: "Property" };
 
@@ -43,8 +45,8 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
           <dl className="grid gap-5 text-sm sm:grid-cols-3">
             <div className="sm:col-span-3"><dt className="text-ink/55">Address · private</dt><dd className="mt-1 whitespace-pre-wrap text-pine">{property.address || "No address provided."}</dd></div>
             <div><dt className="text-ink/55">Timezone</dt><dd className="mt-1 text-pine">{property.timezone}</dd></div>
-            <div><dt className="text-ink/55">Check-in</dt><dd className="mt-1 text-pine">{property.checkInTime}</dd></div>
-            <div><dt className="text-ink/55">Check-out</dt><dd className="mt-1 text-pine">{property.checkOutTime}</dd></div>
+            <div><dt className="text-ink/55">Default arrival time · all units</dt><dd className="mt-1 text-pine">{property.checkInTime}</dd></div>
+            <div><dt className="text-ink/55">Default departure time · all units</dt><dd className="mt-1 text-pine">{property.checkOutTime}</dd></div>
             <div className="sm:col-span-3"><dt className="text-ink/55">House rules · shown to guests</dt><dd className="mt-1 whitespace-pre-wrap break-words leading-relaxed text-pine">{property.houseRules || "No house rules provided."}</dd></div>
           </dl>
         </CardBody>
@@ -67,7 +69,16 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
                 <TableCell className="whitespace-nowrap">{unit.bedrooms} bed · {unit.bathrooms} bath</TableCell>
                 <TableCell className="whitespace-nowrap">{formatPHP(unit.defaultNightlyRateCents)}</TableCell>
                 <TableCell><Badge tone={unit.status === "active" ? "sage" : unit.status === "maintenance" ? "clay" : "neutral"}>{UNIT_STATUS_LABELS[unit.status]}</Badge></TableCell>
-                <TableCell className="text-right"><Link href={`${propertyHref}/units/${unit.id}`} className={buttonClassName("ghost", "sm")} aria-label={`View ${unit.name}`}>View unit</Link></TableCell>
+                <TableCell className="text-right">
+                  <TableActionsMenu
+                    label={unit.name}
+                    viewHref={`${propertyHref}/units/${unit.id}`}
+                    editHref={`${propertyHref}/units/${unit.id}/edit`}
+                    deleteLabel={`Delete ${unit.name}?`}
+                    deleteDescription="The unit will disappear from active inventory, but its reservation, payment, task, expense, and audit history will be preserved. Units with an active hold or stay cannot be deleted."
+                    onDelete={deleteUnitAction.bind(null, property.id, unit.id)}
+                  />
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

@@ -15,7 +15,8 @@ import {
 } from "@/app/(app)/settings/actions";
 import {
   createPropertyAction, createUnitAction, updatePropertyAction,
-  updateUnitAction, updateChecklistTemplateAction,
+  updateUnitAction, updateChecklistTemplateAction, deletePropertyAction,
+  deleteUnitAction,
 } from "@/app/(app)/settings/properties/actions";
 import {
   addUnitBlockAction, removeUnitBlockAction,
@@ -46,7 +47,7 @@ vi.mock("@/server/expenses/service", () => ({
 }));
 vi.mock("@/server/inventory/service", () => ({
   createProperty: vi.fn(), updateProperty: vi.fn(),
-  createUnit: vi.fn(), updateUnit: vi.fn(),
+  createUnit: vi.fn(), updateUnit: vi.fn(), deleteProperty: vi.fn(), deleteUnit: vi.fn(),
   addUnitBlock: vi.fn(), removeUnitBlock: vi.fn(), getUnitOrThrow: vi.fn(),
 }));
 vi.mock("@/server/reservations/service", () => ({ createHold: vi.fn(), createConfirmed: vi.fn() }));
@@ -90,8 +91,10 @@ const actions = [
   { name: "create expense", invoke: (form: FormData) => createExpenseAction({}, form), write: createExpense, target: {} },
   { name: "create property", invoke: (form: FormData) => createPropertyAction({}, form), write: inventory.createProperty, target: {} },
   { name: "update property", invoke: (form: FormData) => updatePropertyAction("property-a", {}, form), write: inventory.updateProperty, target: { propertyId: "property-a" } },
+  { name: "delete property", invoke: () => deletePropertyAction("property-a"), write: inventory.deleteProperty, target: { propertyId: "property-a" } },
   { name: "create unit", invoke: (form: FormData) => createUnitAction("property-a", {}, form), write: inventory.createUnit, target: { propertyId: "property-a" } },
   { name: "update unit", invoke: (form: FormData) => updateUnitAction("property-a", "unit-a", {}, form), write: inventory.updateUnit, target: { unitId: "unit-a" } },
+  { name: "delete unit", invoke: () => deleteUnitAction("property-a", "unit-a"), write: inventory.deleteUnit, target: { unitId: "unit-a" } },
   { name: "update checklist template", invoke: (form: FormData) => updateChecklistTemplateAction("property-a", "unit-a", {}, form), write: updateChecklistTemplate, target: { unitId: "unit-a" } },
   { name: "add unit block", invoke: (form: FormData) => addUnitBlockAction("property-a", "unit-a", {}, form), write: inventory.addUnitBlock, target: { unitId: "unit-a" } },
   { name: "remove unit block", invoke: () => removeUnitBlockAction("property-a", "unit-a", "block-a"), write: inventory.removeUnitBlock, target: { blockId: "block-a" } },

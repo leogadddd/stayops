@@ -108,7 +108,7 @@ export function PropertyForm({
           </datalist>
         </div>
         <div>
-          <Label htmlFor="checkInTime">Check-in time</Label>
+          <Label htmlFor="checkInTime">Default arrival time (all units)</Label>
           <Input
             id="checkInTime"
             name="checkInTime"
@@ -118,7 +118,7 @@ export function PropertyForm({
           />
         </div>
         <div>
-          <Label htmlFor="checkOutTime">Check-out time</Label>
+          <Label htmlFor="checkOutTime">Default departure time (all units)</Label>
           <Input
             id="checkOutTime"
             name="checkOutTime"
