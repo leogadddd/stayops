@@ -66,7 +66,7 @@ export function UnitEditForm({
         <div className="mt-4">
           <Label htmlFor="unit-image">Cover photo</Label>
           <Input id="unit-image" name="image" type="file" accept="image/jpeg,image/png,image/webp" />
-          <p className="mt-1 text-xs text-ink/55">JPG, PNG, or WebP · up to 5 MB. Leave blank to keep the current photo.</p>
+          <p className="mt-1 text-xs text-ink/55">JPG, PNG, or WebP · up to 4 MB. Leave blank to keep the current photo.</p>
           {values.imageUrl ? <img src={values.imageUrl} alt="Current unit cover" className="mt-3 h-32 w-48 rounded-lg object-cover" /> : null}
         </div>
       </section>

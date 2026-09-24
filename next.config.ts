@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
     // environments. The compiler API provides the same build-time type check.
     useTypeScriptCli: false,
     serverActions: {
-      bodySizeLimit: "6mb",
+      bodySizeLimit: "4mb",
     },
   },
 };

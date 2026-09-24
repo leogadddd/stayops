@@ -3,7 +3,9 @@ import "server-only";
 import { Buffer } from "node:buffer";
 import { InventoryError } from "./validation";
 
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+// Keep below Vercel Functions' 4.5 MB server-upload request limit, leaving
+// room for multipart form data.
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 const ACCEPTED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 /**
@@ -18,7 +20,7 @@ export async function imageDataUrlFromForm(formData: FormData, key: string) {
     throw new InventoryError("Upload a JPG, PNG, or WebP image.", key);
   }
   if (value.size > MAX_IMAGE_BYTES) {
-    throw new InventoryError("Image must be 5 MB or smaller.", key);
+    throw new InventoryError("Image must be 4 MB or smaller.", key);
   }
   const bytes = await value.arrayBuffer();
   return `data:${value.type};base64,${Buffer.from(bytes).toString("base64")}`;

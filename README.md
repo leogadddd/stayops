@@ -51,7 +51,7 @@ Demo credentials (from the seed, clearly fake):
 ## Inventory and availability
 
 - **Properties and units** support a single cover-photo upload. Supported
-  files are JPG, PNG, and WebP up to 5 MB; the image is stored with the
+  files are JPG, PNG, and WebP up to 4 MB; the image is stored with the
   inventory record and appears in the relevant management views.
 - **Check availability** searches every active unit by check-in, check-out,
   and guest count. It excludes units that are too small or have an overlapping

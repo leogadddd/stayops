@@ -43,7 +43,7 @@ export function UnitCreateForm({ propertyId }: { propertyId: string }) {
         <div className="mt-4">
           <Label htmlFor="unit-image">Cover photo</Label>
           <Input id="unit-image" name="image" type="file" accept="image/jpeg,image/png,image/webp" />
-          <p className="mt-1 text-xs text-ink/55">JPG, PNG, or WebP · up to 5 MB.</p>
+          <p className="mt-1 text-xs text-ink/55">JPG, PNG, or WebP · up to 4 MB.</p>
         </div>
       </section>
 
