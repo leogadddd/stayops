@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, LogOut, UserRound } from "lucide-react";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { signOutAndRedirect } from "@/lib/auth/sign-out";
 
 export function AccountMenu({ userName, userEmail, role }: {
   userName: string;
@@ -61,7 +62,7 @@ export function AccountMenu({ userName, userEmail, role }: {
               title="Sign out of StayOps?"
               description="You will return to the sign-in page. Any unsaved form changes on this page will be lost."
               confirmLabel="Sign out"
-              formAction="/api/auth/sign-out"
+              onConfirm={signOutAndRedirect}
               trigger={<><LogOut className="h-4 w-4" aria-hidden />Sign out</>}
               triggerRole="menuitem"
               triggerClassName="w-full justify-start text-clay-deep hover:bg-clay-mist/70"

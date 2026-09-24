@@ -2,7 +2,7 @@
 
 import { useId, useRef, useState, type AriaRole, type ReactNode } from "react";
 import { AlertTriangle, X } from "lucide-react";
-import { Button, buttonClassName } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 
 export function ConfirmationDialog({
   trigger,
@@ -16,7 +16,6 @@ export function ConfirmationDialog({
   confirmLabel,
   cancelLabel = "Go back",
   onConfirm,
-  formAction,
 }: {
   trigger: ReactNode;
   triggerVariant?: "primary" | "clay" | "outline" | "ghost";
@@ -29,7 +28,6 @@ export function ConfirmationDialog({
   confirmLabel: string;
   cancelLabel?: string;
   onConfirm?: () => void | Promise<void>;
-  formAction?: string;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [pending, setPending] = useState(false);
@@ -97,15 +95,9 @@ export function ConfirmationDialog({
         </div>
         <div className="flex flex-col-reverse gap-2 border-t border-pine/10 bg-paper/70 px-6 py-4 sm:flex-row sm:justify-end">
           <Button type="button" variant="ghost" onClick={close} disabled={pending}>{cancelLabel}</Button>
-          {formAction ? (
-            <form action={formAction} method="post">
-              <button type="submit" className={buttonClassName("clay", "md", "w-full")}>{confirmLabel}</button>
-            </form>
-          ) : (
-            <Button type="button" variant="clay" onClick={confirm} disabled={pending}>
-              {pending ? "Working…" : confirmLabel}
-            </Button>
-          )}
+          <Button type="button" variant="clay" onClick={confirm} disabled={pending}>
+            {pending ? "Working…" : confirmLabel}
+          </Button>
         </div>
       </dialog>
     </>
