@@ -1,37 +1,61 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth/client";
 import { Button } from "@/components/ui/button";
+import { PasswordInput } from "@/components/ui/password-input";
 import { FieldError, Input, Label } from "@/components/ui/input";
 
-export default function LoginPage() {
+const DEMO_ACCOUNT = {
+  email: "owner@stayops.dev",
+  password: "stayops-demo-1234",
+};
+
+function LoginContent() {
   const router = useRouter();
+  const demoRequested = useSearchParams().get("demo") === "1";
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [demoStarting, setDemoStarting] = useState(false);
 
-  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function signIn(emailAddress: string, passwordValue: string) {
     setError(null);
     setPending(true);
-    const form = new FormData(event.currentTarget);
     const { error } = await authClient.signIn.email({
-      email: String(form.get("email") ?? ""),
-      password: String(form.get("password") ?? ""),
+      email: emailAddress,
+      password: passwordValue,
     });
     setPending(false);
     if (error) {
       const message = "That email and password combination didn't work.";
       setError(message);
       toast.error("Couldn’t sign in", { description: message });
-      return;
+      return false;
     }
     toast.success("Welcome back.");
     router.push("/");
     router.refresh();
+    return true;
+  }
+
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await signIn(email, password);
+  }
+
+  function continueWithDemo() {
+    setEmail(DEMO_ACCOUNT.email);
+    setPassword(DEMO_ACCOUNT.password);
+    setDemoStarting(true);
+    window.setTimeout(async () => {
+      const signedIn = await signIn(DEMO_ACCOUNT.email, DEMO_ACCOUNT.password);
+      if (!signedIn) setDemoStarting(false);
+    }, 1000);
   }
 
   return (
@@ -41,7 +65,11 @@ export default function LoginPage() {
         Sign in to your StayOps account.
       </p>
 
-      <form onSubmit={onSubmit} className="mt-8 space-y-5" noValidate={false}>
+      <form
+        onSubmit={onSubmit}
+        className="mt-10 space-y-6 sm:mt-8 sm:space-y-5"
+        noValidate={false}
+      >
         <div>
           <Label htmlFor="email">Email address</Label>
           <Input
@@ -51,25 +79,34 @@ export default function LoginPage() {
             autoComplete="email"
             required
             placeholder="you@yourproperty.ph"
+            className="h-12 px-4 text-base sm:h-10 sm:px-3 sm:text-sm"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
           />
         </div>
         <div>
           <div className="flex items-baseline justify-between">
             <Label htmlFor="password">Password</Label>
           </div>
-          <Input
+          <PasswordInput
             id="password"
             name="password"
-            type="password"
             autoComplete="current-password"
             required
             placeholder="••••••••"
+            className="h-12 px-4 text-base sm:h-10 sm:px-3 sm:text-sm"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
           />
         </div>
 
         <FieldError message={error ?? undefined} />
 
-        <Button type="submit" className="w-full" disabled={pending}>
+        <Button
+          type="submit"
+          className="h-12 w-full text-base sm:h-10 sm:text-sm"
+          disabled={pending}
+        >
           {pending ? "Signing in…" : "Sign in"}
         </Button>
       </form>
@@ -90,6 +127,57 @@ export default function LoginPage() {
           For hosts and their teams. Manage. Coordinate. Keep things moving.
         </p>
       </div>
+
+      {demoRequested && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-pine-deep/55 px-6 py-8">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="demo-mode-title"
+            className="w-full max-w-md rounded-2xl bg-paper p-6 shadow-2xl sm:p-8"
+          >
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-pine/60">
+              StayOps demo
+            </p>
+            <h2 id="demo-mode-title" className="mt-3 font-display text-3xl text-pine">
+              You&apos;re entering demo mode.
+            </h2>
+            <p className="mt-4 text-sm leading-relaxed text-ink/70">
+              You&apos;ll be signed in to our shared sample workspace. Please do
+              not add personal, guest, or payment information.
+            </p>
+            {error && (
+              <p className="mt-4 text-sm text-clay-deep" role="alert">
+                {error}
+              </p>
+            )}
+            <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <Link
+                href="/login"
+                className="inline-flex h-12 items-center justify-center rounded-lg px-4 text-sm font-medium text-pine hover:bg-pine-mist/70 sm:h-10"
+              >
+                Go back
+              </Link>
+              <Button
+                type="button"
+                className="h-12 text-base sm:h-10 sm:text-sm"
+                onClick={continueWithDemo}
+                disabled={demoStarting || pending}
+              >
+                {demoStarting || pending ? "Opening demo…" : "Continue to demo"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginContent />
+    </Suspense>
   );
 }

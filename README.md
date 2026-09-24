@@ -47,6 +47,20 @@ Demo credentials (from the seed, clearly fake):
 | `npm run db:up` / `db:down` | Start/stop PostgreSQL |
 | `npm run db:generate` / `db:migrate` | Drizzle migration workflow |
 | `npm run db:seed` | Idempotent fake demo data |
+| `npm run db:reset-demo` | Delete and recreate only the shared demo workspace |
+
+## Nightly demo reset
+
+Vercel Cron calls `/api/cron/reset-demo` every day at 16:05 UTC (00:05 in
+Asia/Manila). It deletes only the `owner@stayops.dev` demo user and its `Demo
+Stay Operations` workspace, then recreates the fake baseline data.
+
+Before deploying, add a random `CRON_SECRET` to the Vercel project’s
+Production environment variables. Vercel sends it in the request’s
+`Authorization` header, and the endpoint rejects calls without it. The cron
+job is created after the next production deployment. `npm run db:reset-demo`
+remains available for a deliberate local reset; do not run either reset against
+a production account that reuses the demo email or organization name.
 
 ## Inventory and availability
 

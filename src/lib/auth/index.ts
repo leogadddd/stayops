@@ -12,8 +12,11 @@ export const auth = betterAuth({
   // Vercel preview deployments receive a unique vercel.app hostname. A static
   // base URL rejects that origin during Better Auth's CSRF/origin validation,
   // which makes email/password sign-in fail on previews. Keep the allowlist
-  // explicit while allowing Vercel's generated preview URLs.
+  // explicit while allowing Vercel's generated preview URLs. The fallback also
+  // lets direct auth.api calls (such as the seed script) run without request
+  // headers from which to resolve a host.
   baseURL: {
+    fallback: configuredBaseUrl,
     allowedHosts: [
       "localhost:3000",
       configuredHost,
