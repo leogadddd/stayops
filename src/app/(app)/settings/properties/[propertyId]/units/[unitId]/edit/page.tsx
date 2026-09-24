@@ -6,7 +6,6 @@ import { getPropertyOrThrow, getUnitOrThrow } from "@/server/inventory/service";
 import { InventoryError } from "@/server/inventory/validation";
 import { PageHeading } from "@/components/app/page-heading";
 import { PermissionDenied } from "@/components/app/permission-denied";
-import { Card, CardBody } from "@/components/ui/card";
 import { UnitEditForm } from "../../unit-edit-form";
 
 export const metadata: Metadata = { title: "Edit unit" };
@@ -30,11 +29,7 @@ export default async function EditUnitPage({ params }: { params: Promise<{ prope
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeading title="Edit unit" description={`${property.name} · ${unit.name}`} backHref={`/settings/properties/${property.id}/units/${unit.id}`} backLabel={unit.name} />
-      <Card className="bg-[#FFFDFA]">
-        <CardBody>
-          <UnitEditForm propertyId={property.id} unitId={unit.id} values={{ name: unit.name, capacity: unit.capacity, bedrooms: unit.bedrooms, bathrooms: unit.bathrooms, nightlyRate: centavosToPesosInput(unit.defaultNightlyRateCents), cleaningFee: centavosToPesosInput(unit.cleaningFeeCents), securityDeposit: centavosToPesosInput(unit.securityDepositCents), checkInTime: unit.checkInTime, checkOutTime: unit.checkOutTime, status: unit.status }} />
-        </CardBody>
-      </Card>
+      <UnitEditForm propertyId={property.id} unitId={unit.id} values={{ name: unit.name, capacity: unit.capacity, bedrooms: unit.bedrooms, bathrooms: unit.bathrooms, nightlyRate: centavosToPesosInput(unit.defaultNightlyRateCents), cleaningFee: centavosToPesosInput(unit.cleaningFeeCents), securityDeposit: centavosToPesosInput(unit.securityDepositCents), checkInTime: unit.checkInTime, checkOutTime: unit.checkOutTime, status: unit.status }} />
     </div>
   );
 }

@@ -46,8 +46,10 @@ export function UnitEditForm({
   }, [state.success, propertyId, unitId, router]);
 
   return (
-    <form action={formAction} className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2">
+    <form action={formAction} className="space-y-6">
+      <section className="rounded-xl border border-pine/15 bg-linen p-4 sm:p-5">
+        <div className="mb-4"><h2 className="font-display text-xl text-pine">Unit details</h2><p className="mt-1 text-sm text-ink/55">Name the independently bookable space.</p></div>
+        <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="unit-name">Unit name</Label>
           <Input
@@ -59,6 +61,12 @@ export function UnitEditForm({
             maxLength={80}
           />
         </div>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-pine/15 bg-linen p-4 sm:p-5">
+        <div className="mb-4"><h2 className="font-display text-xl text-pine">Availability, capacity & stay times</h2><p className="mt-1 text-sm text-ink/55">Control whether this unit is bookable and its fixed arrival and departure times.</p></div>
+        <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="unit-status">Status</Label>
           <Select
@@ -118,20 +126,17 @@ export function UnitEditForm({
             />
           </div>
         </div>
-        <div>
-          <Label htmlFor="unit-rate">Nightly rate (₱)</Label>
-          <Input
-            id="unit-rate"
-            name="nightlyRate"
-            inputMode="decimal"
-            defaultValue={values.nightlyRate}
-            placeholder="5500"
-          />
-        </div>
         <div className="grid grid-cols-2 gap-4">
           <div><Label htmlFor="unit-check-in">Fixed check-in</Label><Input id="unit-check-in" name="checkInTime" type="time" defaultValue={values.checkInTime} required /></div>
           <div><Label htmlFor="unit-check-out">Fixed check-out</Label><Input id="unit-check-out" name="checkOutTime" type="time" defaultValue={values.checkOutTime} required /></div>
         </div>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-pine/15 bg-linen p-4 sm:p-5">
+        <div className="mb-4"><h2 className="font-display text-xl text-pine">Base pricing & fees</h2><p className="mt-1 text-sm text-ink/55">Set the default nightly price and one-time charges.</p></div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div><Label htmlFor="unit-rate">Nightly rate (₱)</Label><Input id="unit-rate" name="nightlyRate" inputMode="decimal" defaultValue={values.nightlyRate} placeholder="5500" /></div>
         <div>
           <Label htmlFor="unit-cleaning">Cleaning fee (₱, optional)</Label>
           <Input
@@ -152,7 +157,13 @@ export function UnitEditForm({
             defaultValue={values.securityDeposit}
           />
         </div>
-      </div>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-dashed border-pine/20 bg-sage/20 p-4 sm:p-5">
+        <h2 className="font-display text-xl text-pine">Amenities, add-ons & pricing rules</h2>
+        <p className="mt-1 text-sm text-ink/60">Manage amenities, per-stay add-ons, and weekday or date-specific price rules from this unit&apos;s detail page.</p>
+      </section>
 
       <FieldError message={state.error} />
       {state.success ? (
