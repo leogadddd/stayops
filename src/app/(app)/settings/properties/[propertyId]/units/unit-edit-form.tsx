@@ -47,7 +47,7 @@ export function UnitEditForm({
   }, [state.success, propertyId, unitId, router]);
 
   return (
-    <form action={formAction} encType="multipart/form-data" className="space-y-6">
+    <form action={formAction} className="space-y-6">
       <section className="rounded-xl border border-pine/15 bg-linen p-4 sm:p-5">
         <div className="mb-4"><h2 className="font-display text-xl text-pine">Unit details</h2><p className="mt-1 text-sm text-ink/55">Name the independently bookable space.</p></div>
         <div className="grid gap-4 sm:grid-cols-2">

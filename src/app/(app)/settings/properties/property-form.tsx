@@ -73,7 +73,7 @@ export function PropertyForm({
   }, [state.success, propertyId, router]);
 
   return (
-    <form action={formAction} encType="multipart/form-data" className="space-y-4">
+    <form action={formAction} className="space-y-4">
       <div>
         <Label htmlFor="name">Property name</Label>
         <Input
