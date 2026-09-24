@@ -1,7 +1,7 @@
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { setToastAfterNavigation } from "@/components/ui/sonner";
 import { useReservationSaved } from "@/app/(app)/reservations/[id]/use-reservation-saved";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { requireMembership, requireOwner, type MembershipContext } from "@/lib/auth/session";
@@ -45,7 +45,7 @@ vi.mock("next/navigation", () => ({
   notFound: vi.fn(() => { throw new Error("Not found"); }),
   useRouter: vi.fn(() => ({ replace: vi.fn(), refresh: vi.fn() })),
 }));
-vi.mock("sonner", () => ({ toast: { success: vi.fn() } }));
+vi.mock("@/components/ui/sonner", () => ({ setToastAfterNavigation: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/db", () => ({ db: {} }));
 vi.mock("@/server/reservations/service", () => ({ getReservationDetail: vi.fn(), isLiveHold: vi.fn(), listReservations: vi.fn(), ReservationError: class extends Error {} }));
@@ -264,7 +264,7 @@ describe("reservation submission navigation", () => {
     expect(navigation.replace).not.toHaveBeenCalled();
     pending.resolve({ success: true });
     await expect(result).resolves.toEqual({ success: true });
-    expect(toast.success).toHaveBeenCalledExactlyOnceWith("Payment recorded.");
+    expect(setToastAfterNavigation).toHaveBeenCalledExactlyOnceWith("success", "Payment recorded.");
     expect(navigation.replace).toHaveBeenCalledExactlyOnceWith("/reservations/reservation-a");
     expect(navigation.refresh).toHaveBeenCalledOnce();
   });

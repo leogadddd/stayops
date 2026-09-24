@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { setToastAfterNavigation } from "@/components/ui/sonner";
 
 export function useReservationSaved<State extends { success?: boolean }>(
   action: (previous: State, formData: FormData) => Promise<State>,
@@ -13,7 +13,7 @@ export function useReservationSaved<State extends { success?: boolean }>(
     const result = await action(previous, formData);
     // Revalidation can remove status-gated forms before a success effect runs.
     if (result.success) {
-      toast.success(successMessage);
+      setToastAfterNavigation("success", successMessage);
       router.replace(`/reservations/${reservationId}`);
       router.refresh();
     }

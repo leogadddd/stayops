@@ -5,24 +5,32 @@ import { CircleCheck, CircleX, Info, LoaderCircle, TriangleAlert } from "lucide-
 import { Toaster as Sonner, toast } from "sonner";
 
 const FLASH_KEY = "stayops-toast";
+const FLASH_EVENT = "stayops:toast";
 
 export type ToastKind = "success" | "error" | "info" | "warning";
 
 export function setToastAfterNavigation(kind: ToastKind, message: string) {
   sessionStorage.setItem(FLASH_KEY, JSON.stringify({ kind, message }));
+  window.dispatchEvent(new Event(FLASH_EVENT));
 }
 
 export function StayOpsToaster() {
   useEffect(() => {
-    const value = sessionStorage.getItem(FLASH_KEY);
-    if (!value) return;
-    sessionStorage.removeItem(FLASH_KEY);
-    try {
-      const flash = JSON.parse(value) as { kind?: ToastKind; message?: string };
-      if (flash.kind && flash.message) toast[flash.kind](flash.message);
-    } catch {
-      // Ignore invalid or stale browser data.
+    function showNavigationToast() {
+      const value = sessionStorage.getItem(FLASH_KEY);
+      if (!value) return;
+      sessionStorage.removeItem(FLASH_KEY);
+      try {
+        const flash = JSON.parse(value) as { kind?: ToastKind; message?: string };
+        if (flash.kind && flash.message) toast[flash.kind](flash.message);
+      } catch {
+        // Ignore invalid or stale browser data.
+      }
     }
+
+    showNavigationToast();
+    window.addEventListener(FLASH_EVENT, showNavigationToast);
+    return () => window.removeEventListener(FLASH_EVENT, showNavigationToast);
   }, []);
 
   return (
