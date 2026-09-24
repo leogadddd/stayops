@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { authClient } from "@/lib/auth/client";
 import { signOutAndRedirect } from "@/lib/auth/sign-out";
+import { setToastAfterNavigation } from "@/components/ui/sonner";
 
 vi.mock("@/lib/auth/client", () => ({
   authClient: { signOut: vi.fn() },
 }));
+vi.mock("@/components/ui/sonner", () => ({ setToastAfterNavigation: vi.fn() }));
 
 beforeEach(() => vi.resetAllMocks());
 
@@ -16,6 +18,7 @@ describe("sign out", () => {
     await signOutAndRedirect(redirect);
 
     expect(authClient.signOut).toHaveBeenCalledOnce();
+    expect(setToastAfterNavigation).toHaveBeenCalledExactlyOnceWith("success", "Signed out successfully.");
     expect(redirect).toHaveBeenCalledExactlyOnceWith("/login");
   });
 

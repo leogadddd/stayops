@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { authClient } from "@/lib/auth/client";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label } from "@/components/ui/input";
@@ -23,9 +24,12 @@ export default function LoginPage() {
     });
     setPending(false);
     if (error) {
-      setError("That email and password combination didn't work.");
+      const message = "That email and password combination didn't work.";
+      setError(message);
+      toast.error("Couldn’t sign in", { description: message });
       return;
     }
+    toast.success("Welcome back.");
     router.push("/");
     router.refresh();
   }

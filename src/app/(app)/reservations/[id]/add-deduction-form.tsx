@@ -5,6 +5,7 @@ import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label, Textarea } from "@/components/ui/input";
 import { addDeductionAction, type PaymentFormState } from "./payment-actions";
+import { useActionFeedback } from "@/hooks/use-action-feedback";
 import { useReservationSaved } from "./use-reservation-saved";
 
 interface DamageOption {
@@ -21,6 +22,7 @@ export function AddDeductionForm({
 }) {
   const save = useReservationSaved(addDeductionAction.bind(null, reservationId), reservationId);
   const [state, formAction, pending] = useActionState<PaymentFormState, FormData>(save, {});
+  useActionFeedback(state, { success: "Deposit deduction recorded." });
 
   return (
     <div className="space-y-3">

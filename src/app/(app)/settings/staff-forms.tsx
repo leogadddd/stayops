@@ -7,12 +7,14 @@ import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { FieldError, Input, Label } from "@/components/ui/input";
 import { UserPlus, X } from "lucide-react";
 import { inviteStaffAction, removeStaffAction, type OrgFormState } from "./actions";
+import { useActionFeedback } from "@/hooks/use-action-feedback";
 
 export function InviteStaffForm() {
   const [state, formAction, pending] = useActionState<OrgFormState, FormData>(
     inviteStaffAction,
     {},
   );
+  useActionFeedback(state, { success: "Staff member added." });
   const router = useRouter();
   useEffect(() => {
     if (state.success) {
@@ -60,6 +62,7 @@ export function RemoveStaffButton({
       title={`Remove ${name}?`}
       description="They will lose access to this organization immediately. Their past activity remains in the audit log."
       confirmLabel="Remove staff member"
+      successMessage={`${name} was removed.`}
       onConfirm={() => removeStaffAction(membershipId)}
       trigger={<><X className="h-4 w-4" aria-hidden />Remove</>}
       triggerSize="sm"

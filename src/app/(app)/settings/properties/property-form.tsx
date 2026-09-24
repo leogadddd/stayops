@@ -9,6 +9,7 @@ import {
   updatePropertyAction,
   type InventoryFormState,
 } from "./actions";
+import { useActionFeedback } from "@/hooks/use-action-feedback";
 
 const COMMON_TIMEZONES = [
   "Asia/Manila",
@@ -56,6 +57,9 @@ export function PropertyForm({
     action,
     {},
   );
+  useActionFeedback(state, {
+    success: propertyId ? "Property updated." : "Property created.",
+  });
   const values = initialValues ?? EMPTY;
   const router = useRouter();
   useEffect(() => {

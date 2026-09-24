@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label, Select, Textarea } from "@/components/ui/input";
 import { PAYMENT_ALLOCATION_LABELS, PAYMENT_METHOD_LABELS } from "@/lib/labels";
 import { recordRefundAction, type PaymentFormState } from "./payment-actions";
+import { useActionFeedback } from "@/hooks/use-action-feedback";
 import { useReservationSaved } from "./use-reservation-saved";
 
 const PAYMENT_ALLOCATIONS = ["booking", "security_deposit"] as const;
@@ -14,6 +15,7 @@ const PAYMENT_METHODS = ["gcash", "maya", "bank_transfer", "cash"] as const;
 export function RecordRefundForm({ reservationId }: { reservationId: string }) {
   const save = useReservationSaved(recordRefundAction.bind(null, reservationId), reservationId);
   const [state, formAction, pending] = useActionState<PaymentFormState, FormData>(save, {});
+  useActionFeedback(state, { success: "Refund recorded." });
 
   return (
     <div className="space-y-3">

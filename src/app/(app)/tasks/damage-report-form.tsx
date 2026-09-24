@@ -4,9 +4,11 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label, Textarea } from "@/components/ui/input";
 import { createDamageReportAction, type DamageFormState } from "./actions";
+import { useActionFeedback } from "@/hooks/use-action-feedback";
 
 export function DamageReportForm({
   unitId,
@@ -22,6 +24,7 @@ export function DamageReportForm({
     async (previous, formData) => {
       const result = await createDamageReportAction(unitId, reservationId, previous, formData);
       if (result.success && returnHref) {
+        toast.success("Damage report created.");
         router.push(returnHref);
         router.refresh();
       }
@@ -29,6 +32,7 @@ export function DamageReportForm({
     },
     {},
   );
+  useActionFeedback(state, { success: returnHref ? undefined : "Damage report created." });
 
   if (state.success) {
     return (

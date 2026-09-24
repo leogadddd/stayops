@@ -6,12 +6,14 @@ import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label } from "@/components/ui/input";
 import { Save } from "lucide-react";
 import { renameOrganization, type OrgFormState } from "./actions";
+import { useActionFeedback } from "@/hooks/use-action-feedback";
 
 export function OrgNameForm({ defaultName }: { defaultName: string }) {
   const [state, formAction, pending] = useActionState<OrgFormState, FormData>(
     renameOrganization,
     {},
   );
+  useActionFeedback(state, { success: "Organization name updated." });
   const router = useRouter();
   useEffect(() => {
     if (state.success) {

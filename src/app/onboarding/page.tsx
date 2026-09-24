@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label } from "@/components/ui/input";
 
@@ -25,9 +26,12 @@ export default function OnboardingPage() {
       const body = (await res.json().catch(() => null)) as {
         error?: string;
       } | null;
-      setError(body?.error ?? "Something went wrong. Please try again.");
+      const message = body?.error ?? "Something went wrong. Please try again.";
+      setError(message);
+      toast.error("Couldn’t create the organization", { description: message });
       return;
     }
+    toast.success("Organization created", { description: "Your StayOps workspace is ready." });
     router.push("/calendar");
     router.refresh();
   }

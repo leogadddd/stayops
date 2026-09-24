@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label, Select } from "@/components/ui/input";
 import { PAYMENT_ALLOCATION_LABELS, PAYMENT_METHOD_LABELS } from "@/lib/labels";
 import { recordProofPaymentAction, type PaymentFormState } from "./payment-actions";
+import { useActionFeedback } from "@/hooks/use-action-feedback";
 import { useReservationSaved } from "./use-reservation-saved";
 
 const PAYMENT_ALLOCATIONS = ["booking", "security_deposit"] as const;
@@ -18,6 +19,7 @@ export function RecordProofForm({ reservationId, proofId, reference }: {
 }) {
   const save = useReservationSaved(recordProofPaymentAction.bind(null, reservationId, proofId), reservationId);
   const [state, formAction, pending] = useActionState<PaymentFormState, FormData>(save, {});
+  useActionFeedback(state, { success: "Payment proof recorded." });
 
   if (state.success) {
     return (

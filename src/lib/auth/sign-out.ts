@@ -1,6 +1,7 @@
 "use client";
 
 import { authClient } from "@/lib/auth/client";
+import { setToastAfterNavigation } from "@/components/ui/sonner";
 
 export async function signOutAndRedirect(
   redirect: (path: string) => void = (path) => window.location.replace(path),
@@ -9,5 +10,6 @@ export async function signOutAndRedirect(
   if (error) {
     throw new Error(error.message || "Could not sign out. Please try again.");
   }
+  setToastAfterNavigation("success", "Signed out successfully.");
   redirect("/login");
 }

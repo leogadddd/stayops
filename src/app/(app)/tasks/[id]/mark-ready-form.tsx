@@ -4,9 +4,11 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { FieldError, Label, Textarea } from "@/components/ui/input";
 import { markTaskReadyAction, type TaskFormState } from "../actions";
+import { useActionFeedback } from "@/hooks/use-action-feedback";
 
 export function MarkReadyForm({
   taskId,
@@ -24,6 +26,7 @@ export function MarkReadyForm({
     async (previous, formData) => {
       const result = await markTaskReadyAction(taskId, previous, formData);
       if (result.success) {
+        toast.success("Unit marked ready.");
         router.push(`/tasks/${taskId}`);
         router.refresh();
       }
@@ -31,6 +34,7 @@ export function MarkReadyForm({
     },
     {},
   );
+  useActionFeedback(state);
 
   if (state.success) {
     return (

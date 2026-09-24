@@ -6,6 +6,7 @@ import { Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FieldError, Label, Textarea } from "@/components/ui/input";
 import { savePaymentInstructions, type OrgFormState } from "./actions";
+import { useActionFeedback } from "@/hooks/use-action-feedback";
 
 export function PaymentInstructionsForm({
   defaultValue,
@@ -16,6 +17,7 @@ export function PaymentInstructionsForm({
     savePaymentInstructions,
     {},
   );
+  useActionFeedback(state, { success: "Payment instructions updated." });
   const router = useRouter();
   useEffect(() => {
     if (state.success) {

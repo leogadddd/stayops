@@ -4,9 +4,11 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { FieldError, Label, Textarea } from "@/components/ui/input";
 import { updateTaskNotesAction, type TaskFormState } from "../actions";
+import { useActionFeedback } from "@/hooks/use-action-feedback";
 
 export function TaskNotesForm({
   taskId,
@@ -22,6 +24,7 @@ export function TaskNotesForm({
     async (previous, formData) => {
       const result = await updateTaskNotesAction(taskId, previous, formData);
       if (result.success) {
+        toast.success("Turnover notes saved.");
         router.push(`/tasks/${taskId}`);
         router.refresh();
       }
@@ -29,6 +32,7 @@ export function TaskNotesForm({
     },
     {},
   );
+  useActionFeedback(state);
 
   if (!editable) {
     return notes ? (

@@ -15,6 +15,7 @@ export function TableActionsMenu({
   editHref,
   deleteLabel,
   deleteDescription,
+  deleteSuccessMessage,
   onDelete,
 }: {
   label: string;
@@ -22,6 +23,7 @@ export function TableActionsMenu({
   editHref?: string;
   deleteLabel?: string;
   deleteDescription?: string;
+  deleteSuccessMessage?: string;
   onDelete?: () => Promise<DeleteResult>;
 }) {
   const [open, setOpen] = useState(false);
@@ -81,6 +83,7 @@ export function TableActionsMenu({
           title={deleteLabel}
           description={deleteDescription}
           confirmLabel="Delete"
+          successMessage={deleteSuccessMessage ?? `${label} deleted.`}
           onConfirm={async () => {
             const result = await onDelete();
             if (result.error) throw new Error(result.error);

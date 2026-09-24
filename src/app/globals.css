@@ -50,3 +50,64 @@
     scrollbar-width: thin;
   }
 }
+
+/* Sonner, shaped to feel like a compact StayOps status card. */
+.stayops-toaster {
+  --width: min(390px, calc(100vw - 24px));
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+.stayops-toaster [data-sonner-toast].stayops-toast {
+  --normal-bg: #fbfaf7;
+  --normal-border: rgba(32, 58, 53, 0.16);
+  --normal-text: #203a35;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border-left-width: 4px;
+  box-shadow: 0 16px 42px rgba(22, 41, 37, 0.14), 0 2px 8px rgba(22, 41, 37, 0.08);
+}
+
+.stayops-toaster [data-sonner-toast][data-type="success"] {
+  border-left-color: #6f927e;
+}
+
+.stayops-toaster [data-sonner-toast][data-type="error"] {
+  border-left-color: #a64e37;
+}
+
+.stayops-toaster [data-sonner-toast][data-type="info"] {
+  border-left-color: #2c4a44;
+}
+
+.stayops-toaster [data-sonner-toast][data-type="warning"] {
+  border-left-color: #b77a3d;
+}
+
+.stayops-toaster [data-sonner-toast] [data-icon] {
+  color: #203a35;
+}
+
+.stayops-toaster [data-sonner-toast][data-type="error"] [data-icon] {
+  color: #a64e37;
+}
+
+.stayops-toaster .stayops-toast-title {
+  color: #203a35;
+  font-size: 0.875rem;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.stayops-toaster .stayops-toast-description {
+  margin-top: 3px;
+  color: rgba(34, 49, 45, 0.68) !important;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.stayops-toaster .stayops-toast-close {
+  border-color: rgba(32, 58, 53, 0.14) !important;
+  background: #f6f3ed !important;
+  color: #203a35 !important;
+}

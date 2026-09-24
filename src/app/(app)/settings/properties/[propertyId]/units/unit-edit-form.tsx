@@ -7,6 +7,7 @@ import { UNIT_STATUS_LABELS } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label, Select } from "@/components/ui/input";
 import { updateUnitAction, type InventoryFormState } from "../../actions";
+import { useActionFeedback } from "@/hooks/use-action-feedback";
 
 export interface UnitFormValues {
   name: string;
@@ -33,6 +34,7 @@ export function UnitEditForm({
     updateUnitAction.bind(null, propertyId, unitId),
     {},
   );
+  useActionFeedback(state, { success: "Unit updated." });
   const router = useRouter();
   useEffect(() => {
     if (state.success) {

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { CheckCircle2, Circle } from "lucide-react";
+import { toast } from "sonner";
 import { setTaskItemCompletedAction } from "../actions";
 
 export interface ChecklistItem {
@@ -31,7 +32,12 @@ export function Checklist({
         item.id,
         !item.completed,
       );
-      if (result.error) setError(result.error);
+      if (result.error) {
+        setError(result.error);
+        toast.error("Checklist wasn’t updated", { description: result.error });
+        return;
+      }
+      toast.success(item.completed ? "Checklist item reopened." : "Checklist item completed.");
     });
   };
 

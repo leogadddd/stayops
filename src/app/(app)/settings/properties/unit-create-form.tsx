@@ -7,12 +7,14 @@ import { UNIT_STATUS_LABELS } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label, Select } from "@/components/ui/input";
 import { createUnitAction, type InventoryFormState } from "./actions";
+import { useActionFeedback } from "@/hooks/use-action-feedback";
 
 export function UnitCreateForm({ propertyId }: { propertyId: string }) {
   const [state, formAction, pending] = useActionState<InventoryFormState, FormData>(
     createUnitAction.bind(null, propertyId),
     {},
   );
+  useActionFeedback(state, { success: "Unit created." });
   const router = useRouter();
   useEffect(() => {
     if (state.success) {

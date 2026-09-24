@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { useState } from "react";
 import { Check, Copy, Link2, ShieldX } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label } from "@/components/ui/input";
 import {
@@ -10,6 +11,7 @@ import {
   revokeGuestLinkAction,
   type GuestLinkFormState,
 } from "../actions";
+import { useActionFeedback } from "@/hooks/use-action-feedback";
 
 function formatDateTime(value: Date) {
   return new Intl.DateTimeFormat("en-PH", {
@@ -37,6 +39,8 @@ export function GuestLinkCard({
     GuestLinkFormState,
     FormData
   >(revokeGuestLinkAction.bind(null, reservationId, activeToken?.id ?? ""), {});
+  useActionFeedback(created, { success: "Guest link created. Copy it before leaving this page." });
+  useActionFeedback(revokeState, { success: "Guest link revoked." });
 
   const [copied, setCopied] = useState(false);
   const shownToken = created.token ?? null;
@@ -46,6 +50,7 @@ export function GuestLinkCard({
     if (!url) return;
     await navigator.clipboard.writeText(url);
     setCopied(true);
+    toast.info("Guest link copied to clipboard.");
     setTimeout(() => setCopied(false), 2000);
   }
 

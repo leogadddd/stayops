@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { FieldError, Label, Textarea } from "@/components/ui/input";
 import { cancelReservationAction, type ReservationFormState } from "../actions";
+import { useActionFeedback } from "@/hooks/use-action-feedback";
 import { useReservationSaved } from "./use-reservation-saved";
 
 export function CancelReservationForm({
@@ -15,6 +16,7 @@ export function CancelReservationForm({
 }) {
   const save = useReservationSaved(cancelReservationAction.bind(null, reservationId), reservationId);
   const [state, formAction, pending] = useActionState<ReservationFormState, FormData>(save, {});
+  useActionFeedback(state, { success: "Reservation cancelled." });
 
   return (
     <form action={formAction} className="space-y-3">

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { authClient } from "@/lib/auth/client";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label } from "@/components/ui/input";
@@ -22,7 +23,9 @@ export default function RegisterPage() {
     const confirm = String(form.get("confirm") ?? "");
 
     if (password !== confirm) {
-      setError("Passwords don't match.");
+      const message = "Passwords don't match.";
+      setError(message);
+      toast.error("Check your passwords", { description: message });
       return;
     }
 
@@ -30,13 +33,15 @@ export default function RegisterPage() {
     const { error } = await authClient.signUp.email({ name, email, password });
     setPending(false);
     if (error) {
-      setError(
+      const message =
         error.status === 409
           ? "An account with that email already exists."
-          : "We couldn't create your account. Please try again.",
-      );
+          : "We couldn't create your account. Please try again.";
+      setError(message);
+      toast.error("Couldn’t create your account", { description: message });
       return;
     }
+    toast.success("Account created", { description: "Let’s set up your organization." });
     router.push("/onboarding");
     router.refresh();
   }

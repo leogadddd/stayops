@@ -7,6 +7,7 @@ import { Button, buttonClassName } from "@/components/ui/button";
 import { FieldError } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { dismissProofAction, type PaymentFormState } from "./payment-actions";
+import { useActionFeedback } from "@/hooks/use-action-feedback";
 
 export interface ProofItem {
   id: string;
@@ -60,6 +61,7 @@ export function ProofQueue({ reservationId, proofs, canRecord = true }: {
 
 function DismissButton({ reservationId, proofId }: { reservationId: string; proofId: string }) {
   const [state, formAction, pending] = useActionState<PaymentFormState, FormData>(dismissProofAction.bind(null, reservationId, proofId), {});
+  useActionFeedback(state, { success: "Payment proof dismissed." });
   if (state.success) return <span className="text-xs text-ink/50" role="status">Dismissed</span>;
   return (
     <form action={formAction}>

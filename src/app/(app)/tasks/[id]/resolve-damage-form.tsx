@@ -4,9 +4,11 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label, Textarea } from "@/components/ui/input";
 import { resolveDamageReportAction, type DamageFormState } from "../actions";
+import { useActionFeedback } from "@/hooks/use-action-feedback";
 
 export function ResolveDamageForm({ taskId, damageReportId }: { taskId: string; damageReportId: string }) {
   const router = useRouter();
@@ -14,6 +16,7 @@ export function ResolveDamageForm({ taskId, damageReportId }: { taskId: string; 
     async (previous, formData) => {
       const result = await resolveDamageReportAction(taskId, damageReportId, previous, formData);
       if (result.success) {
+        toast.success("Damage report resolved.");
         router.push(`/tasks/${taskId}`);
         router.refresh();
       }
@@ -21,6 +24,7 @@ export function ResolveDamageForm({ taskId, damageReportId }: { taskId: string; 
     },
     {},
   );
+  useActionFeedback(state);
 
   if (state.success) {
     return (

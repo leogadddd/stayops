@@ -2,6 +2,7 @@
 
 import { useId, useRef, useState, type AriaRole, type ReactNode } from "react";
 import { AlertTriangle, X } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
 export function ConfirmationDialog({
@@ -16,6 +17,7 @@ export function ConfirmationDialog({
   confirmLabel,
   cancelLabel = "Go back",
   onConfirm,
+  successMessage,
 }: {
   trigger: ReactNode;
   triggerVariant?: "primary" | "clay" | "outline" | "ghost";
@@ -28,6 +30,7 @@ export function ConfirmationDialog({
   confirmLabel: string;
   cancelLabel?: string;
   onConfirm?: () => void | Promise<void>;
+  successMessage?: string | null;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [pending, setPending] = useState(false);
@@ -44,9 +47,14 @@ export function ConfirmationDialog({
     setError(null);
     try {
       await onConfirm();
+      if (successMessage !== null) {
+        toast.success(successMessage ?? `${confirmLabel} completed.`);
+      }
       dialog.current?.close();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "That action could not be completed.");
+      const message = cause instanceof Error ? cause.message : "That action could not be completed.";
+      setError(message);
+      toast.error("That didn’t work", { description: message });
     } finally {
       setPending(false);
     }

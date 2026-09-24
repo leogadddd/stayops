@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { useActionState } from "react";
 import { Plus, RotateCcw, Trash2 } from "lucide-react";
 import type { ChargeType } from "@/lib/db/schema";
@@ -22,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { FieldError, Input, Label, Select } from "@/components/ui/input";
 import { createReservationAction, type ReservationFormState } from "../actions";
+import { useActionFeedback } from "@/hooks/use-action-feedback";
 
 export interface UnitOption {
   id: string;
@@ -94,7 +96,6 @@ export function ReservationForm({
     createReservationAction,
     {},
   );
-
   const [unitId, setUnitId] = useState(
     requestedUnitId && units.some((unit) => unit.id === requestedUnitId)
       ? requestedUnitId
@@ -111,6 +112,9 @@ export function ReservationForm({
     null,
   );
   const [submitMode, setSubmitMode] = useState<"hold" | "confirmed">("hold");
+  useActionFeedback(state, {
+    success: submitMode === "hold" ? "Reservation hold created." : "Reservation confirmed.",
+  });
   const [clientError, setClientError] = useState<string | null>(null);
   const [idempotencyKey] = useState(() => crypto.randomUUID());
 
@@ -186,15 +190,17 @@ export function ReservationForm({
     if (!isOwner) return;
     if (submittableLines.length === 0) {
       event.preventDefault();
-      setClientError("Add at least one charge with a description, quantity and amount.");
+      const message = "Add at least one charge with a description, quantity and amount.";
+      setClientError(message);
+      toast.error("Check the charges", { description: message });
       return;
     }
     const broken = parsed.find((entry) => entry.line === null);
     if (broken) {
       event.preventDefault();
-      setClientError(
-        `Fix the highlighted charge line (${broken.draft.description.trim() || "no description"}). Amounts look like 5500 or 5,500.50.`,
-      );
+      const message = `Fix the highlighted charge line (${broken.draft.description.trim() || "no description"}). Amounts look like 5500 or 5,500.50.`;
+      setClientError(message);
+      toast.error("Check the charges", { description: message });
     }
   }
 

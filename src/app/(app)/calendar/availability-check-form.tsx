@@ -8,6 +8,7 @@ import {
   checkAvailabilityAction,
   type AvailabilityFormState,
 } from "./actions";
+import { useActionFeedback } from "@/hooks/use-action-feedback";
 
 export interface AvailabilityUnitOption {
   id: string;
@@ -23,6 +24,15 @@ export function AvailabilityCheckForm({
     checkAvailabilityAction,
     {},
   );
+  useActionFeedback(state, {
+    getInformation: (current) => current.result ? {
+      type: current.result.available ? "success" : "warning",
+      message: current.result.available ? "Unit is available" : "Unit is not available",
+      description: current.result.available
+        ? `${current.result.unitName} · ${current.result.nights} night${current.result.nights === 1 ? "" : "s"}`
+        : `${current.result.unitName} · ${current.result.conflictReason}`,
+    } : null,
+  });
 
   return (
     <div className="rounded-2xl border border-pine/10 bg-white p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)]">

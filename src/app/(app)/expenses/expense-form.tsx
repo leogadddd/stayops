@@ -4,11 +4,13 @@ import { useActionState, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label, Select, Textarea } from "@/components/ui/input";
 import { EXPENSE_CATEGORY_LABELS } from "@/lib/labels";
 import type { ExpenseCategory } from "@/lib/db/schema";
 import { createExpenseAction, type ExpenseFormState } from "./actions";
+import { useActionFeedback } from "@/hooks/use-action-feedback";
 
 export interface PropertyOption {
   id: string;
@@ -31,6 +33,7 @@ export function ExpenseForm({
     async (previous, formData) => {
       const result = await createExpenseAction(previous, formData);
       if (result.success) {
+        toast.success("Expense recorded.");
         router.push("/expenses");
         router.refresh();
       }
@@ -38,6 +41,7 @@ export function ExpenseForm({
     },
     {},
   );
+  useActionFeedback(state);
   const [propertyId, setPropertyId] = useState(properties[0]?.id ?? "");
 
   const unitOptions = unitsByProperty[propertyId] ?? [];

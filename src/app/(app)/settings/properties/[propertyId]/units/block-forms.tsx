@@ -6,12 +6,14 @@ import { Button } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { FieldError, Input, Label } from "@/components/ui/input";
 import { addUnitBlockAction, removeUnitBlockAction, type BlockFormState } from "./block-actions";
+import { useActionFeedback } from "@/hooks/use-action-feedback";
 
 export function BlockForms({ propertyId, unitId }: { propertyId: string; unitId: string }) {
   const [state, formAction, pending] = useActionState<BlockFormState, FormData>(
     addUnitBlockAction.bind(null, propertyId, unitId),
     {},
   );
+  useActionFeedback(state, { success: "Blocked period added." });
   const router = useRouter();
   useEffect(() => {
     if (state.success) {
@@ -50,6 +52,7 @@ export function RemoveBlockButton({ propertyId, unitId, blockId, label }: { prop
       title="Remove this blocked period?"
       description={`${label} will become bookable again unless another hold, reservation, or block covers those nights.`}
       confirmLabel="Remove block"
+      successMessage="Blocked period removed."
       onConfirm={() => removeUnitBlockAction(propertyId, unitId, blockId)}
       trigger="Remove"
       triggerSize="sm"

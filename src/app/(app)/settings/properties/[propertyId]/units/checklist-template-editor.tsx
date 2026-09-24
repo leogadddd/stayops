@@ -9,6 +9,7 @@ import {
   updateChecklistTemplateAction,
   type InventoryFormState,
 } from "../../actions";
+import { useActionFeedback } from "@/hooks/use-action-feedback";
 
 interface TemplateRow {
   label: string;
@@ -28,6 +29,7 @@ export function ChecklistTemplateEditor({
     updateChecklistTemplateAction.bind(null, propertyId, unitId),
     {},
   );
+  useActionFeedback(state, { success: "Turnover checklist updated." });
   const [rows, setRows] = useState<TemplateRow[]>(items);
   const router = useRouter();
   useEffect(() => {

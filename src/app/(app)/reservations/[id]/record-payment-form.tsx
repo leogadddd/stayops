@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button";
 import { FieldError, Input, Label, Select } from "@/components/ui/input";
 import { PAYMENT_ALLOCATION_LABELS, PAYMENT_METHOD_LABELS } from "@/lib/labels";
 import { recordPaymentAction, type PaymentFormState } from "./payment-actions";
+import { useActionFeedback } from "@/hooks/use-action-feedback";
 import { useReservationSaved } from "./use-reservation-saved";
 
 export function RecordPaymentForm({ reservationId }: { reservationId: string }) {
   const save = useReservationSaved(recordPaymentAction.bind(null, reservationId), reservationId);
   const [state, formAction, pending] = useActionState<PaymentFormState, FormData>(save, {});
+  useActionFeedback(state, { success: "Payment recorded." });
   const [idempotencyKey] = useState(() => crypto.randomUUID());
 
   return (

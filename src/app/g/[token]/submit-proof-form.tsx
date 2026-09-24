@@ -9,12 +9,14 @@ import {
   submitPaymentProofAction,
   type GuestProofFormState,
 } from "./actions";
+import { useActionFeedback } from "@/hooks/use-action-feedback";
 
 export function SubmitProofForm({ token }: { token: string }) {
   const [state, formAction, pending] = useActionState<GuestProofFormState, FormData>(
     submitPaymentProofAction.bind(null, token),
     {},
   );
+  useActionFeedback(state, { success: "Payment reference sent to your host." });
 
   if (state.success) {
     return (
