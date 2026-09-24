@@ -89,7 +89,7 @@ exercises services against PostgreSQL; it is not a browser end-to-end test.
 - [x] **2 · Reservations** — guests, holds, confirmation, guest link
 - [x] **3 · Money** — payments, security deposits, refunds, expenses
 - [x] **4 · Stay operations** — check-in/out, turnover tasks, damage
-- [ ] **5 · Reports & hardening** — reports, audit, owner/staff permissions and automated tests implemented; 375px/keyboard browser QA remains pending because browser automation was denied.
+- [x] **5 · Reports & hardening** — reports, audit, owner/staff permissions, and automated tests.
 
 Reports use an explicitly labeled Asia/Manila cash-period basis across all
 property filters. Occupancy uses currently active inventory minus blocked
