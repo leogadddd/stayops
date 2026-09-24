@@ -152,6 +152,7 @@ export async function updateProperty(input: {
       entity: "property",
       entityId: input.propertyId,
       action: "property.updated",
+      metadata: { name: data.name },
     });
   });
 }
@@ -253,6 +254,7 @@ export async function updateUnit(input: {
       entity: "unit",
       entityId: input.unitId,
       action: "unit.updated",
+      metadata: { name: data.name },
     });
   });
 }
@@ -333,7 +335,7 @@ export async function deleteProperty(input: {
     if (!property) throw new InventoryError("Property not found.", "propertyId");
 
     const propertyUnits = await tx
-      .select({ id: units.id })
+      .select({ id: units.id, name: units.name })
       .from(units)
       .where(and(
         eq(units.organizationId, input.organizationId),
@@ -379,7 +381,11 @@ export async function deleteProperty(input: {
       entity: "property",
       entityId: property.id,
       action: "property.deleted",
-      metadata: { name: property.name, deletedUnitCount: unitIds.length },
+      metadata: {
+        name: property.name,
+        deletedUnitCount: unitIds.length,
+        deletedUnitNames: propertyUnits.map((unit) => unit.name),
+      },
     });
   });
 }
@@ -476,7 +482,13 @@ export async function removeUnitBlock(input: {
           eq(unitBlocks.organizationId, input.organizationId),
         ),
       )
-      .returning({ id: unitBlocks.id });
+      .returning({
+        id: unitBlocks.id,
+        unitId: unitBlocks.unitId,
+        startDate: unitBlocks.startDate,
+        endDate: unitBlocks.endDate,
+        reason: unitBlocks.reason,
+      });
     if (!removed) {
       throw new InventoryError("Block not found.", "blockId");
     }
@@ -486,6 +498,12 @@ export async function removeUnitBlock(input: {
       entity: "unit_block",
       entityId: input.blockId,
       action: "unit_block.removed",
+      metadata: {
+        unitId: removed.unitId,
+        startDate: removed.startDate,
+        endDate: removed.endDate,
+        reason: removed.reason,
+      },
     });
   });
 }

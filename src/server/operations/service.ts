@@ -489,20 +489,35 @@ export async function updateTaskNotes(input: {
   data: unknown;
 }) {
   const data = taskNotesSchema.parse(input.data);
-  const [task] = await db
-    .select({ id: tasks.id })
-    .from(tasks)
-    .where(
-      and(eq(tasks.id, input.taskId), eq(tasks.organizationId, input.organizationId)),
-    )
-    .limit(1);
-  if (!task) {
-    throw new OperationsError("Task not found.", "taskId");
-  }
-  await db
-    .update(tasks)
-    .set({ notes: data.notes || null, updatedAt: new Date() })
-    .where(eq(tasks.id, task.id));
+  await db.transaction(async (tx) => {
+    const [task] = await tx
+      .select({ id: tasks.id, unitId: tasks.unitId })
+      .from(tasks)
+      .where(
+        and(eq(tasks.id, input.taskId), eq(tasks.organizationId, input.organizationId)),
+      )
+      .limit(1);
+    if (!task) {
+      throw new OperationsError("Task not found.", "taskId");
+    }
+    const notes = data.notes || null;
+    await tx
+      .update(tasks)
+      .set({ notes, updatedAt: new Date() })
+      .where(eq(tasks.id, task.id));
+    await recordAudit(tx, {
+      organizationId: input.organizationId,
+      actorUserId: input.actorUserId,
+      entity: "task",
+      entityId: task.id,
+      action: "task.notes_updated",
+      metadata: {
+        unitId: task.unitId,
+        hasNotes: notes !== null,
+        characterCount: notes?.length ?? 0,
+      },
+    });
+  });
 }
 
 export async function markTaskReady(input: {
@@ -726,7 +741,13 @@ export async function createDamageReport(input: {
       entity: "damage_report",
       entityId: report.id,
       action: "damage.reported",
-      metadata: { unitId: unit.id, reservationId: data.reservationId ?? null },
+      metadata: {
+        unitId: unit.id,
+        reservationId: data.reservationId ?? null,
+        description: report.description,
+        estimatedAmountCents,
+        actualAmountCents,
+      },
     });
     return report;
   });
@@ -785,7 +806,12 @@ export async function resolveDamageReport(input: {
       entity: "damage_report",
       entityId: report.id,
       action: "damage.resolved",
-      metadata: { unitId: report.unitId, reservationId: report.reservationId },
+      metadata: {
+        unitId: report.unitId,
+        reservationId: report.reservationId,
+        resolutionNote: data.resolutionNote,
+        actualAmountCents,
+      },
     });
     return updated;
   });

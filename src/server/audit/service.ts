@@ -7,6 +7,10 @@ import { auditEvents, user } from "@/lib/db/schema";
 export interface AuditListItem {
   id: string;
   action: string;
+  entity: string;
+  entityId: string;
+  metadata: Record<string, unknown> | null;
+  actorUserId: string | null;
   actorName: string | null;
   createdAt: Date;
 }
@@ -19,6 +23,10 @@ export async function listAuditEvents(
     .select({
       id: auditEvents.id,
       action: auditEvents.action,
+      entity: auditEvents.entity,
+      entityId: auditEvents.entityId,
+      metadata: auditEvents.metadata,
+      actorUserId: auditEvents.actorUserId,
       actorName: user.name,
       createdAt: auditEvents.createdAt,
     })
@@ -31,6 +39,10 @@ export async function listAuditEvents(
   return rows.map((row) => ({
     id: row.id,
     action: row.action,
+    entity: row.entity,
+    entityId: row.entityId,
+    metadata: row.metadata as Record<string, unknown> | null,
+    actorUserId: row.actorUserId,
     actorName: row.actorName,
     createdAt: row.createdAt,
   }));

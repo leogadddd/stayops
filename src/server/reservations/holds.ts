@@ -2,7 +2,7 @@ import "server-only";
 
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { reservationTransitions, reservations } from "@/lib/db/schema";
+import { auditEvents, reservationTransitions, reservations } from "@/lib/db/schema";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -34,7 +34,12 @@ export async function expireStaleHolds(
     .update(reservations)
     .set({ status: "expired", updatedAt: now })
     .where(sql`${sql.join(conditions, sql` AND `)}`)
-    .returning({ id: reservations.id, organizationId: reservations.organizationId });
+    .returning({
+      id: reservations.id,
+      organizationId: reservations.organizationId,
+      unitId: reservations.unitId,
+      expiresAt: reservations.expiresAt,
+    });
 
   for (const row of expired) {
     await executor.insert(reservationTransitions).values({
@@ -43,6 +48,14 @@ export async function expireStaleHolds(
       fromStatus: "hold",
       toStatus: "expired",
       note: "Hold expired automatically.",
+    });
+    await executor.insert(auditEvents).values({
+      organizationId: row.organizationId,
+      actorUserId: null,
+      entity: "reservation",
+      entityId: row.id,
+      action: "reservation.expired",
+      metadata: { unitId: row.unitId, expiresAt: row.expiresAt },
     });
   }
   return expired.length;

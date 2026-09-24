@@ -210,14 +210,30 @@ describe("read-only summaries and reusable tables", () => {
     expect(inventory.listUnitBlocks).toHaveBeenCalledWith(owner.organizationId, unit.id, expect.any(String));
   });
 
-  it("renders audit time/action/actor columns and the guest-link creation label", async () => {
+  it("renders audit activity, target, details and actor context", async () => {
     vi.mocked(listAuditEvents).mockResolvedValue([
-      { id: "audit-a", action: "guest_link.created", actorName: "Owner Example", createdAt: new Date("2026-09-01T00:00:00Z") },
-      { id: "audit-b", action: "future.action", actorName: null, createdAt: new Date("2026-09-01T00:00:00Z") },
+      {
+        id: "audit-a", action: "guest_link.created", entity: "access_token", entityId: "token-a",
+        metadata: { reservationId: "reservation-a" }, actorUserId: "owner-a", actorName: "Owner Example",
+        createdAt: new Date("2026-09-01T00:00:00Z"),
+      },
+      {
+        id: "audit-b", action: "property.deleted", entity: "property", entityId: "property-a",
+        metadata: { name: "Beach House", deletedUnitCount: 2, deletedUnitNames: ["Suite A", "Suite B"] },
+        actorUserId: null, actorName: null, createdAt: new Date("2026-09-01T00:00:00Z"),
+      },
+      {
+        id: "audit-c", action: "payment_proof.submitted", entity: "payment_proof", entityId: "proof-a",
+        metadata: { reservationId: "reservation-a" }, actorUserId: null, actorName: null,
+        createdAt: new Date("2026-09-01T00:00:00Z"),
+      },
     ]);
     const html = renderToStaticMarkup(await AuditLogsPage());
     expect(listAuditEvents).toHaveBeenCalledExactlyOnceWith(owner.organizationId, 50);
-    for (const label of ["Time", "Action", "Actor", "Guest link created", "Owner Example", "Not recorded", "future.action"]) expect(html).toContain(label);
+    for (const label of [
+      "Time", "Activity", "Target", "Actor", "Guest link created", "Owner Example",
+      "Property deleted", "Beach House", "2 units archived", "Suite A, Suite B", "System", "Guest portal",
+    ]) expect(html).toContain(label);
     expect(html).toContain('dateTime="2026-09-01T00:00:00.000Z"');
     expect(html).toContain('data-slot="table"');
   });

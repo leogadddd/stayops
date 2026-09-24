@@ -239,8 +239,15 @@ export async function removeStaff(input: {
 }): Promise<void> {
   await db.transaction(async (tx) => {
     const [target] = await tx
-      .select({ id: memberships.id, role: memberships.role, userId: memberships.userId })
+      .select({
+        id: memberships.id,
+        role: memberships.role,
+        userId: memberships.userId,
+        name: user.name,
+        email: user.email,
+      })
       .from(memberships)
+      .innerJoin(user, eq(memberships.userId, user.id))
       .where(
         and(
           eq(memberships.id, input.membershipId),
@@ -274,6 +281,7 @@ export async function removeStaff(input: {
       entity: "membership",
       entityId: input.membershipId,
       action: "organization.staff_removed",
+      metadata: { name: target.name, email: target.email },
     });
   });
 }

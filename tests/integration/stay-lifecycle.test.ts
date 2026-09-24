@@ -8,7 +8,9 @@ import {
   markTaskReady,
   setTaskItemCompleted,
   updateChecklistTemplate,
+  updateTaskNotes,
 } from "@/server/operations/service";
+import { listAuditEvents } from "@/server/audit/service";
 import { getReport } from "@/server/reports/service";
 import { createProperty } from "@/server/inventory/service";
 import {
@@ -104,6 +106,13 @@ describe("stay lifecycle (hold → payment → confirm → stay → turnover)", 
     expect(detail.items).toHaveLength(2);
     expect(detail.assessment.canMarkReady).toBe(false);
 
+    await updateTaskNotes({
+      organizationId: org.id,
+      actorUserId: owner.id,
+      taskId: task.id,
+      data: { notes: "Leave the spare key with the guard." },
+    });
+
     for (const item of detail.items) {
       await setTaskItemCompleted({
         organizationId: org.id,
@@ -122,6 +131,10 @@ describe("stay lifecycle (hold → payment → confirm → stay → turnover)", 
       data: {},
     });
     expect(ready.status).toBe("ready");
+    const notesEvent = (await listAuditEvents(org.id, 100))
+      .find((event) => event.action === "task.notes_updated");
+    expect(notesEvent?.entityId).toBe(task.id);
+    expect(notesEvent?.metadata).toMatchObject({ hasNotes: true, characterCount: 35 });
 
     // Money ledger: partial booking payment collected, deposit untouched.
     const ledger = await getReservationLedger(org.id, hold.id);
