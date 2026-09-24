@@ -35,13 +35,13 @@ import { createExpense } from "@/server/expenses/service";
  *   password: stayops-demo-1234
  */
 
-const SEED_USER = {
+export const SEED_USER = {
   name: "Juan Dela Cruz",
   email: "owner@stayops.dev",
   password: "stayops-demo-1234",
 };
 
-const SEED_ORG_NAME = "Demo Stay Operations";
+export const SEED_ORG_NAME = "Demo Stay Operations";
 
 async function resolveSeedUserId(): Promise<string> {
   try {
@@ -79,7 +79,7 @@ async function resolveSeedUserId(): Promise<string> {
   return existingId;
 }
 
-async function main() {
+export async function seedDemoData() {
   const userId = await resolveSeedUserId();
   console.log(`seed: user ready (${SEED_USER.email})`);
 
@@ -435,12 +435,14 @@ async function main() {
   console.log("  org:     ", orgs[0]?.name ?? SEED_ORG_NAME);
 }
 
-main()
-  .catch((error) => {
-    console.error("seed failed:", error);
-    process.exitCode = 1;
-  })
-  .finally(() => {
-    // postgres.js keeps the connection pool open; let the process exit.
-    setTimeout(() => process.exit(process.exitCode ?? 0), 250);
-  });
+if (process.argv[1]?.endsWith("seed.ts")) {
+  seedDemoData()
+    .catch((error) => {
+      console.error("seed failed:", error);
+      process.exitCode = 1;
+    })
+    .finally(() => {
+      // postgres.js keeps the connection pool open; let the process exit.
+      setTimeout(() => process.exit(process.exitCode ?? 0), 250);
+    });
+}

@@ -18,6 +18,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx --tsconfig tsconfig.scripts.json scripts/seed.ts",
+    "db:reset-demo": "tsx --tsconfig tsconfig.scripts.json scripts/reset-demo.ts",
     "db:setup": "docker compose up -d && drizzle-kit migrate && tsx --tsconfig tsconfig.scripts.json scripts/seed.ts"
   },
   "dependencies": {

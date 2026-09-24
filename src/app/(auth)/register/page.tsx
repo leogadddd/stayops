@@ -6,16 +6,22 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth/client";
 import { Button } from "@/components/ui/button";
+import { PasswordInput } from "@/components/ui/password-input";
 import { FieldError, Input, Label } from "@/components/ui/input";
 
 export default function RegisterPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    if (!acceptedTerms) {
+      setError("Please agree to the Terms and Conditions to continue.");
+      return;
+    }
     const form = new FormData(event.currentTarget);
     const name = String(form.get("name") ?? "");
     const email = String(form.get("email") ?? "");
@@ -53,7 +59,10 @@ export default function RegisterPage() {
         Start with one property. Add your organization next.
       </p>
 
-      <form onSubmit={onSubmit} className="mt-8 space-y-5">
+      <form
+        onSubmit={onSubmit}
+        className="mt-10 space-y-6 sm:mt-8 sm:space-y-5"
+      >
         <div>
           <Label htmlFor="name">Your name</Label>
           <Input
@@ -62,6 +71,7 @@ export default function RegisterPage() {
             autoComplete="name"
             required
             placeholder="Juan Dela Cruz"
+            className="h-12 px-4 text-base sm:h-10 sm:px-3 sm:text-sm"
           />
         </div>
         <div>
@@ -73,35 +83,61 @@ export default function RegisterPage() {
             autoComplete="email"
             required
             placeholder="you@yourproperty.ph"
+            className="h-12 px-4 text-base sm:h-10 sm:px-3 sm:text-sm"
           />
         </div>
         <div>
           <Label htmlFor="password">Password</Label>
-          <Input
+          <PasswordInput
             id="password"
             name="password"
-            type="password"
             autoComplete="new-password"
             required
             minLength={8}
             placeholder="At least 8 characters"
+            className="h-12 px-4 text-base sm:h-10 sm:px-3 sm:text-sm"
           />
         </div>
         <div>
           <Label htmlFor="confirm">Confirm password</Label>
-          <Input
+          <PasswordInput
             id="confirm"
             name="confirm"
-            type="password"
             autoComplete="new-password"
             required
             placeholder="Repeat your password"
+            className="h-12 px-4 text-base sm:h-10 sm:px-3 sm:text-sm"
           />
         </div>
 
         <FieldError message={error ?? undefined} />
 
-        <Button type="submit" className="w-full" disabled={pending}>
+        <label className="flex cursor-pointer items-start gap-3 rounded-lg px-1 py-1 text-sm leading-relaxed text-ink/70">
+          <input
+            name="acceptedTerms"
+            type="checkbox"
+            checked={acceptedTerms}
+            onChange={(event) => setAcceptedTerms(event.target.checked)}
+            required
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-pine/30 text-pine accent-pine focus:ring-2 focus:ring-sage"
+          />
+          <span>
+            I agree to the{" "}
+            <Link
+              href="/terms"
+              className="font-medium text-pine underline underline-offset-4 hover:text-pine-soft"
+            >
+              Terms and Conditions
+            </Link>
+            .
+          </span>
+        </label>
+
+        <Button
+          type="submit"
+          className="h-12 w-full text-base sm:h-10 sm:text-sm"
+          disabled={pending || !acceptedTerms}
+        >
           {pending ? "Creating account…" : "Create account"}
         </Button>
       </form>
