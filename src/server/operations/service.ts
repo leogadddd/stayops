@@ -10,9 +10,10 @@ import {
   reservations,
   taskItems,
   tasks,
+  turnoverBlocks,
   units,
 } from "@/lib/db/schema";
-import { todayInTimeZone } from "@/lib/dates";
+import { localDateTimeToUtc, todayInTimeZone } from "@/lib/dates";
 import { MoneyParseError, pesosToCentavos } from "@/lib/money";
 import {
   assessReady,
@@ -163,9 +164,25 @@ export async function checkOut(input: {
         `A ${reservation.status} reservation cannot be checked out.`,
       );
     }
+    const [unit] = await tx
+      .select()
+      .from(units)
+      .where(and(eq(units.id, reservation.unitId), eq(units.organizationId, input.organizationId)))
+      .limit(1);
+    if (!unit) throw new ReservationError("Unit not found.", "unitId");
+    const [property] = await tx
+      .select({ timezone: properties.timezone, turnoverDurationMinutes: properties.turnoverDurationMinutes })
+      .from(properties)
+      .where(and(eq(properties.id, unit.propertyId), eq(properties.organizationId, input.organizationId)))
+      .limit(1);
+    if (!property) throw new OperationsError("Property not found for this unit.");
+    const actualCheckoutAt = data.actualCheckoutAt
+      ? localDateTimeToUtc(data.actualCheckoutAt, property.timezone)
+      : new Date();
+    if (!actualCheckoutAt) throw new OperationsError("Use a valid actual check-out date and time.", "actualCheckoutAt");
     const [updated] = await tx
       .update(reservations)
-      .set({ status: "checked_out", updatedAt: new Date() })
+      .set({ status: "checked_out", actualCheckoutAt, updatedAt: new Date() })
       .where(eq(reservations.id, reservation.id))
       .returning();
     if (!updated) {
@@ -182,19 +199,6 @@ export async function checkOut(input: {
 
     // Turnover: freeze the unit's current checklist template into a new task
     // so later template edits never rewrite this stay's history.
-    const [unit] = await tx
-      .select()
-      .from(units)
-      .where(
-        and(
-          eq(units.id, reservation.unitId),
-          eq(units.organizationId, input.organizationId),
-        ),
-      )
-      .limit(1);
-    if (!unit) {
-      throw new ReservationError("Unit not found.", "unitId");
-    }
     const template = normalizeChecklistTemplate(unit.checklistTemplate);
     const [task] = await tx
       .insert(tasks)
@@ -221,13 +225,36 @@ export async function checkOut(input: {
       );
     }
 
+    const startsAt = actualCheckoutAt;
+    const endsAt = new Date(startsAt.getTime() + property.turnoverDurationMinutes * 60_000);
+    const [turnover] = await tx.insert(turnoverBlocks).values({
+      organizationId: input.organizationId,
+      unitId: unit.id,
+      reservationId: reservation.id,
+      taskId: task.id,
+      startsAt,
+      endsAt,
+      durationMinutes: property.turnoverDurationMinutes,
+    }).returning();
+    if (!turnover) {
+      throw new OperationsError("Failed to create the turnover block.");
+    }
+
     await recordAudit(tx, {
       organizationId: input.organizationId,
       actorUserId: input.actorUserId,
       entity: "reservation",
       entityId: reservation.id,
       action: "reservation.checked_out",
-      metadata: { unitId: reservation.unitId, taskId: task.id },
+      metadata: {
+        unitId: reservation.unitId,
+        taskId: task.id,
+        turnoverBlockId: turnover.id,
+        turnoverStartsAt: startsAt.toISOString(),
+        turnoverEndsAt: endsAt.toISOString(),
+        turnoverDurationMinutes: property.turnoverDurationMinutes,
+        actualCheckoutAt: actualCheckoutAt.toISOString(),
+      },
     });
     await recordAudit(tx, {
       organizationId: input.organizationId,
@@ -239,6 +266,7 @@ export async function checkOut(input: {
         unitId: unit.id,
         reservationId: reservation.id,
         itemCount: template.length,
+        turnoverBlockId: turnover.id,
       },
     });
     return { reservation: updated, task };

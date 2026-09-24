@@ -115,6 +115,7 @@ async function main() {
         timezone: "Asia/Manila",
         checkInTime: "15:00",
         checkOutTime: "11:00",
+        turnoverDurationMinutes: 120,
         houseRules:
           "Sample house rules for the demo: no smoking indoors, quiet hours after 10pm, check out by 11am.",
       },

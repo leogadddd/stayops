@@ -243,6 +243,11 @@ describe("reservation input schemas", () => {
     expect(parsed.holdMinutes).toBe(1440);
   });
 
+  it("keeps additional occupants separate from the primary guest and requires a complete supplied list", () => {
+    expect(createConfirmedSchema.parse({ ...base, occupantNames: ["Ana Reyes"] }).occupantNames).toEqual(["Ana Reyes"]);
+    expect(createConfirmedSchema.safeParse({ ...base, occupantNames: ["Ana Reyes", "Ben Reyes"] }).success).toBe(false);
+  });
+
   it("rejects a hold range where checkout is not after check-in", () => {
     const result = createHoldSchema.safeParse({
       ...base,

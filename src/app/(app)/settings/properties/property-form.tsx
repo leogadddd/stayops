@@ -30,7 +30,9 @@ export interface PropertyFormValues {
   timezone: string;
   checkInTime: string;
   checkOutTime: string;
+  turnoverDurationMinutes: number;
   houseRules: string;
+  imageUrl?: string | null;
 }
 
 const EMPTY: PropertyFormValues = {
@@ -39,6 +41,7 @@ const EMPTY: PropertyFormValues = {
   timezone: "Asia/Manila",
   checkInTime: "15:00",
   checkOutTime: "11:00",
+  turnoverDurationMinutes: 120,
   houseRules: "",
 };
 
@@ -70,7 +73,7 @@ export function PropertyForm({
   }, [state.success, propertyId, router]);
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} encType="multipart/form-data" className="space-y-4">
       <div>
         <Label htmlFor="name">Property name</Label>
         <Input
@@ -93,6 +96,13 @@ export function PropertyForm({
           maxLength={300}
           placeholder="Street, barangay, city"
         />
+      </div>
+
+      <div>
+        <Label htmlFor="property-image">Cover photo</Label>
+        <Input id="property-image" name="image" type="file" accept="image/jpeg,image/png,image/webp" />
+        <p className="mt-1 text-xs text-ink/55">JPG, PNG, or WebP · up to 5 MB. Leave blank to keep the current photo.</p>
+        {values.imageUrl ? <img src={values.imageUrl} alt="Current property cover" className="mt-3 h-32 w-48 rounded-lg object-cover" /> : null}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -132,6 +142,15 @@ export function PropertyForm({
           />
         </div>
       </div>
+
+      <fieldset>
+        <legend className="text-sm font-medium text-ink">Default turnover duration</legend>
+        <p className="mt-1 text-xs text-ink/60">Time reserved for cleaning after each checkout. Units may support overrides later.</p>
+        <div className="mt-2 grid max-w-sm grid-cols-2 gap-3">
+          <div><Label htmlFor="turnoverHours">Hours</Label><Input id="turnoverHours" name="turnoverHours" type="number" min="0" max="24" defaultValue={Math.floor(values.turnoverDurationMinutes / 60)} required /></div>
+          <div><Label htmlFor="turnoverMinutes">Minutes</Label><Input id="turnoverMinutes" name="turnoverMinutes" type="number" min="0" max="59" defaultValue={values.turnoverDurationMinutes % 60} required /></div>
+        </div>
+      </fieldset>
 
       <div>
         <Label htmlFor="houseRules">House rules (shown to guests)</Label>

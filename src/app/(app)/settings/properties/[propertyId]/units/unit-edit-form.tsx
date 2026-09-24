@@ -21,6 +21,7 @@ export interface UnitFormValues {
   checkInTime: string;
   checkOutTime: string;
   status: UnitStatus;
+  imageUrl?: string | null;
 }
 
 export function UnitEditForm({
@@ -46,7 +47,7 @@ export function UnitEditForm({
   }, [state.success, propertyId, unitId, router]);
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form action={formAction} encType="multipart/form-data" className="space-y-6">
       <section className="rounded-xl border border-pine/15 bg-linen p-4 sm:p-5">
         <div className="mb-4"><h2 className="font-display text-xl text-pine">Unit details</h2><p className="mt-1 text-sm text-ink/55">Name the independently bookable space.</p></div>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -61,6 +62,12 @@ export function UnitEditForm({
             maxLength={80}
           />
         </div>
+        </div>
+        <div className="mt-4">
+          <Label htmlFor="unit-image">Cover photo</Label>
+          <Input id="unit-image" name="image" type="file" accept="image/jpeg,image/png,image/webp" />
+          <p className="mt-1 text-xs text-ink/55">JPG, PNG, or WebP · up to 5 MB. Leave blank to keep the current photo.</p>
+          {values.imageUrl ? <img src={values.imageUrl} alt="Current unit cover" className="mt-3 h-32 w-48 rounded-lg object-cover" /> : null}
         </div>
       </section>
 

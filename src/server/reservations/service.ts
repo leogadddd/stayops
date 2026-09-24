@@ -7,20 +7,24 @@ import {
   auditEvents,
   guests,
   properties,
+  paymentEntries,
   reservationCharges,
+  reservationOccupants,
   reservationTransitions,
   reservations,
   units,
   type ReservationStatus,
   type Unit,
 } from "@/lib/db/schema";
-import { assertIntegerCentavos } from "@/lib/money";
+import { assertIntegerCentavos, MoneyParseError, pesosToCentavos } from "@/lib/money";
 import { computeTotals } from "@/lib/charges";
 import { getUnitOrThrow } from "@/server/inventory/service";
 import {
   checkIntervalAvailability,
+  findTurnoverArrivalConflict,
   getOccupancySegments,
 } from "@/server/inventory/availability";
+import { localDateTimeToUtc } from "@/lib/dates";
 import { expireStaleHolds } from "./holds";
 import {
   cancelReservationSchema,
@@ -34,6 +38,8 @@ import {
   type CreateConfirmedInput,
   type CreateHoldInput,
   type GuestInput,
+  updateReservationSchema,
+  type UpdateReservationInput,
 } from "./validation";
 
 export { ReservationError } from "./validation";
@@ -192,7 +198,7 @@ export async function getReservationDetail(
     throw new ReservationError("Reservation not found.", "reservationId");
   }
 
-  const [guest, reservationUnits, charges, transitions, tokens] = await Promise.all([
+  const [guest, reservationUnits, charges, transitions, tokens, occupants] = await Promise.all([
     getGuestOrThrow(organizationId, reservation.guestId),
     db
       .select()
@@ -234,6 +240,14 @@ export async function getReservationDetail(
         ),
       )
       .orderBy(desc(accessTokens.createdAt)),
+    db
+      .select()
+      .from(reservationOccupants)
+      .where(and(
+        eq(reservationOccupants.reservationId, reservationId),
+        eq(reservationOccupants.organizationId, organizationId),
+      ))
+      .orderBy(asc(reservationOccupants.position)),
   ]);
 
   // Historical reservations must remain readable after their inventory is
@@ -269,6 +283,7 @@ export async function getReservationDetail(
     charges,
     transitions,
     activeToken,
+    occupants,
   };
 }
 
@@ -362,8 +377,10 @@ async function createReservation(
       checkOut: string;
       guestCount: number;
       charges: ChargeLineInput[];
+      occupantNames: string[];
       expiresAt: Date | null;
       confirmReason: string | null;
+      initialPayment?: CreateConfirmedInput["initialPayment"];
     };
   },
 ) {
@@ -377,6 +394,39 @@ async function createReservation(
       `This unit sleeps ${unit.capacity}; the guest count is too high.`,
       "guestCount",
     );
+  }
+
+  let initialPayment: {
+    amountCents: number;
+    allocation: "booking" | "security_deposit";
+    method: "gcash" | "maya" | "bank_transfer" | "cash";
+    reference: string | null;
+    receivedAt: Date;
+  } | undefined;
+  if (values.initialPayment) {
+    let amountCents: number;
+    try {
+      amountCents = pesosToCentavos(values.initialPayment.amountPesos, { allowZero: false });
+    } catch (error) {
+      if (error instanceof MoneyParseError) throw new ReservationError(error.message, "paymentAmountPesos");
+      throw error;
+    }
+    const [paymentProperty] = await db
+      .select({ timezone: properties.timezone })
+      .from(properties)
+      .where(and(eq(properties.id, unit.propertyId), eq(properties.organizationId, organizationId)))
+      .limit(1);
+    const receivedAt = values.initialPayment.receivedAt
+      ? localDateTimeToUtc(values.initialPayment.receivedAt, paymentProperty?.timezone ?? "Asia/Manila")
+      : new Date();
+    if (!receivedAt) throw new ReservationError("Use a valid payment date and time.", "paymentReceivedAt");
+    initialPayment = {
+      amountCents,
+      allocation: values.initialPayment.allocation,
+      method: values.initialPayment.method,
+      reference: values.initialPayment.reference || null,
+      receivedAt,
+    };
   }
 
   // Expire stale holds (auto-commit) so the advisory check sees fresh state.
@@ -401,6 +451,21 @@ async function createReservation(
   if (!check.available) {
     throw new ReservationError(
       `Those dates conflict with ${check.conflict.reason} (${check.conflict.startDate} → ${check.conflict.endDate}).`,
+      "checkIn",
+    );
+  }
+  const [property] = await db
+    .select({ timezone: properties.timezone })
+    .from(properties)
+    .where(and(eq(properties.id, unit.propertyId), eq(properties.organizationId, organizationId)))
+    .limit(1);
+  const arrivalAt = property
+    ? localDateTimeToUtc(`${values.checkIn}T${unit.checkInTime}`, property.timezone)
+    : null;
+  const turnoverConflict = arrivalAt ? findTurnoverArrivalConflict(segments, arrivalAt) : undefined;
+  if (turnoverConflict) {
+    throw new ReservationError(
+      `The incoming arrival overlaps turnover until ${turnoverConflict.endTime}. Choose another arrival date.`,
       "checkIn",
     );
   }
@@ -503,6 +568,46 @@ async function createReservation(
         });
       }
 
+      if (values.occupantNames.length > 0) {
+        await tx.insert(reservationOccupants).values(
+          values.occupantNames.map((name, position) => ({
+            organizationId,
+            reservationId: reservation.id,
+            name,
+            position,
+          })),
+        );
+      }
+
+      if (initialPayment) {
+        const [payment] = await tx.insert(paymentEntries).values({
+          organizationId,
+          reservationId: reservation.id,
+          allocation: initialPayment.allocation,
+          amountCents: initialPayment.amountCents,
+          method: initialPayment.method,
+          reference: initialPayment.reference,
+          receivedAt: initialPayment.receivedAt,
+          recordedBy: actorUserId,
+          idempotencyKey: args.idempotencyKey ? `reservation:${args.idempotencyKey}:payment` : null,
+        }).returning({ id: paymentEntries.id });
+        if (!payment) throw new ReservationError("Failed to record the initial payment.");
+        await recordAudit(tx, {
+          organizationId,
+          actorUserId,
+          entity: "payment_entry",
+          entityId: payment.id,
+          action: "payment.recorded",
+          metadata: {
+            reservationId: reservation.id,
+            allocation: initialPayment.allocation,
+            amountCents: initialPayment.amountCents,
+            method: initialPayment.method,
+            source: "reservation.created",
+          },
+        });
+      }
+
       await insertTransition(tx, {
         organizationId,
         reservationId: reservation.id,
@@ -525,6 +630,7 @@ async function createReservation(
           unitId: unit.id,
           checkIn: values.checkIn,
           checkOut: values.checkOut,
+          occupantCount: values.occupantNames.length,
         },
       });
       return reservation;
@@ -567,8 +673,10 @@ export async function createHold(
       checkOut: data.checkOut,
       guestCount: data.guestCount,
       charges: data.charges,
+      occupantNames: data.occupantNames,
       expiresAt,
       confirmReason: null,
+      initialPayment: undefined,
     },
   });
 }
@@ -578,7 +686,7 @@ export async function createConfirmed(
 ) {
   const data = createConfirmedSchema.parse(args.data);
   const { bookingTotalCents } = computeTotals(data.charges);
-  if (bookingTotalCents > 0 && !data.acknowledgeUnpaid) {
+  if (bookingTotalCents > 0 && !data.initialPayment && !data.acknowledgeUnpaid) {
     throw new ReservationError(
       "This reservation has an unpaid balance. Tick the acknowledgement to confirm it anyway.",
       "acknowledgeUnpaid",
@@ -593,8 +701,10 @@ export async function createConfirmed(
       checkOut: data.checkOut,
       guestCount: data.guestCount,
       charges: data.charges,
+      occupantNames: data.occupantNames,
       expiresAt: null,
       confirmReason: null,
+      initialPayment: data.initialPayment,
     },
   });
 }
@@ -723,6 +833,38 @@ export async function cancelReservation(input: {
       action: "reservation.cancelled",
       metadata: { reason },
     });
+    return updated;
+  });
+}
+
+/** Edit only a future hold or confirmed booking; financial snapshots remain immutable. */
+export async function updateReservation(input: {
+  organizationId: string;
+  actorUserId: string;
+  reservationId: string;
+  data: UpdateReservationInput;
+}) {
+  const data = updateReservationSchema.parse(input.data);
+  return db.transaction(async (tx) => {
+    const [reservation] = await tx.select().from(reservations).where(and(eq(reservations.id, input.reservationId), eq(reservations.organizationId, input.organizationId))).limit(1);
+    if (!reservation) throw new ReservationError("Reservation not found.", "reservationId");
+    if (reservation.status !== "hold" && reservation.status !== "confirmed") {
+      throw new ReservationError("Only a hold or confirmed reservation can be edited.");
+    }
+    const [unit] = await tx.select().from(units).where(and(eq(units.id, data.unitId), eq(units.organizationId, input.organizationId), isNull(units.deletedAt))).limit(1);
+    if (!unit || data.guestCount > unit.capacity) throw new ReservationError(`This unit sleeps ${unit?.capacity ?? 0}; the guest count is too high.`, "guestCount");
+    const [guest] = await tx.select({ id: guests.id }).from(guests).where(and(eq(guests.id, data.guestId), eq(guests.organizationId, input.organizationId))).limit(1);
+    if (!guest) throw new ReservationError("Primary guest not found.", "guestId");
+    const segments = (await getOccupancySegments(input.organizationId, [unit.id], data.checkIn, data.checkOut)).get(unit.id) ?? [];
+    const availability = checkIntervalAvailability(segments.filter((segment) => segment.kind !== "reservation" || segment.id !== reservation.id), data.checkIn, data.checkOut);
+    if (!availability.available) throw new ReservationError(`Those dates conflict with ${availability.conflict.reason}.`, "checkIn");
+    const [updated] = await tx.update(reservations).set({ unitId: unit.id, guestId: guest.id, checkInDate: data.checkIn, checkOutDate: data.checkOut, guestCount: data.guestCount, updatedAt: new Date() }).where(eq(reservations.id, reservation.id)).returning();
+    if (!updated) throw new ReservationError("Failed to update the reservation.");
+    await tx.delete(reservationOccupants).where(and(eq(reservationOccupants.reservationId, reservation.id), eq(reservationOccupants.organizationId, input.organizationId)));
+    if (data.occupantNames.length) await tx.insert(reservationOccupants).values(data.occupantNames.map((name, position) => ({ organizationId: input.organizationId, reservationId: reservation.id, name, position })));
+    await tx.delete(reservationCharges).where(and(eq(reservationCharges.reservationId, reservation.id), eq(reservationCharges.organizationId, input.organizationId)));
+    await tx.insert(reservationCharges).values(data.charges.map((line) => ({ organizationId: input.organizationId, reservationId: reservation.id, type: line.type, description: line.description, quantity: line.quantity, unitAmountCents: line.unitAmountCents, amountCents: line.quantity * line.unitAmountCents, isRefundableDeposit: line.type === "security_deposit" })));
+    await recordAudit(tx, { organizationId: input.organizationId, actorUserId: input.actorUserId, entity: "reservation", entityId: reservation.id, action: "reservation.updated", metadata: { unitId: unit.id, guestId: guest.id, checkIn: data.checkIn, checkOut: data.checkOut, guestCount: data.guestCount, occupantCount: data.occupantNames.length, chargeCount: data.charges.length } });
     return updated;
   });
 }

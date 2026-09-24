@@ -16,6 +16,7 @@ import {
   updateUnit,
 } from "@/server/inventory/service";
 import { InventoryError } from "@/server/inventory/validation";
+import { imageDataUrlFromForm } from "@/server/inventory/image-upload";
 
 export interface InventoryFormState {
   error?: string;
@@ -30,6 +31,12 @@ function readOptionalPesos(formData: FormData, key: string): number | null {
   const raw = readString(formData, key);
   if (raw === "") return null;
   return pesosToCentavos(raw);
+}
+
+function readTurnoverDuration(formData: FormData): number {
+  const hours = Number(readString(formData, "turnoverHours") || "0");
+  const minutes = Number(readString(formData, "turnoverMinutes") || "0");
+  return hours * 60 + minutes;
 }
 
 function toFormError(error: unknown): InventoryFormState {
@@ -61,7 +68,9 @@ export async function createPropertyAction(
         timezone: readString(formData, "timezone") || "Asia/Manila",
         checkInTime: readString(formData, "checkInTime") || "15:00",
         checkOutTime: readString(formData, "checkOutTime") || "11:00",
+        turnoverDurationMinutes: readTurnoverDuration(formData),
         houseRules: readString(formData, "houseRules") || undefined,
+        imageUrl: await imageDataUrlFromForm(formData, "image"),
       },
     });
   } catch (error) {
@@ -90,7 +99,9 @@ export async function updatePropertyAction(
         timezone: readString(formData, "timezone") || "Asia/Manila",
         checkInTime: readString(formData, "checkInTime") || "15:00",
         checkOutTime: readString(formData, "checkOutTime") || "11:00",
+        turnoverDurationMinutes: readTurnoverDuration(formData),
         houseRules: readString(formData, "houseRules") || undefined,
+        imageUrl: await imageDataUrlFromForm(formData, "image"),
       },
     });
   } catch (error) {
@@ -122,7 +133,7 @@ export async function deletePropertyAction(
   return { success: true };
 }
 
-function unitDataFromForm(formData: FormData) {
+async function unitDataFromForm(formData: FormData) {
   return {
     name: readString(formData, "name"),
     capacity: Number(readString(formData, "capacity")),
@@ -140,6 +151,7 @@ function unitDataFromForm(formData: FormData) {
       | "active"
       | "maintenance"
       | "inactive",
+    imageUrl: await imageDataUrlFromForm(formData, "image"),
   };
 }
 
@@ -155,7 +167,7 @@ export async function createUnitAction(
       organizationId: membership.organizationId,
       actorUserId: membership.userId,
       propertyId,
-      data: unitDataFromForm(formData),
+      data: await unitDataFromForm(formData),
     });
   } catch (error) {
     return toFormError(error);
@@ -178,7 +190,7 @@ export async function updateUnitAction(
       organizationId: membership.organizationId,
       actorUserId: membership.userId,
       unitId,
-      data: unitDataFromForm(formData),
+      data: await unitDataFromForm(formData),
     });
   } catch (error) {
     return toFormError(error);

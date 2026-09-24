@@ -55,6 +55,13 @@ describe("propertyInputSchema", () => {
         .success,
     ).toBe(false);
   });
+
+  it("defaults turnover to two hours and bounds its duration", () => {
+    expect(propertyInputSchema.parse(valid).turnoverDurationMinutes).toBe(120);
+    expect(propertyInputSchema.safeParse({ ...valid, turnoverDurationMinutes: 0 }).success).toBe(false);
+    expect(propertyInputSchema.safeParse({ ...valid, turnoverDurationMinutes: 1441 }).success).toBe(false);
+    expect(propertyInputSchema.parse({ ...valid, turnoverDurationMinutes: 150 }).turnoverDurationMinutes).toBe(150);
+  });
 });
 
 describe("unitInputSchema", () => {

@@ -133,6 +133,26 @@ export function localDateTimeToUtc(
   return new Date(wallAsUtc - (zoneWallAsUtc - wallAsUtc));
 }
 
+/** Format an instant as a property-local calendar date and 24-hour time. */
+export function utcToLocalDateTimeParts(value: Date, timeZone: string) {
+  const parts: Record<string, string> = {};
+  for (const part of new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).formatToParts(value)) {
+    if (part.type !== "literal") parts[part.type] = part.value;
+  }
+  return {
+    date: `${parts.year}-${parts.month}-${parts.day}`,
+    time: `${parts.hour}:${parts.minute}`,
+  };
+}
+
 /** yyyy-mm format for month navigation. */
 export function isValidMonth(value: string): boolean {
   return /^\d{4}-(0[1-9]|1[0-2])$/.test(value);

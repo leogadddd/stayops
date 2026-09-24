@@ -31,7 +31,9 @@ const property = {
   timezone: "Asia/Manila",
   checkInTime: "15:00",
   checkOutTime: "11:00",
+  turnoverDurationMinutes: 120,
   houseRules: null,
+  imageUrl: null,
   createdAt: new Date("2026-09-01T00:00:00Z"),
   updatedAt: new Date("2026-09-01T00:00:00Z"),
   deletedAt: null,
@@ -42,6 +44,7 @@ const unit = {
   propertyId: "property-a",
   name: "Unit 12B",
   status: "active" as const,
+  imageUrl: null,
   capacity: 2,
   bedrooms: 1,
   bathrooms: 1,
@@ -108,7 +111,7 @@ describe("availability page", () => {
   it("keeps the availability form off the calendar surface on its own route", async () => {
     const html = renderToStaticMarkup(await AvailabilityPage());
     expect(html).toContain("Check availability");
-    expect(html).toContain("Unit 12B");
+    expect(html).toContain("Guests");
     expect(html).toContain('href="/calendar"');
     expect(html).toContain('name="checkIn"');
     expect(html).toContain('name="checkOut"');

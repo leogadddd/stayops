@@ -24,6 +24,11 @@ export const checkOutSchema = z.object({
     .trim()
     .max(500, "Note must be 500 characters or fewer.")
     .optional(),
+  actualCheckoutAt: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, "Enter the actual check-out date and time.")
+    .optional(),
 });
 
 export const markReadySchema = z.object({

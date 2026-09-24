@@ -16,6 +16,7 @@ export function TableActionsMenu({
   deleteLabel,
   deleteDescription,
   deleteSuccessMessage,
+  destructiveActionLabel,
   onDelete,
 }: {
   label: string;
@@ -24,6 +25,8 @@ export function TableActionsMenu({
   deleteLabel?: string;
   deleteDescription?: string;
   deleteSuccessMessage?: string;
+  /** Use for safe domain alternatives such as cancelling rather than deleting. */
+  destructiveActionLabel?: string;
   onDelete?: () => Promise<DeleteResult>;
 }) {
   const [open, setOpen] = useState(false);
@@ -82,7 +85,7 @@ export function TableActionsMenu({
         <ConfirmationDialog
           title={deleteLabel}
           description={deleteDescription}
-          confirmLabel="Delete"
+          confirmLabel={destructiveActionLabel ?? "Delete"}
           successMessage={deleteSuccessMessage ?? `${label} deleted.`}
           onConfirm={async () => {
             const result = await onDelete();
@@ -90,7 +93,7 @@ export function TableActionsMenu({
             setOpen(false);
             router.refresh();
           }}
-          trigger={<><Trash2 className="h-4 w-4" aria-hidden />Delete</>}
+          trigger={<><Trash2 className="h-4 w-4" aria-hidden />{destructiveActionLabel ?? "Delete"}</>}
           triggerRole="menuitem"
           triggerSize="sm"
           triggerClassName="w-full justify-start px-3 text-clay-deep hover:bg-clay-mist/70"

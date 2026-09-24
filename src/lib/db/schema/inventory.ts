@@ -43,7 +43,13 @@ export const properties = pgTable(
     timezone: text("timezone").notNull().default("Asia/Manila"),
     checkInTime: text("check_in_time").notNull().default("15:00"),
     checkOutTime: text("check_out_time").notNull().default("11:00"),
+    // Default duration for the automatic turnover block opened at checkout.
+    turnoverDurationMinutes: integer("turnover_duration_minutes")
+      .notNull()
+      .default(120),
     houseRules: text("house_rules"),
+    // A small, self-contained cover photo uploaded by the owner.
+    imageUrl: text("image_url"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -59,6 +65,10 @@ export const properties = pgTable(
       table.id,
     ),
     index("properties_org_active_idx").on(table.organizationId, table.deletedAt),
+    check(
+      "properties_turnover_duration_positive",
+      sql`${table.turnoverDurationMinutes} >= 1 AND ${table.turnoverDurationMinutes} <= 1440`,
+    ),
   ],
 );
 
@@ -94,6 +104,8 @@ export const units = pgTable(
     checkInTime: text("check_in_time").notNull().default("15:00"),
     checkOutTime: text("check_out_time").notNull().default("11:00"),
     status: unitStatus("status").notNull().default("renovating"),
+    // A small, self-contained cover photo uploaded by the owner.
+    imageUrl: text("image_url"),
     // Turnover template snapshot source; checkout copies it onto the task.
     checklistTemplate: jsonb("checklist_template")
       .$type<ChecklistTemplateItem[]>()

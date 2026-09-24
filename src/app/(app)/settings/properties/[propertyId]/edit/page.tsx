@@ -28,7 +28,7 @@ export default async function EditPropertyPage({ params }: { params: Promise<{ p
       <PageHeading title="Edit property" description={property.name} backHref={`/settings/properties/${property.id}`} backLabel={property.name} />
       <Card className="bg-[#FFFDFA]">
         <CardBody>
-          <PropertyForm propertyId={property.id} initialValues={{ name: property.name, address: property.address ?? "", timezone: property.timezone, checkInTime: property.checkInTime, checkOutTime: property.checkOutTime, houseRules: property.houseRules ?? "" }} />
+          <PropertyForm propertyId={property.id} initialValues={{ name: property.name, address: property.address ?? "", timezone: property.timezone, checkInTime: property.checkInTime, checkOutTime: property.checkOutTime, turnoverDurationMinutes: property.turnoverDurationMinutes, houseRules: property.houseRules ?? "", imageUrl: property.imageUrl }} />
         </CardBody>
       </Card>
     </div>

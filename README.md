@@ -25,6 +25,13 @@ npm run db:setup                # docker compose up + migrations + seed
 npm run dev                     # http://localhost:3000
 ```
 
+Already have a local database? After pulling schema changes, apply the latest
+migrations before starting the app:
+
+```bash
+npm run db:migrate
+```
+
 Demo credentials (from the seed, clearly fake):
 
 - email: `owner@stayops.dev`
@@ -40,6 +47,18 @@ Demo credentials (from the seed, clearly fake):
 | `npm run db:up` / `db:down` | Start/stop PostgreSQL |
 | `npm run db:generate` / `db:migrate` | Drizzle migration workflow |
 | `npm run db:seed` | Idempotent fake demo data |
+
+## Inventory and availability
+
+- **Properties and units** support a single cover-photo upload. Supported
+  files are JPG, PNG, and WebP up to 5 MB; the image is stored with the
+  inventory record and appears in the relevant management views.
+- **Check availability** searches every active unit by check-in, check-out,
+  and guest count. It excludes units that are too small or have an overlapping
+  reservation, active hold, out-of-service block, or turnover period.
+- Each matching unit links directly to its filtered calendar and a prefilled
+  new-reservation form. The final reservation save still performs the
+  authoritative conflict check.
 
 ## Integration tests
 
@@ -66,7 +85,7 @@ exercises services against PostgreSQL; it is not a browser end-to-end test.
 ## Slice status
 
 - [x] **0 · Foundation** — auth, organizations, app shell, seed
-- [x] **1 · Inventory & availability** — properties, units, blocks, calendar
+- [x] **1 · Inventory & availability** — properties and unit photos, capacity-aware availability search, blocks, calendar
 - [x] **2 · Reservations** — guests, holds, confirmation, guest link
 - [x] **3 · Money** — payments, security deposits, refunds, expenses
 - [x] **4 · Stay operations** — check-in/out, turnover tasks, damage

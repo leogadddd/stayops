@@ -53,6 +53,8 @@ export default async function ReservationDetailPage({ params }: { params: Promis
   }
 
   const { reservation, guest, unit, property, charges, transitions, activeToken } = detail;
+  // Old reservation records and test doubles predate the optional occupant list.
+  const occupants = detail.occupants ?? [];
   const ledger = isOwner ? await getReservationLedger(membership.organizationId, id) : null;
   const turnoverTask = reservation.status === "checked_out" ? await getTaskForReservation(membership.organizationId, id) : null;
   const totals = isOwner ? computeTotals(charges) : null;
@@ -92,6 +94,8 @@ export default async function ReservationDetailPage({ params }: { params: Promis
                 <div><dt className="text-xs font-medium uppercase tracking-wide text-ink/45">Guests</dt><dd className="mt-1 text-sm text-pine">{reservation.guestCount} {reservation.guestCount === 1 ? "guest" : "guests"}</dd></div>
               </dl>
               {guest.notes ? <p className="mt-5 border-t border-pine/10 pt-4 text-sm text-ink/60">{guest.notes}</p> : null}
+              {occupants.length > 0 ? <div className="mt-5 border-t border-pine/10 pt-4"><p className="text-xs font-medium uppercase tracking-wide text-ink/45">Additional guests</p><ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-pine">{occupants.map((occupant) => <li key={occupant.id}>{occupant.name}</li>)}</ul></div> : null}
+              {reservation.actualCheckoutAt ? <p className="mt-4 border-t border-pine/10 pt-3 text-sm text-ink/60"><span className="font-medium text-ink">Actual check-out:</span> {new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeStyle: "short", timeZone: property?.timezone ?? "Asia/Manila" }).format(reservation.actualCheckoutAt)}</p> : null}
               {reservation.confirmReason ? <p className="mt-4 border-t border-pine/10 pt-3 text-sm text-ink/60"><span className="font-medium text-ink">Confirmed because:</span> {reservation.confirmReason}</p> : null}
               {reservation.cancelReason ? <p className="mt-4 border-t border-pine/10 pt-3 text-sm text-ink/60"><span className="font-medium text-ink">Cancelled because:</span> {reservation.cancelReason}</p> : null}
             </CardBody>

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { isLocalDate } from "@/lib/dates";
 import { CHARGE_TYPES, RESERVATION_STATUSES } from "@/lib/db/schema";
+import { recordPaymentSchema } from "@/server/payments/validation";
 
 export class ReservationError extends Error {
   constructor(
@@ -96,10 +97,18 @@ const reservationBaseSchema = reservationDetailsSchema.extend({
     .array(chargeLineSchema)
     .min(1, "Add at least one charge.")
     .max(50, "At most 50 charge lines."),
+  occupantNames: z
+    .array(z.string().trim().min(2, "Enter each additional guest's full name.").max(120, "Guest names must be 120 characters or fewer."))
+    .max(49, "A reservation can list at most 49 additional guests.")
+    .default([]),
 });
 
 const rangeRefine = (value: { checkIn: string; checkOut: string }) =>
   value.checkOut > value.checkIn;
+const occupantCountRefine = (value: { guestCount: number; occupantNames: string[] }) =>
+  // Existing API/import callers may not have names yet; when names are
+  // supplied, however, require a complete list matching the guest count.
+  value.occupantNames.length === 0 || value.occupantNames.length === value.guestCount - 1;
 
 export const createHoldSchema = reservationBaseSchema
   .extend({
@@ -113,19 +122,38 @@ export const createHoldSchema = reservationBaseSchema
   .refine(rangeRefine, {
     message: "Check-out must be after check-in.",
     path: ["checkOut"],
+  })
+  .refine(occupantCountRefine, {
+    message: "List every additional guest, or adjust the guest count.",
+    path: ["occupantNames"],
   });
 
 export const createConfirmedSchema = reservationBaseSchema
   .extend({
     acknowledgeUnpaid: z.boolean().default(false),
+    // Recorded in the same transaction as the confirmed reservation.
+    initialPayment: recordPaymentSchema.omit({ idempotencyKey: true }).optional(),
   })
   .refine(rangeRefine, {
     message: "Check-out must be after check-in.",
     path: ["checkOut"],
+  })
+  .refine(occupantCountRefine, {
+    message: "List every additional guest, or adjust the guest count.",
+    path: ["occupantNames"],
   });
 
-export type CreateHoldInput = z.infer<typeof createHoldSchema>;
-export type CreateConfirmedInput = z.infer<typeof createConfirmedSchema>;
+// Callers may omit occupants for a one-person booking; Zod supplies [].
+export type CreateHoldInput = z.input<typeof createHoldSchema>;
+export type CreateConfirmedInput = z.input<typeof createConfirmedSchema>;
+
+export const updateReservationSchema = reservationDetailsSchema.extend({
+  guestId: z.string().uuid("Choose a primary guest."),
+  charges: z.array(chargeLineSchema).min(1, "Keep at least one charge.").max(50, "At most 50 charge lines."),
+  occupantNames: z.array(z.string().trim().min(2, "Enter each additional guest's full name.").max(120, "Guest names must be 120 characters or fewer.")).max(49).default([]),
+}).refine(rangeRefine, { message: "Check-out must be after check-in.", path: ["checkOut"] })
+  .refine(occupantCountRefine, { message: "List every additional guest, or adjust the guest count.", path: ["occupantNames"] });
+export type UpdateReservationInput = z.input<typeof updateReservationSchema>;
 
 export const confirmHoldSchema = z.object({
   reason: z

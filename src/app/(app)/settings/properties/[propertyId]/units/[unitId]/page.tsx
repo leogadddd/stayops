@@ -45,7 +45,8 @@ export default async function UnitDetailPage({ params }: { params: Promise<{ pro
         <Link href={`${unitHref}/edit`} className={buttonClassName("outline")}>Edit unit</Link>
       </PageHeading>
 
-      <Card className="bg-[#FFFDFA]">
+      <Card className="overflow-hidden bg-[#FFFDFA]">
+        {unit.imageUrl ? <img src={unit.imageUrl} alt={`${unit.name} cover`} className="h-64 w-full object-cover" /> : null}
         <CardHeader className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-display text-xl text-pine">Unit details</h2>
           <Badge tone={unit.status === "active" ? "sage" : unit.status === "maintenance" ? "clay" : "neutral"}>{UNIT_STATUS_LABELS[unit.status]}</Badge>

@@ -7,6 +7,7 @@ import { useActionState } from "react";
 import { Plus, RotateCcw, Trash2 } from "lucide-react";
 import type { ChargeType } from "@/lib/db/schema";
 import { CHARGE_TYPES } from "@/lib/db/schema";
+import { PAYMENT_ALLOCATION_LABELS, PAYMENT_METHOD_LABELS } from "@/lib/labels";
 import {
   buildDefaultCharges,
   CHARGE_TYPE_LABELS,
@@ -103,6 +104,7 @@ export function ReservationForm({
   );
   const [checkIn, setCheckIn] = useState(defaultCheckIn);
   const [checkOut, setCheckOut] = useState(defaultCheckOut);
+  const [guestCount, setGuestCount] = useState(1);
   const [guestMode, setGuestMode] = useState<"existing" | "new">(
     guests.length > 0 ? "existing" : "new",
   );
@@ -112,8 +114,13 @@ export function ReservationForm({
     null,
   );
   const [submitMode, setSubmitMode] = useState<"hold" | "confirmed">("hold");
+  const [paymentAmount, setPaymentAmount] = useState("");
   useActionFeedback(state, {
-    success: submitMode === "hold" ? "Reservation hold created." : "Reservation confirmed.",
+    success: submitMode === "hold"
+      ? "Reservation hold created."
+      : paymentAmount.trim()
+        ? "Reservation confirmed and payment recorded."
+        : "Reservation confirmed.",
   });
   const [clientError, setClientError] = useState<string | null>(null);
   const [idempotencyKey] = useState(() => crypto.randomUUID());
@@ -202,6 +209,12 @@ export function ReservationForm({
       setClientError(message);
       toast.error("Check the charges", { description: message });
     }
+    if (submitMode === "hold" && paymentAmount.trim()) {
+      event.preventDefault();
+      const message = "An initial payment can be recorded only with a confirmed booking. Choose Create confirmed booking, or clear the payment fields to place a hold.";
+      setClientError(message);
+      toast.error("Choose how to save", { description: message });
+    }
   }
 
   if (units.length === 0) {
@@ -251,7 +264,8 @@ export function ReservationForm({
                 type="number"
                 min={1}
                 max={selectedUnit?.capacity ?? 50}
-                defaultValue={1}
+                value={guestCount}
+                onChange={(event) => setGuestCount(Number(event.target.value) || 1)}
                 required
               />
               {selectedUnit ? (
@@ -291,7 +305,7 @@ export function ReservationForm({
 
       <Card>
         <CardHeader>
-          <h2 className="font-display text-lg text-pine">Guest</h2>
+          <h2 className="font-display text-lg text-pine">Primary guest</h2>
         </CardHeader>
         <CardBody className="space-y-4">
           <div className="flex flex-wrap gap-4">
@@ -322,7 +336,7 @@ export function ReservationForm({
 
           {guestMode === "existing" ? (
             <div>
-              <Label htmlFor="guestId">Guest</Label>
+              <Label htmlFor="guestId">Primary guest</Label>
               <Select
                 id="guestId"
                 name="guestId"
@@ -379,6 +393,21 @@ export function ReservationForm({
           )}
         </CardBody>
       </Card>
+
+      {guestCount > 1 ? <Card>
+        <CardHeader>
+          <h2 className="font-display text-lg text-pine">Additional guests</h2>
+          <p className="text-sm text-ink/60">Add the other {guestCount - 1} name{guestCount === 2 ? "" : "s"} for entry letters or contracts. These names do not create guest profiles.</p>
+        </CardHeader>
+        <CardBody className="grid gap-4 sm:grid-cols-2">
+          {Array.from({ length: guestCount - 1 }, (_, index) => (
+            <div key={index}>
+              <Label htmlFor={`occupant-${index}`}>Additional guest {index + 1}</Label>
+              <Input id={`occupant-${index}`} name="occupantName" required minLength={2} maxLength={120} placeholder="Full legal name" />
+            </div>
+          ))}
+        </CardBody>
+      </Card> : null}
 
       {isOwner ? <Card>
         <CardHeader className="flex flex-wrap items-center justify-between gap-3">
@@ -491,6 +520,40 @@ export function ReservationForm({
         </CardBody>
       </Card> : <p className="text-sm text-ink/60">Holds use the unit&apos;s default prices. Only the owner can change prices or confirm a booking.</p>}
 
+      {isOwner ? <Card>
+        <CardHeader>
+          <h2 className="font-display text-lg text-pine">Initial payment record</h2>
+          <p className="text-sm text-ink/60">Optional. This is recorded together with a confirmed booking, so the balance starts accurate.</p>
+        </CardHeader>
+        <CardBody className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="payment-amount">Amount received (₱)</Label>
+            <Input id="payment-amount" name="paymentAmountPesos" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} inputMode="decimal" placeholder="e.g. 3,000" />
+          </div>
+          <div>
+            <Label htmlFor="payment-allocation">Towards</Label>
+            <Select id="payment-allocation" name="paymentAllocation" defaultValue="booking">
+              {(["booking", "security_deposit"] as const).map((allocation) => <option key={allocation} value={allocation}>{PAYMENT_ALLOCATION_LABELS[allocation]}</option>)}
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="payment-method">Method</Label>
+            <Select id="payment-method" name="paymentMethod" defaultValue="gcash">
+              {(["gcash", "maya", "bank_transfer", "cash"] as const).map((method) => <option key={method} value={method}>{PAYMENT_METHOD_LABELS[method]}</option>)}
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="payment-reference">Reference (optional)</Label>
+            <Input id="payment-reference" name="paymentReference" maxLength={120} placeholder="GCash reference or sender" />
+          </div>
+          <div className="sm:col-span-2">
+            <Label htmlFor="payment-received-at">Received (optional)</Label>
+            <Input id="payment-received-at" name="paymentReceivedAt" type="datetime-local" />
+            <p className="mt-1 text-xs text-ink/50">Leave blank to record it now. Times use the property timezone.</p>
+          </div>
+        </CardBody>
+      </Card> : null}
+
       <Card>
         <CardHeader>
           <h2 className="font-display text-lg text-pine">How to save it</h2>
@@ -510,7 +573,7 @@ export function ReservationForm({
             </p>
           </div>
 
-          {isOwner && totals.bookingTotalCents > 0 ? (
+          {isOwner && totals.bookingTotalCents > 0 && !paymentAmount.trim() ? (
             <label className="flex items-start gap-2 text-sm text-ink">
               <input
                 type="checkbox"

@@ -3,12 +3,12 @@
 import { useActionState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { FieldError, Label, Textarea } from "@/components/ui/input";
+import { FieldError, Input, Label, Textarea } from "@/components/ui/input";
 import { checkOutAction, type ReservationFormState } from "../actions";
 import { useActionFeedback } from "@/hooks/use-action-feedback";
 import { useReservationSaved } from "./use-reservation-saved";
 
-export function CheckOutForm({ reservationId }: { reservationId: string }) {
+export function CheckOutForm({ reservationId, defaultActualCheckoutAt }: { reservationId: string; defaultActualCheckoutAt: string }) {
   const save = useReservationSaved(checkOutAction.bind(null, reservationId), reservationId, "Guest checked out and turnover created.");
   const [state, formAction, pending] = useActionState<ReservationFormState, FormData>(save, {});
   useActionFeedback(state);
@@ -24,6 +24,11 @@ export function CheckOutForm({ reservationId }: { reservationId: string }) {
 
   return (
     <form action={formAction} className="space-y-3">
+      <div>
+        <Label htmlFor="actual-check-out">Actual check-out</Label>
+        <Input id="actual-check-out" name="actualCheckoutAt" type="datetime-local" defaultValue={defaultActualCheckoutAt} required />
+        <p className="mt-1 text-xs text-ink/50">Turnover starts at this actual departure time.</p>
+      </div>
       <div>
         <Label htmlFor="check-out-note">Note (optional)</Label>
         <Textarea

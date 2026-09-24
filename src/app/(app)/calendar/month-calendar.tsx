@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ComponentProps } from "react";
-import { ArrowRightLeft, ChevronLeft, ChevronRight, Wrench } from "lucide-react";
+import { BrushCleaning, ChevronLeft, ChevronRight, Wrench } from "lucide-react";
 import { buttonClassName } from "@/components/ui/button";
 import { layoutMonthEvents, type CalendarEvent } from "@/lib/calendar";
 import { addDaysLocal, monthNightRange } from "@/lib/dates";
@@ -36,7 +36,7 @@ const FULL_DATE_LABEL = new Intl.DateTimeFormat("en-PH", {
 const EVENT_STYLES: Record<CalendarEvent["kind"], string> = {
   stay: "border-[#b6c9bc] bg-[#cfddd3] text-pine",
   hold: "border-[#ddc6a5] bg-[#eddfc9] text-[#624a32]",
-  checkout: "border-[#d8a28f] bg-[#edcbbd] text-[#783925]",
+  turnover: "border-[#d8a28f] bg-[#edcbbd] text-[#783925]",
   block: "border-[#c4c6c5] bg-[#dedfdd] text-[#444b48]",
   unavailable: "border-[#d5d6d3] bg-[#e9e9e5] text-[#525953]",
 };
@@ -109,8 +109,8 @@ export function MonthCalendar({
                 <div className="relative grid grid-cols-7 gap-y-1.5 px-1 pb-3 pt-1" style={{ gridTemplateRows: `repeat(${Math.max(week.laneCount, 1)}, 64px)`, minHeight: 78 }}>
                   {newReservationHref ? <CalendarSelection days={week.days} unitId={reservationUnitId} /> : null}
                   {week.events.map(({ event, startColumn, span, lane, continuesBefore, continuesAfter }) => {
-                    const startOffset = continuesBefore || event.kind === "checkout" ? 0 : dayFraction(event.startTime);
-                    const endOffset = continuesAfter || event.kind !== "checkout" ? 1 : dayFraction(event.endTime);
+                    const startOffset = continuesBefore ? 0 : dayFraction(event.startTime);
+                    const endOffset = continuesAfter ? 1 : event.endTime ? dayFraction(event.endTime) : 1;
                     return (
                       <EventSurface
                       key={event.id}
@@ -121,7 +121,7 @@ export function MonthCalendar({
                       style={{ gridColumn: `${startColumn + 1} / span ${span}`, gridRow: lane + 1, marginLeft: startOffset ? `${(startOffset / span) * 100}%` : undefined, marginRight: endOffset < 1 ? `${((1 - endOffset) / span) * 100}%` : undefined }}
                     >
                       <span className="flex min-w-0 items-center gap-1 text-xs font-semibold leading-4">
-                        {event.kind === "checkout" ? <ArrowRightLeft className="h-3 w-3 shrink-0" aria-hidden /> : event.kind === "block" ? <Wrench className="h-3 w-3 shrink-0" aria-hidden /> : null}
+                        {event.kind === "turnover" ? <BrushCleaning className="h-3 w-3 shrink-0" aria-hidden /> : event.kind === "block" ? <Wrench className="h-3 w-3 shrink-0" aria-hidden /> : null}
                         <span className="truncate">{event.title}</span>
                       </span>
                       <span className="truncate text-[11px] leading-4">{event.unitLabel}</span>
@@ -138,13 +138,13 @@ export function MonthCalendar({
 
       <ul aria-label="Calendar legend" className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-ink/75">
         {([
-          ["stay", "Confirmed stay"], ["hold", "Hold (expires)"], ["checkout", "Check-out / turnover"],
+          ["stay", "Confirmed stay"], ["hold", "Hold"], ["turnover", "Turnover"],
           ["block", "Maintenance / blocked"],
         ] as const).map(([kind, label]) => (
           <li key={kind} className="inline-flex items-center gap-2"><span aria-hidden className={`h-3.5 w-3.5 rounded-full border ${EVENT_STYLES[kind]}`} />{label}</li>
         ))}
       </ul>
-      <p id="calendar-date-help" className="mt-3 text-xs leading-relaxed text-ink/55">Stays cover nights only. Check-out is a separate one-day marker; that night is free unless another stay or block occupies it. Drag across dates to start a reservation, or select a date for one night. Event edges reflect the property&apos;s arrival and departure times.</p>
+      <p id="calendar-date-help" className="mt-3 text-xs leading-relaxed text-ink/55">Stays cover nights. Turnover begins at the unit&apos;s check-out time and its edge reflects the configured duration; it only blocks an incoming stay when their actual times overlap. Drag across dates to start a reservation, or select a date for one night.</p>
       {agenda.length === 0 ? <p className="mt-4 rounded-lg border border-dashed border-pine/20 p-4 text-sm text-ink/60">No stays or blocks this month. Your calendar is clear.</p> : null}
 
       <section aria-labelledby="calendar-agenda" className="mt-6 md:hidden">
@@ -155,7 +155,7 @@ export function MonthCalendar({
               <EventSurface href={event.href} aria-label={event.accessibleLabel} className={`block rounded-lg border px-3 py-3 ${EVENT_STYLES[event.kind]}`}>
                 <div className="flex items-start justify-between gap-3">
                   <span className="min-w-0 break-words text-sm font-medium">{event.title}</span>
-                  <span className="shrink-0 text-xs">{dateLabel(event.startDate)}{event.kind !== "checkout" && event.endDate !== addDaysLocal(event.startDate, 1) ? ` – ${dateLabel(addDaysLocal(event.endDate, -1))}` : ""}</span>
+                  <span className="shrink-0 text-xs">{dateLabel(event.startDate)}{event.endDate !== addDaysLocal(event.startDate, 1) ? ` – ${dateLabel(addDaysLocal(event.endDate, -1))}` : ""}</span>
                 </div>
                 <p className="mt-1 break-words text-xs">{event.unitLabel} · {event.detail}</p>
               </EventSurface>

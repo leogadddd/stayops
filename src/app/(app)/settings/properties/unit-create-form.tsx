@@ -24,7 +24,7 @@ export function UnitCreateForm({ propertyId }: { propertyId: string }) {
   }, [state.success, propertyId, router]);
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form action={formAction} encType="multipart/form-data" className="space-y-6">
       <section className="rounded-xl border border-pine/15 bg-linen p-4 sm:p-5">
         <div className="mb-4"><h2 className="font-display text-xl text-pine">Unit details</h2><p className="mt-1 text-sm text-ink/55">Name the independently bookable space and set its availability.</p></div>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -39,6 +39,11 @@ export function UnitCreateForm({ propertyId }: { propertyId: string }) {
             placeholder="Unit 12B"
           />
         </div>
+        </div>
+        <div className="mt-4">
+          <Label htmlFor="unit-image">Cover photo</Label>
+          <Input id="unit-image" name="image" type="file" accept="image/jpeg,image/png,image/webp" />
+          <p className="mt-1 text-xs text-ink/55">JPG, PNG, or WebP · up to 5 MB.</p>
         </div>
       </section>
 

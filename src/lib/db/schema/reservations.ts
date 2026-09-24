@@ -93,6 +93,8 @@ export const reservations = pgTable(
     confirmReason: text("confirm_reason"),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     cancelReason: text("cancel_reason"),
+    // The real departure timestamp drives the automatic turnover window.
+    actualCheckoutAt: timestamp("actual_checkout_at", { withTimezone: true }),
     // Client-generated key: retried creates with the same key return the
     // existing reservation instead of inserting a duplicate.
     idempotencyKey: text("idempotency_key"),
@@ -129,6 +131,35 @@ export const reservations = pgTable(
       "reservations_guest_count_check",
       sql`${table.guestCount} >= 1`,
     ),
+  ],
+);
+
+/**
+ * Additional people staying under a reservation. They are intentionally not
+ * guest profiles: they have no contact/booking history and exist only for
+ * occupancy lists, access letters, and contracts for this particular stay.
+ */
+export const reservationOccupants = pgTable(
+  "reservation_occupants",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    reservationId: uuid("reservation_id").notNull(),
+    name: text("name").notNull(),
+    position: integer("position").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("reservation_occupants_organization_id_unique").on(table.organizationId, table.id),
+    uniqueIndex("reservation_occupants_reservation_position_unique").on(table.reservationId, table.position),
+    foreignKey({
+      columns: [table.organizationId, table.reservationId],
+      foreignColumns: [reservations.organizationId, reservations.id],
+    }).onDelete("cascade"),
+    check("reservation_occupants_name_check", sql`char_length(trim(${table.name})) > 0`),
+    check("reservation_occupants_position_check", sql`${table.position} >= 0`),
   ],
 );
 

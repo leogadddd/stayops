@@ -50,6 +50,34 @@
       "when": 1790232252241,
       "tag": "0007_unit_stay_times",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790323200000,
+      "tag": "0008_turnover_blocks",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790409600000,
+      "tag": "0009_reservation_occupants",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790496000000,
+      "tag": "0010_actual_checkout",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790582400000,
+      "tag": "0011_inventory_cover_images",
+      "breakpoints": true
     }
   ]
 }

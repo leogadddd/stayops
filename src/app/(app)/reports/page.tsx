@@ -56,6 +56,31 @@ function Metric({
   );
 }
 
+function HorizontalBars({
+  title,
+  items,
+  formatValue,
+}: {
+  title: string;
+  items: { label: string; value: number; tone: string }[];
+  formatValue: (value: number) => string;
+}) {
+  const max = Math.max(1, ...items.map((item) => Math.abs(item.value)));
+  return (
+    <Card>
+      <CardHeader><h3 className="font-display text-lg text-pine">{title}</h3></CardHeader>
+      <CardBody className="space-y-4">
+        {items.map((item) => (
+          <div key={item.label}>
+            <div className="mb-1 flex justify-between gap-3 text-sm"><span className="text-ink/70">{item.label}</span><span className="shrink-0 font-medium tabular-nums text-pine">{formatValue(item.value)}</span></div>
+            <div className="h-3 overflow-hidden rounded-full bg-pine-mist/60"><div className={`h-full rounded-full ${item.tone}`} style={{ width: `${Math.max(0, Math.min(100, (Math.abs(item.value) / max) * 100))}%` }} /></div>
+          </div>
+        ))}
+      </CardBody>
+    </Card>
+  );
+}
+
 export default async function ReportsPage({
   searchParams,
 }: {
@@ -253,6 +278,28 @@ function ReportBody({
             </div>
           </CardBody>
         </Card>
+      </section>
+
+      <section aria-label="Report charts" className="grid gap-6 lg:grid-cols-2">
+        <HorizontalBars
+          title="Cash movement"
+          formatValue={formatPHP}
+          items={[
+            { label: "Booking payments", value: summary.bookingCollectedCents, tone: "bg-pine" },
+            { label: "Operating expenses", value: summary.operatingExpensesCents, tone: "bg-clay" },
+            { label: "Booking refunds", value: summary.bookingRefundedCents, tone: "bg-[#c88470]" },
+            { label: "Net operating cash", value: summary.netOperatingCashCents, tone: summary.netOperatingCashCents < 0 ? "bg-clay-deep" : "bg-sage-deep" },
+          ]}
+        />
+        <HorizontalBars
+          title="Occupancy by property"
+          formatValue={(value) => formatPercent(value / 100)}
+          items={summary.propertyBreakdown.map((row) => ({
+            label: propertyNames.get(row.propertyId) ?? "Unknown property",
+            value: (row.occupancyRate ?? 0) * 100,
+            tone: "bg-sage-deep",
+          }))}
+        />
       </section>
 
       <section aria-labelledby="booked-heading">

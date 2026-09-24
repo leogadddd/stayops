@@ -137,7 +137,7 @@ describe("dedicated reservation action pages", () => {
     expect(requireMembership).toHaveBeenCalledOnce();
     expect(getReservationLedger).not.toHaveBeenCalled();
     const client = nodes(tree).find((node) => node.type === form);
-    expect(client?.props).toEqual(form === DamageReportForm ? { unitId: "unit-a", reservationId: "reservation-a", returnHref: "/reservations/reservation-a" } : { reservationId: "reservation-a" });
+    expect(client?.props).toEqual(form === DamageReportForm ? { unitId: "unit-a", reservationId: "reservation-a", returnHref: "/reservations/reservation-a" } : form === CheckOutForm ? expect.objectContaining({ reservationId: "reservation-a", defaultActualCheckoutAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/) }) : { reservationId: "reservation-a" });
     expect(serialize(tree)).not.toMatch(/123456|Private deposit|amountCents|ledger/);
   });
 
@@ -215,7 +215,7 @@ describe("read-only reservation detail and shared tables", () => {
     const tree = await ReservationsPage({ searchParams: Promise.resolve({}) });
     expect(nodes(tree).some((node) => node.type === Table)).toBe(true);
     const html = renderToStaticMarkup(tree);
-    for (const heading of ["Guest", "Unit", "Dates", "Status", "Action"]) expect(html).toContain(`>${heading}</th>`);
+    for (const heading of ["Guest", "Unit", "Dates", "Status", "Actions"]) expect(html).toContain(`>${heading}</th>`);
     expect(html).toContain('href="/reservations/reservation-a"');
   });
 

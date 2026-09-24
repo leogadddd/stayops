@@ -1,0 +1,25 @@
+import "server-only";
+
+import { Buffer } from "node:buffer";
+import { InventoryError } from "./validation";
+
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const ACCEPTED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+/**
+ * Keep a single small cover image alongside the record. This avoids coupling
+ * inventory creation to a particular cloud storage provider while preserving
+ * the uploaded file across application restarts.
+ */
+export async function imageDataUrlFromForm(formData: FormData, key: string) {
+  const value = formData.get(key);
+  if (!(value instanceof File) || value.size === 0) return undefined;
+  if (!ACCEPTED_IMAGE_TYPES.has(value.type)) {
+    throw new InventoryError("Upload a JPG, PNG, or WebP image.", key);
+  }
+  if (value.size > MAX_IMAGE_BYTES) {
+    throw new InventoryError("Image must be 5 MB or smaller.", key);
+  }
+  const bytes = await value.arrayBuffer();
+  return `data:${value.type};base64,${Buffer.from(bytes).toString("base64")}`;
+}

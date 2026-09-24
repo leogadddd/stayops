@@ -101,7 +101,9 @@ export async function createProperty(input: {
         timezone: data.timezone,
         checkInTime: data.checkInTime,
         checkOutTime: data.checkOutTime,
+        turnoverDurationMinutes: data.turnoverDurationMinutes,
         houseRules: data.houseRules || null,
+        imageUrl: data.imageUrl || null,
       })
       .returning();
     if (!property) {
@@ -113,7 +115,7 @@ export async function createProperty(input: {
       entity: "property",
       entityId: property.id,
       action: "property.created",
-      metadata: { name: property.name },
+      metadata: { name: property.name, turnoverDurationMinutes: property.turnoverDurationMinutes },
     });
     return property;
   });
@@ -136,7 +138,9 @@ export async function updateProperty(input: {
         timezone: data.timezone,
         checkInTime: data.checkInTime,
         checkOutTime: data.checkOutTime,
+        turnoverDurationMinutes: data.turnoverDurationMinutes,
         houseRules: data.houseRules || null,
+        ...(data.imageUrl !== undefined ? { imageUrl: data.imageUrl || null } : {}),
         updatedAt: new Date(),
       })
       .where(
@@ -152,7 +156,7 @@ export async function updateProperty(input: {
       entity: "property",
       entityId: input.propertyId,
       action: "property.updated",
-      metadata: { name: data.name },
+      metadata: { name: data.name, turnoverDurationMinutes: data.turnoverDurationMinutes },
     });
   });
 }
@@ -184,6 +188,7 @@ export async function createUnit(input: {
         organizationId: input.organizationId,
         propertyId: input.propertyId,
         ...data,
+        imageUrl: data.imageUrl || null,
       })
       .returning();
     if (!unit) {

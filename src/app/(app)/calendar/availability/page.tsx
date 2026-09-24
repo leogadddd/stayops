@@ -4,28 +4,20 @@ import { PageHeading } from "@/components/app/page-heading";
 import { buttonClassName } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireMembership } from "@/lib/auth/session";
-import { listOrgUnits, listProperties } from "@/server/inventory/service";
+import { listOrgUnits } from "@/server/inventory/service";
 import { AvailabilityCheckForm } from "../availability-check-form";
 
 export const metadata: Metadata = { title: "Check availability" };
 
 export default async function AvailabilityPage() {
   const membership = await requireMembership();
-  const [properties, units] = await Promise.all([
-    listProperties(membership.organizationId),
-    listOrgUnits(membership.organizationId),
-  ]);
-  const propertyNames = new Map(properties.map((property) => [property.id, property.name]));
-  const options = units.map((unit) => ({
-    id: unit.id,
-    name: properties.length > 1 ? `${propertyNames.get(unit.propertyId)} · ${unit.name}` : unit.name,
-  }));
+  const units = await listOrgUnits(membership.organizationId);
 
   return (
     <div className="mx-auto max-w-3xl overflow-hidden">
-      <PageHeading title="Check availability" description="Choose a unit and stay dates. This check is advisory; saving a reservation performs the final conflict check." backHref="/calendar" backLabel="Back to calendar" />
-      {options.length ? (
-        <AvailabilityCheckForm units={options} />
+      <PageHeading title="Check availability" description="Search active units by stay dates and guest count. Saving a reservation performs the final conflict check." backHref="/calendar" backLabel="Back to calendar" />
+      {units.length ? (
+        <AvailabilityCheckForm />
       ) : (
         <EmptyState
           title="No units to check"

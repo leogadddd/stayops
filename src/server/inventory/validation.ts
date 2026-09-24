@@ -37,6 +37,12 @@ const centavosField = (label: string) =>
     .int(`${label} must be a whole number of centavos.`)
     .min(0, `${label} cannot be negative.`);
 
+const turnoverDurationField = z
+  .number()
+  .int("Turnover duration must be a whole number of minutes.")
+  .min(1, "Turnover duration must be at least 1 minute.")
+  .max(1440, "Turnover duration must be 24 hours or fewer.");
+
 export const propertyInputSchema = z.object({
   name: z
     .string()
@@ -60,14 +66,17 @@ export const propertyInputSchema = z.object({
   checkOutTime: z
     .string()
     .refine(isValidHmTime, { message: "Use a 24-hour time like 11:00." }),
+  turnoverDurationMinutes: turnoverDurationField.default(120),
   houseRules: z
     .string()
     .trim()
     .max(2000, "House rules must be 2000 characters or fewer.")
     .optional(),
+  imageUrl: z.string().max(7_000_000, "The image is too large.").optional(),
 });
 
-export type PropertyInput = z.infer<typeof propertyInputSchema>;
+// Input callers may omit this field; Zod supplies the two-hour default.
+export type PropertyInput = z.input<typeof propertyInputSchema>;
 
 export const unitInputSchema = z.object({
   name: z
@@ -95,6 +104,7 @@ export const unitInputSchema = z.object({
   checkInTime: z.string().default("15:00").refine(isValidHmTime, { message: "Use a 24-hour arrival time like 15:00." }),
   checkOutTime: z.string().default("11:00").refine(isValidHmTime, { message: "Use a 24-hour departure time like 11:00." }),
   status: z.enum(UNIT_STATUSES),
+  imageUrl: z.string().max(7_000_000, "The image is too large.").optional(),
 });
 
 export type UnitInput = z.infer<typeof unitInputSchema>;

@@ -4,17 +4,19 @@ import type { OccupancySegment } from "@/server/inventory/availability";
 export interface CalendarInterval {
   id: string;
   startDate: string;
-  endDate: string; // Exclusive, including for one-day checkout markers.
+  endDate: string; // Exclusive calendar-day interval.
 }
 
 export interface CalendarEvent extends CalendarInterval {
   unitId: string;
-  kind: "stay" | "hold" | "checkout" | "block" | "unavailable";
+  kind: "stay" | "hold" | "turnover" | "block" | "unavailable";
   title: string;
   description?: string;
   reservationId?: string;
   status?: "hold" | "confirmed" | "checked_in" | "checked_out";
   expiresAt?: Date | null;
+  startTime?: string;
+  endTime?: string;
 }
 
 /** Complete Sunday–Saturday weeks, including the adjacent month's dates. */
@@ -28,7 +30,7 @@ export function monthGridRange(month: string) {
   };
 }
 
-/** Checkout is a separate marker, never an additional occupied night. */
+/** Stays, manual blocks, and timestamped turnover windows are separate events. */
 export function calendarEventsForUnit(
   unitId: string,
   segments: readonly OccupancySegment[],
@@ -45,6 +47,20 @@ export function calendarEventsForUnit(
         description: segment.reason,
       }];
     }
+    if (segment.kind === "turnover") {
+      return [{
+        id: `turnover:${segment.id}`,
+        unitId,
+        kind: "turnover",
+        startDate: segment.startDate,
+        endDate: segment.endDate,
+        title: "Turnover",
+        description: `Turnover ${segment.startTime}–${segment.endTime}`,
+        reservationId: segment.reservationId,
+        startTime: segment.startTime,
+        endTime: segment.endTime,
+      }];
+    }
     const stay: CalendarEvent = {
       id: `stay:${segment.id}`,
       unitId,
@@ -56,13 +72,7 @@ export function calendarEventsForUnit(
       status: segment.status,
       expiresAt: segment.expiresAt,
     };
-    return segment.status === "hold" ? [stay] : [stay, {
-      ...stay,
-      id: `checkout:${segment.id}`,
-      kind: "checkout",
-      startDate: segment.endDate,
-      endDate: addDaysLocal(segment.endDate, 1),
-    }];
+    return [stay];
   });
 }
 

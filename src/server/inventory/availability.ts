@@ -2,8 +2,8 @@ import "server-only";
 
 import { and, eq, gt, inArray, lt, or } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { guests, reservations, unitBlocks } from "@/lib/db/schema";
-import { listNights } from "@/lib/dates";
+import { guests, properties, reservations, turnoverBlocks, unitBlocks, units } from "@/lib/db/schema";
+import { addDaysLocal, listNights, utcToLocalDateTimeParts } from "@/lib/dates";
 import { expireStaleHolds } from "@/server/reservations/holds";
 
 /**
@@ -12,6 +12,18 @@ import { expireStaleHolds } from "@/server/reservations/holds";
  * render holds and bookings differently without touching the overlap math.
  */
 export type OccupancySegment =
+  | {
+      kind: "turnover";
+      id: string;
+      reservationId: string;
+      taskId: string;
+      startDate: string;
+      endDate: string;
+      startTime: string;
+      endTime: string;
+      startsAt: Date;
+      endsAt: Date;
+    }
   | {
       kind: "block";
       id: string;
@@ -133,6 +145,31 @@ export async function getOccupancySegments(
       ),
     );
 
+  // Include timestamped automatic turnover blocks for the visible calendar
+  // range. These are not date occupancy and are intentionally excluded from
+  // night availability below.
+  const turnoverRows = await db
+    .select({
+      id: turnoverBlocks.id,
+      unitId: turnoverBlocks.unitId,
+      reservationId: turnoverBlocks.reservationId,
+      taskId: turnoverBlocks.taskId,
+      startsAt: turnoverBlocks.startsAt,
+      endsAt: turnoverBlocks.endsAt,
+      timezone: properties.timezone,
+    })
+    .from(turnoverBlocks)
+    .innerJoin(units, and(eq(turnoverBlocks.unitId, units.id), eq(turnoverBlocks.organizationId, units.organizationId)))
+    .innerJoin(properties, and(eq(units.propertyId, properties.id), eq(units.organizationId, properties.organizationId)))
+    .where(and(
+      eq(turnoverBlocks.organizationId, organizationId),
+      inArray(turnoverBlocks.unitId, unitIds),
+      // A coarse UTC date window is expanded either side to preserve every
+      // possible property-local timestamp in the requested dates.
+      lt(turnoverBlocks.startsAt, new Date(`${addDaysLocal(rangeEnd, 1)}T12:00:00Z`)),
+      gt(turnoverBlocks.endsAt, new Date(`${addDaysLocal(rangeStart, -1)}T12:00:00Z`)),
+    ));
+
   for (const row of blockRows) {
     segments.get(row.unitId)?.push({
       kind: "block",
@@ -157,6 +194,24 @@ export async function getOccupancySegments(
       status,
       guestName: row.guestName,
       expiresAt: row.expiresAt,
+    });
+  }
+  for (const row of turnoverRows) {
+    const start = utcToLocalDateTimeParts(row.startsAt, row.timezone);
+    const end = utcToLocalDateTimeParts(row.endsAt, row.timezone);
+    segments.get(row.unitId)?.push({
+      kind: "turnover",
+      id: row.id,
+      reservationId: row.reservationId,
+      taskId: row.taskId,
+      startDate: start.date,
+      // The date layout is end-exclusive, so retain the local day containing
+      // the endpoint even for turnovers that cross midnight.
+      endDate: addDaysLocal(end.date, 1),
+      startTime: start.time,
+      endTime: end.time,
+      startsAt: row.startsAt,
+      endsAt: row.endsAt,
     });
   }
   return segments;
@@ -227,6 +282,7 @@ export function buildNightStatusMap(
     if (overlapStart >= overlapEnd) continue;
     for (const night of listNights(overlapStart, overlapEnd)) {
       if (map.get(night)?.kind !== "available") continue;
+      if (segment.kind === "turnover") continue;
       if (segment.kind === "block") {
         map.set(night, {
           kind: "blocked",
@@ -264,7 +320,7 @@ export function checkIntervalAvailability(
 ): IntervalCheck {
   const conflict = segments
     .filter(
-      (segment) => segment.startDate < checkOut && checkIn < segment.endDate,
+      (segment) => segment.kind !== "turnover" && segment.startDate < checkOut && checkIn < segment.endDate,
     )
     .sort((a, b) => (a.startDate < b.startDate ? -1 : 1))[0];
 
@@ -277,9 +333,22 @@ export function checkIntervalAvailability(
         reason:
           conflict.kind === "block"
             ? conflict.reason
+            : conflict.kind === "turnover"
+              ? "Turnover"
             : reservationReason(conflict),
       },
     };
   }
   return { available: true, nights: listNights(checkIn, checkOut) };
+}
+
+/** Turnover only conflicts when the incoming stay's actual arrival overlaps it. */
+export function findTurnoverArrivalConflict(
+  segments: readonly OccupancySegment[],
+  arrivalAt: Date,
+) {
+  return segments.find(
+    (segment): segment is Extract<OccupancySegment, { kind: "turnover" }> =>
+      segment.kind === "turnover" && segment.startsAt <= arrivalAt && arrivalAt < segment.endsAt,
+  );
 }

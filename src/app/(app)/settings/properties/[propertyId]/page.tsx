@@ -39,7 +39,8 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
         <Link href={`${propertyHref}/edit`} className={buttonClassName("outline")}>Edit property</Link>
       </PageHeading>
 
-      <Card className="bg-[#FFFDFA]">
+      <Card className="overflow-hidden bg-[#FFFDFA]">
+        {property.imageUrl ? <img src={property.imageUrl} alt={`${property.name} cover`} className="h-56 w-full object-cover" /> : null}
         <CardHeader><h2 className="font-display text-xl text-pine">Property details</h2></CardHeader>
         <CardBody>
           <dl className="grid gap-5 text-sm sm:grid-cols-3">
@@ -64,7 +65,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
               <TableRow><TableCell colSpan={6} className="py-10 text-center"><p className="font-medium text-pine">No units yet</p><p className="mt-1 text-ink/55">Add an independently bookable space — a studio, room or whole floor.</p></TableCell></TableRow>
             ) : propertyUnits.map((unit) => (
               <TableRow key={unit.id}>
-                <TableCell><Link href={`${propertyHref}/units/${unit.id}`} className="font-medium text-pine underline-offset-4 hover:underline">{unit.name}</Link></TableCell>
+                <TableCell><div className="flex items-center gap-3">{unit.imageUrl ? <img src={unit.imageUrl} alt="" className="h-10 w-12 rounded object-cover" /> : null}<Link href={`${propertyHref}/units/${unit.id}`} className="font-medium text-pine underline-offset-4 hover:underline">{unit.name}</Link></div></TableCell>
                 <TableCell className="whitespace-nowrap">{unit.capacity} guests</TableCell>
                 <TableCell className="whitespace-nowrap">{unit.bedrooms} bed · {unit.bathrooms} bath</TableCell>
                 <TableCell className="whitespace-nowrap">{formatPHP(unit.defaultNightlyRateCents)}</TableCell>

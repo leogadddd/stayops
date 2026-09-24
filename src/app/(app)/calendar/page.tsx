@@ -46,7 +46,7 @@ export default async function CalendarPage({ searchParams }: {
   const month = isValidMonth(params.month ?? "") ? params.month! : today.slice(0, 7);
   const gridRange = monthGridRange(month);
   const [segmentsByUnit, activity, taskRows] = await Promise.all([
-    // Include the preceding night so checkout on the first grid date is retained.
+    // Include the preceding night so time-bound turnovers on the first grid date are retained.
     getOccupancySegments(membership.organizationId, visibleUnits.map((unit) => unit.id), addDaysLocal(gridRange.start, -1), gridRange.end),
     listCalendarActivity(membership.organizationId, unitDays),
     listTasks(membership.organizationId, { status: "open" }),
@@ -67,16 +67,23 @@ export default async function CalendarPage({ searchParams }: {
   const activeHolds = activity.filter((reservation) => reservation.status === "hold");
 
   // Unit status controls bookability; it is not a calendar event. Real blocks,
-  // stays, holds, and check-outs remain visible regardless of current status.
+  // stays, holds, manual blocks, and turnovers remain visible regardless of current status.
   const events: CalendarEvent[] = visibleUnits.flatMap((unit) =>
     calendarEventsForUnit(unit.id, segmentsByUnit.get(unit.id) ?? []),
   );
   const displayEvents: DisplayCalendarEvent[] = events.map((event) => {
     const unit = unitMap.get(event.unitId)!;
+    // Reservation storage is night-based and ends on checkout date. For the
+    // calendar surface, retain that checkout day so its right edge can land
+    // on the unit's actual departure time (rather than midnight before it).
+    const reservationEvent = event.kind === "stay" || event.kind === "hold";
     const nights = nightsBetween(event.startDate, event.endDate);
+    const displayEndDate = reservationEvent
+      ? addDaysLocal(event.endDate, 1)
+      : event.endDate;
     const nightLabel = `${nights} night${nights === 1 ? "" : "s"}`;
-    const detail = event.kind === "checkout"
-      ? event.status === "checked_out" ? "Checked out" : "Check-out"
+    const detail = event.kind === "turnover"
+      ? event.description ?? "Turnover"
       : event.kind === "hold"
         ? `Hold · ${nightLabel}${event.expiresAt ? ` · expires ${expiryLabel(event.expiresAt, event.unitId)}` : ""}`
         : event.kind === "stay"
@@ -84,12 +91,13 @@ export default async function CalendarPage({ searchParams }: {
           : event.description ?? "Unit unavailable";
     return {
       ...event,
-      startTime: event.kind === "stay" || event.kind === "hold" ? unit.checkInTime : undefined,
-      endTime: event.kind === "checkout" ? unit.checkOutTime : undefined,
+      endDate: displayEndDate,
+      startTime: event.kind === "stay" || event.kind === "hold" ? unit.checkInTime : event.startTime,
+      endTime: reservationEvent ? unit.checkOutTime : event.endTime,
       unitLabel: unitLabel(event.unitId),
       detail,
       href: event.reservationId ? `/reservations/${event.reservationId}` : membership.role === "owner" ? `/settings/properties/${unit.propertyId}/units/${unit.id}` : undefined,
-      accessibleLabel: `${event.title} · ${unitLabel(event.unitId)} · ${detail} · ${event.startDate}${event.kind === "checkout" ? "; checkout marker, not occupancy" : ` to ${event.endDate} (end date exclusive)`}`,
+      accessibleLabel: `${event.title} · ${unitLabel(event.unitId)} · ${detail} · ${event.startDate} to ${displayEndDate} (end date exclusive)`,
     };
   });
 

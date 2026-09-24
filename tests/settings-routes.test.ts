@@ -64,13 +64,15 @@ const owner: MembershipContext = {
 };
 const property = {
   id: "property-a", organizationId: owner.organizationId, name: "Test property", address: "Private address",
-  timezone: "Asia/Manila", checkInTime: "15:00", checkOutTime: "11:00", houseRules: "Quiet after 10pm",
+  timezone: "Asia/Manila", checkInTime: "15:00", checkOutTime: "11:00", turnoverDurationMinutes: 120, houseRules: "Quiet after 10pm",
+  imageUrl: null,
   createdAt: new Date("2026-09-01T00:00:00Z"), updatedAt: new Date("2026-09-01T00:00:00Z"),
   deletedAt: null,
 };
 const unit = {
   id: "unit-a", organizationId: owner.organizationId, propertyId: property.id, name: "Test unit",
   status: "active" as const, capacity: 2, bedrooms: 1, bathrooms: 1, defaultNightlyRateCents: 125_050,
+  imageUrl: null,
   cleaningFeeCents: 30_000, securityDepositCents: null, checkInTime: "15:00", checkOutTime: "11:00", checklistTemplate: [{ label: "Clean room", required: true }],
   createdAt: new Date("2026-09-01T00:00:00Z"), updatedAt: new Date("2026-09-01T00:00:00Z"),
   deletedAt: null,

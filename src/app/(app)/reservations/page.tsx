@@ -15,6 +15,8 @@ import { Input, Select } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PageHeading } from "@/components/app/page-heading";
 import { db } from "@/lib/db";
+import { TableActionsMenu } from "@/components/ui/table-actions-menu";
+import { quickCancelReservationAction } from "./actions";
 
 export const metadata: Metadata = { title: "Reservations" };
 
@@ -157,7 +159,7 @@ export default async function ReservationsPage({
                 <TableHead>Unit</TableHead>
                 <TableHead>Dates</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="text-right">Action</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -175,7 +177,16 @@ export default async function ReservationsPage({
                   </TableCell>
                   <TableCell><Badge tone={STATUS_TONE[reservation.status] ?? "neutral"}>{RESERVATION_STATUS_LABELS[reservation.status]}</Badge></TableCell>
                   <TableCell className="text-right">
-                    <Link href={`/reservations/${reservation.id}`} aria-label={`View reservation for ${reservation.guestName}`} className={buttonClassName("outline", "sm")}>View</Link>
+                    <TableActionsMenu
+                      label={`reservation for ${reservation.guestName}`}
+                      viewHref={`/reservations/${reservation.id}`}
+                      editHref={membership.role === "owner" && (reservation.status === "hold" || reservation.status === "confirmed") ? `/reservations/${reservation.id}/edit` : undefined}
+                      deleteLabel={`Cancel reservation for ${reservation.guestName}?`}
+                      deleteDescription="This safely cancels the reservation and releases its dates. It keeps payment, task, and audit history; it does not permanently delete records."
+                      destructiveActionLabel="Cancel"
+                      deleteSuccessMessage="Reservation cancelled."
+                      onDelete={membership.role === "owner" && (reservation.status === "hold" || reservation.status === "confirmed") ? quickCancelReservationAction.bind(null, reservation.id) : undefined}
+                    />
                   </TableCell>
                 </TableRow>
               ))}

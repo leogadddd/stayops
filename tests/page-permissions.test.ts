@@ -159,6 +159,7 @@ describe("independent owner page boundaries", () => {
     vi.mocked(inventory.getUnitOrThrow).mockResolvedValue({
       id: "unit-a", organizationId: owner.organizationId, propertyId: "property-a",
       name: "Test unit", status: "active", capacity: 2, bedrooms: 1, bathrooms: 1,
+      imageUrl: null,
       defaultNightlyRateCents: 100_000, cleaningFeeCents: null,
       securityDepositCents: null, checkInTime: "15:00", checkOutTime: "11:00", checklistTemplate: [],
       createdAt: new Date("2026-09-01T00:00:00Z"),

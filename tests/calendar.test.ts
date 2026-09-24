@@ -47,11 +47,11 @@ describe("monthGridRange", () => {
 });
 
 describe("calendarEventsForUnit", () => {
-  it("keeps the checkout date exclusive and emits a separate one-day marker", () => {
-    const [stay, checkout] = calendarEventsForUnit("unit-a", [reservation("2026-09-04", "2026-09-07")]);
+  it("keeps the checkout date exclusive without emitting a standalone checkout marker", () => {
+    const [stay] = calendarEventsForUnit("unit-a", [reservation("2026-09-04", "2026-09-07")]);
     expect(stay).toMatchObject({ kind: "stay", unitId: "unit-a", startDate: "2026-09-04", endDate: "2026-09-07" });
     expect(listNights(stay!.startDate, stay!.endDate)).toEqual(["2026-09-04", "2026-09-05", "2026-09-06"]);
-    expect(checkout).toMatchObject({ kind: "checkout", startDate: "2026-09-07", endDate: "2026-09-08", reservationId: "reservation-1" });
+    expect(calendarEventsForUnit("unit-a", [reservation("2026-09-04", "2026-09-07")])).toHaveLength(1);
   });
 
   it("does not turn holds or maintenance blocks into checkout events", () => {
@@ -64,9 +64,18 @@ describe("calendarEventsForUnit", () => {
     expect(events[1]?.description).toBe("AC repair");
   });
 
+  it("renders a persisted turnover as its own same-day, time-bound event", () => {
+    const [turnover] = calendarEventsForUnit("unit-a", [{
+      kind: "turnover", id: "turnover-1", reservationId: "reservation-1", taskId: "task-1",
+      startDate: "2026-09-07", endDate: "2026-09-08", startTime: "11:00", endTime: "13:30",
+      startsAt: new Date("2026-09-07T03:00:00Z"), endsAt: new Date("2026-09-07T05:30:00Z"),
+    }]);
+    expect(turnover).toMatchObject({ kind: "turnover", startDate: "2026-09-07", endDate: "2026-09-08", startTime: "11:00", endTime: "13:30", reservationId: "reservation-1" });
+  });
+
   it("retains historical checked-out stays and identifies units in all-unit events", () => {
     const events = calendarEventsForUnit("inactive-unit", [reservation("2025-09-01", "2025-09-04", "checked_out")]);
-    expect(events).toHaveLength(2);
+    expect(events).toHaveLength(1);
     expect(events.every((event) => event.unitId === "inactive-unit")).toBe(true);
     expect(events[0]).toMatchObject({ kind: "stay", status: "checked_out" });
   });
@@ -78,7 +87,7 @@ describe("layoutMonthEvents", () => {
     const weeks = layoutMonthEvents("2026-09", events);
     expect(weeks[0]?.events[0]).toMatchObject({ startColumn: 5, span: 2, continuesBefore: false, continuesAfter: true });
     expect(weeks[1]?.events.find(({ event }) => event.kind === "stay")).toMatchObject({ startColumn: 0, span: 1, continuesBefore: true, continuesAfter: false });
-    expect(weeks[1]?.events.find(({ event }) => event.kind === "checkout")).toMatchObject({ startColumn: 1, span: 1 });
+    expect(weeks[1]?.events).toHaveLength(1);
   });
 
   it("clips long bookings at month-grid boundaries while keeping all intermediate week splits", () => {
@@ -89,20 +98,19 @@ describe("layoutMonthEvents", () => {
     expect(weeks.every((week) => week.events[0]?.lane === 0)).toBe(true);
   });
 
-  it("shows checkout on the first grid day even when all occupied nights precede it", () => {
+  it("does not show a checkout event on the first grid day when all occupied nights precede it", () => {
     const events = calendarEventsForUnit("unit-a", [reservation("2026-08-25", "2026-08-30")]);
     const placements = layoutMonthEvents("2026-09", events).flatMap((week) => week.events);
-    expect(placements).toHaveLength(1);
-    expect(placements[0]).toMatchObject({ startColumn: 0, span: 1, event: { kind: "checkout" } });
+    expect(placements).toHaveLength(0);
   });
 
-  it("splits a month-crossing stay and retains its checkout in the next month", () => {
+  it("splits a month-crossing stay without adding a checkout event", () => {
     const events = calendarEventsForUnit("unit-a", [reservation("2026-09-28", "2026-10-02")]);
     const september = layoutMonthEvents("2026-09", events).at(-1)!;
     const october = layoutMonthEvents("2026-10", events)[0]!;
     expect(september.events).toEqual(october.events);
     expect(october.events.find(({ event }) => event.kind === "stay")).toMatchObject({ startColumn: 1, span: 4 });
-    expect(october.events.find(({ event }) => event.kind === "checkout")).toMatchObject({ startColumn: 5, span: 1 });
+    expect(october.events).toHaveLength(1);
   });
 
   it("reuses a lane for adjacent exclusive intervals", () => {
@@ -114,16 +122,14 @@ describe("layoutMonthEvents", () => {
     expect(week.events.map((event) => event.lane)).toEqual([0, 0]);
   });
 
-  it("uses separate lanes for checkout and a new booking on the same day", () => {
+  it("reuses a lane for adjacent stays on the same day", () => {
     const events = [
       ...calendarEventsForUnit("unit-a", [reservation("2026-09-01", "2026-09-03")]),
       ...calendarEventsForUnit("unit-a", [reservation("2026-09-03", "2026-09-05", "confirmed", "reservation-2")]),
     ];
     const week = layoutMonthEvents("2026-09", events)[0]!;
-    const checkout = week.events.find(({ event }) => event.id === "checkout:reservation-1")!;
     const newStay = week.events.find(({ event }) => event.id === "stay:reservation-2")!;
-    expect(checkout.startColumn).toBe(newStay.startColumn);
-    expect(checkout.lane).not.toBe(newStay.lane);
+    expect(newStay.lane).toBe(0);
   });
 
   it("keeps every overlapping all-unit event, including unavailable overlays", () => {
@@ -230,7 +236,7 @@ describe("calendar page data boundaries", () => {
     vi.mocked(getOccupancySegments).mockResolvedValue(new Map([["unit-b", [reservation("2025-01-02", "2025-01-05", "checked_out")]]]));
     const tree = await CalendarPage({ searchParams: Promise.resolve({ unit: "unit-b", month: "2025-01" }) });
     const calendar = propsFor(tree, MonthCalendar);
-    expect(calendar.events.map((event) => event.kind)).toEqual(["stay", "checkout"]);
+    expect(calendar.events.map((event) => event.kind)).toEqual(["stay"]);
     expect(calendar.events.every((event) => event.unitLabel === "LA · Apartment 02")).toBe(true);
     const serialized = JSON.stringify(tree, (_key, value) => React.isValidElement(value) ? value.props : value);
     for (const privateValue of ["987654", "456789", "defaultNightlyRateCents", "cleaningFeeCents"]) expect(serialized).not.toContain(privateValue);
