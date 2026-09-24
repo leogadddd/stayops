@@ -43,6 +43,13 @@
       "when": 1790225805481,
       "tag": "0006_inventory_soft_delete",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790232252241,
+      "tag": "0007_unit_stay_times",
+      "breakpoints": true
     }
   ]
 }
