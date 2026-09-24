@@ -66,21 +66,11 @@ export default async function CalendarPage({ searchParams }: {
   const departures = activity.filter((reservation) => reservation.status !== "hold" && reservation.endDate === todayByUnit.get(reservation.unitId));
   const activeHolds = activity.filter((reservation) => reservation.status === "hold");
 
-  const events: CalendarEvent[] = visibleUnits.flatMap((unit) => {
-    const unitEvents = calendarEventsForUnit(unit.id, segmentsByUnit.get(unit.id) ?? []);
-    // Today's unit status is not historical status. Retain past bookings and do
-    // not project today's unavailable status backward into a previous month.
-    const statusStart = todayByUnit.get(unit.id)! > gridRange.start ? todayByUnit.get(unit.id)! : gridRange.start;
-    if (unit.status !== "active" && statusStart < gridRange.end) {
-      unitEvents.push({
-        id: `unavailable:${unit.id}`, unitId: unit.id, kind: "unavailable",
-        startDate: statusStart, endDate: gridRange.end,
-        title: unit.status === "maintenance" ? "Maintenance" : "Unit unavailable",
-        description: `${UNIT_STATUS_LABELS[unit.status]} · current status`,
-      });
-    }
-    return unitEvents;
-  });
+  // Unit status controls bookability; it is not a calendar event. Real blocks,
+  // stays, holds, and check-outs remain visible regardless of current status.
+  const events: CalendarEvent[] = visibleUnits.flatMap((unit) =>
+    calendarEventsForUnit(unit.id, segmentsByUnit.get(unit.id) ?? []),
+  );
   const displayEvents: DisplayCalendarEvent[] = events.map((event) => {
     const unit = unitMap.get(event.unitId)!;
     const nights = nightsBetween(event.startDate, event.endDate);

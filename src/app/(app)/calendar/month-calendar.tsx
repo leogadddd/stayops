@@ -139,7 +139,7 @@ export function MonthCalendar({
       <ul aria-label="Calendar legend" className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-ink/75">
         {([
           ["stay", "Confirmed stay"], ["hold", "Hold (expires)"], ["checkout", "Check-out / turnover"],
-          ["block", "Maintenance / blocked"], ["unavailable", "Unit unavailable"],
+          ["block", "Maintenance / blocked"],
         ] as const).map(([kind, label]) => (
           <li key={kind} className="inline-flex items-center gap-2"><span aria-hidden className={`h-3.5 w-3.5 rounded-full border ${EVENT_STYLES[kind]}`} />{label}</li>
         ))}

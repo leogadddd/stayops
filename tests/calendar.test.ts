@@ -251,11 +251,11 @@ describe("calendar page data boundaries", () => {
     expect(html).toContain("Repairs");
   });
 
-  it("retains inventory event links for owners", async () => {
+  it("does not turn an inactive unit status into a calendar event", async () => {
     vi.mocked(requireMembership).mockResolvedValue({ organizationId: "org-a", organizationName: "Stays", organizationSlug: "stays", userId: "owner-a", role: "owner" });
     vi.mocked(listCalendarActivity).mockResolvedValue([]);
     const tree = await CalendarPage({ searchParams: Promise.resolve({ unit: "unit-b" }) });
-    expect(propsFor(tree, MonthCalendar).events.find((event) => event.kind === "unavailable")?.href).toBe("/settings/properties/property-b/units/unit-b");
+    expect(propsFor(tree, MonthCalendar).events.find((event) => event.kind === "unavailable")).toBeUndefined();
   });
 
   it.each(["properties", "units"])("does not link staff to settings when %s are empty", async (empty) => {
