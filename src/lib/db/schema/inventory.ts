@@ -91,6 +91,8 @@ export const units = pgTable(
       .default(0),
     cleaningFeeCents: integer("cleaning_fee_cents"),
     securityDepositCents: integer("security_deposit_cents"),
+    checkInTime: text("check_in_time").notNull().default("15:00"),
+    checkOutTime: text("check_out_time").notNull().default("11:00"),
     status: unitStatus("status").notNull().default("renovating"),
     // Turnover template snapshot source; checkout copies it onto the task.
     checklistTemplate: jsonb("checklist_template")

@@ -48,6 +48,7 @@ const unit = {
   defaultNightlyRateCents: 550_000,
   cleaningFeeCents: 50_000,
   securityDepositCents: 200_000,
+  checkInTime: "15:00", checkOutTime: "11:00",
   checklistTemplate: [],
   createdAt: new Date("2026-09-01T00:00:00Z"),
   updatedAt: new Date("2026-09-01T00:00:00Z"),

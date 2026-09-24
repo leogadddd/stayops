@@ -160,7 +160,7 @@ describe("independent owner page boundaries", () => {
       id: "unit-a", organizationId: owner.organizationId, propertyId: "property-a",
       name: "Test unit", status: "active", capacity: 2, bedrooms: 1, bathrooms: 1,
       defaultNightlyRateCents: 100_000, cleaningFeeCents: null,
-      securityDepositCents: null, checklistTemplate: [],
+      securityDepositCents: null, checkInTime: "15:00", checkOutTime: "11:00", checklistTemplate: [],
       createdAt: new Date("2026-09-01T00:00:00Z"),
       updatedAt: new Date("2026-09-01T00:00:00Z"),
       deletedAt: null,
@@ -219,7 +219,7 @@ describe("new reservation financial boundary", () => {
     vi.mocked(inventory.listOrgUnits).mockResolvedValue([{
       id: "unit-a", propertyId: "property-a", name: "Test unit", status: "active",
       capacity: 2, defaultNightlyRateCents: 765_432, cleaningFeeCents: 12_345,
-      securityDepositCents: 123_456,
+      securityDepositCents: 123_456, checkInTime: "15:00", checkOutTime: "11:00",
     }] as Awaited<ReturnType<typeof inventory.listOrgUnits>>);
     vi.mocked(inventory.listProperties).mockResolvedValue([]);
     vi.mocked(listGuests).mockResolvedValue([]);

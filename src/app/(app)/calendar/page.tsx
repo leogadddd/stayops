@@ -94,8 +94,8 @@ export default async function CalendarPage({ searchParams }: {
           : event.description ?? "Unit unavailable";
     return {
       ...event,
-      startTime: event.kind === "stay" || event.kind === "hold" ? propertyForUnit(event.unitId).checkInTime : undefined,
-      endTime: event.kind === "checkout" ? propertyForUnit(event.unitId).checkOutTime : undefined,
+      startTime: event.kind === "stay" || event.kind === "hold" ? unit.checkInTime : undefined,
+      endTime: event.kind === "checkout" ? unit.checkOutTime : undefined,
       unitLabel: unitLabel(event.unitId),
       detail,
       href: event.reservationId ? `/reservations/${event.reservationId}` : membership.role === "owner" ? `/settings/properties/${unit.propertyId}/units/${unit.id}` : undefined,

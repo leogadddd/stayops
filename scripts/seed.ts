@@ -132,6 +132,7 @@ async function main() {
         defaultNightlyRateCents: 5500 * 100,
         cleaningFeeCents: 500 * 100,
         securityDepositCents: 2000 * 100,
+        checkInTime: "15:00", checkOutTime: "11:00",
         status: "active",
       },
     });
@@ -148,6 +149,7 @@ async function main() {
         defaultNightlyRateCents: 7200 * 100,
         cleaningFeeCents: 600 * 100,
         securityDepositCents: 3000 * 100,
+        checkInTime: "15:00", checkOutTime: "11:00",
         status: "renovating",
       },
     });

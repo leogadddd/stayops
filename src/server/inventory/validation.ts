@@ -92,6 +92,8 @@ export const unitInputSchema = z.object({
   defaultNightlyRateCents: centavosField("Nightly rate"),
   cleaningFeeCents: centavosField("Cleaning fee").nullable(),
   securityDepositCents: centavosField("Security deposit").nullable(),
+  checkInTime: z.string().default("15:00").refine(isValidHmTime, { message: "Use a 24-hour arrival time like 15:00." }),
+  checkOutTime: z.string().default("11:00").refine(isValidHmTime, { message: "Use a 24-hour departure time like 11:00." }),
   status: z.enum(UNIT_STATUSES),
 });
 

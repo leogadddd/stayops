@@ -95,6 +95,16 @@ export function UnitCreateForm({ propertyId }: { propertyId: string }) {
             placeholder="5500"
           />
         </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="unit-check-in">Fixed check-in</Label>
+            <Input id="unit-check-in" name="checkInTime" type="time" defaultValue="15:00" required />
+          </div>
+          <div>
+            <Label htmlFor="unit-check-out">Fixed check-out</Label>
+            <Input id="unit-check-out" name="checkOutTime" type="time" defaultValue="11:00" required />
+          </div>
+        </div>
         <div>
           <Label htmlFor="unit-cleaning">Cleaning fee (₱, optional)</Label>
           <Input

@@ -131,6 +131,8 @@ function unitDataFromForm(formData: FormData) {
     defaultNightlyRateCents: readOptionalPesos(formData, "nightlyRate") ?? 0,
     cleaningFeeCents: readOptionalPesos(formData, "cleaningFee"),
     securityDepositCents: readOptionalPesos(formData, "securityDeposit"),
+    checkInTime: readString(formData, "checkInTime") || "15:00",
+    checkOutTime: readString(formData, "checkOutTime") || "11:00",
     status: readString(formData, "status") as
       | "renovating"
       | "furnishing"

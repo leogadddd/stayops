@@ -18,6 +18,8 @@ export interface UnitFormValues {
   nightlyRate: string;
   cleaningFee: string;
   securityDeposit: string;
+  checkInTime: string;
+  checkOutTime: string;
   status: UnitStatus;
 }
 
@@ -125,6 +127,10 @@ export function UnitEditForm({
             defaultValue={values.nightlyRate}
             placeholder="5500"
           />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div><Label htmlFor="unit-check-in">Fixed check-in</Label><Input id="unit-check-in" name="checkInTime" type="time" defaultValue={values.checkInTime} required /></div>
+          <div><Label htmlFor="unit-check-out">Fixed check-out</Label><Input id="unit-check-out" name="checkOutTime" type="time" defaultValue={values.checkOutTime} required /></div>
         </div>
         <div>
           <Label htmlFor="unit-cleaning">Cleaning fee (₱, optional)</Label>
