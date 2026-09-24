@@ -28,9 +28,9 @@ export function StayOpsToaster() {
   return (
     <Sonner
       className="stayops-toaster"
-      position="top-right"
-      offset={{ top: 18, right: 18 }}
-      mobileOffset={{ top: 12, right: 12, left: 12 }}
+      position="bottom-right"
+      offset={{ bottom: 18, right: 18 }}
+      mobileOffset={{ bottom: 12, right: 12, left: 12 }}
       duration={4500}
       gap={10}
       visibleToasts={4}
