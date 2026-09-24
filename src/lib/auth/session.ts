@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
@@ -11,17 +12,24 @@ export type Session = NonNullable<
   Awaited<ReturnType<typeof auth.api.getSession>>
 >;
 
-export async function getSession(): Promise<Session | null> {
+/**
+ * Deduplicate authentication work for one Server Component render.
+ *
+ * A page and its layouts commonly need the current user and membership. React
+ * clears this cache for each server request, so this does not persist a
+ * session between users or requests.
+ */
+export const getSession = cache(async (): Promise<Session | null> => {
   return auth.api.getSession({ headers: await headers() });
-}
+});
 
-export async function requireUser(): Promise<Session["user"]> {
+export const requireUser = cache(async (): Promise<Session["user"]> => {
   const session = await getSession();
   if (!session) {
     redirect("/login");
   }
   return session.user;
-}
+});
 
 export interface MembershipContext {
   organizationId: string;
@@ -36,7 +44,7 @@ export interface MembershipContext {
  * Redirects to /login when unauthenticated and /onboarding when the user
  * has no organization yet.
  */
-export async function requireMembership(): Promise<MembershipContext> {
+export const requireMembership = cache(async (): Promise<MembershipContext> => {
   const session = await getSession();
   if (!session) {
     redirect("/login");
@@ -64,17 +72,17 @@ export async function requireMembership(): Promise<MembershipContext> {
     ...membership,
     userId: session.user.id,
   };
-}
+});
 
 /**
  * Owner-only guard for money, reports, settings and staff management. Returns
  * null for staff members so callers can render a permission-denied state
  * instead of silently redirecting.
  */
-export async function requireOwner(): Promise<MembershipContext | null> {
+export const requireOwner = cache(async (): Promise<MembershipContext | null> => {
   const membership = await requireMembership();
   return membership.role === "owner" ? membership : null;
-}
+});
 
 /** Thrown by server actions when a staff member attempts an owner-only mutation. */
 export class PermissionError extends Error {

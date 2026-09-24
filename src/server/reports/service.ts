@@ -95,10 +95,13 @@ export async function getReport(
     .where(and(...unitConditions));
   const unitIds = unitRows.map((unit) => unit.id);
 
-  const blockRows =
+  // Once units are known, these reads are independent. Start them together so
+  // the report is limited by the slowest query instead of their combined
+  // network round-trip time.
+  const blockRowsPromise =
     unitIds.length === 0
-      ? []
-      : await db
+      ? Promise.resolve([])
+      : db
           .select({
             unitId: unitBlocks.unitId,
             startDate: unitBlocks.startDate,
@@ -120,7 +123,10 @@ export async function getReport(
     lt(reservations.checkInDate, to),
     gte(reservations.checkOutDate, from),
   ];
-  const stayRows = await db
+  // Property-scoped money rows join through the stay's unit.
+  const propertyScope = propertyId ? eq(units.propertyId, propertyId) : undefined;
+
+  const stayRowsPromise = db
     .select({
       id: reservations.id,
       unitId: reservations.unitId,
@@ -142,31 +148,7 @@ export async function getReport(
         ? and(...stayConditions, eq(units.propertyId, propertyId))
         : and(...stayConditions),
     );
-  const stayIds = stayRows.map((stay) => stay.id);
-
-  const chargeRows =
-    stayIds.length === 0
-      ? []
-      : await db
-          .select({
-            reservationId: reservationCharges.reservationId,
-            type: reservationCharges.type,
-            quantity: reservationCharges.quantity,
-            unitAmountCents: reservationCharges.unitAmountCents,
-            isRefundableDeposit: reservationCharges.isRefundableDeposit,
-          })
-          .from(reservationCharges)
-          .where(
-            and(
-              eq(reservationCharges.organizationId, organizationId),
-              inArray(reservationCharges.reservationId, stayIds),
-            ),
-          );
-
-  // Property-scoped money rows join through the stay's unit.
-  const propertyScope = propertyId ? eq(units.propertyId, propertyId) : undefined;
-
-  const periodPayments = await db
+  const periodPaymentsPromise = db
     .select({ allocation: paymentEntries.allocation, amountCents: paymentEntries.amountCents })
     .from(paymentEntries)
     .innerJoin(
@@ -192,7 +174,7 @@ export async function getReport(
       ),
     );
 
-  const periodRefunds = await db
+  const periodRefundsPromise = db
     .select({ allocation: refundEntries.allocation, amountCents: refundEntries.amountCents })
     .from(refundEntries)
     .innerJoin(
@@ -218,7 +200,7 @@ export async function getReport(
       ),
     );
 
-  const periodDeductions = await db
+  const periodDeductionsPromise = db
     .select({ total: sql`coalesce(sum(${depositDeductions.amountCents}), 0)`.mapWith(Number) })
     .from(depositDeductions)
     .innerJoin(
@@ -250,13 +232,13 @@ export async function getReport(
     lt(expenses.paidDate, to),
   ];
   if (propertyId) expenseConditions.push(eq(expenses.propertyId, propertyId));
-  const periodExpenseRows = await db
+  const periodExpenseRowsPromise = db
     .select({ amountCents: expenses.amountCents, classification: expenses.classification })
     .from(expenses)
     .where(and(...expenseConditions));
 
   // All-time deposit position, still property-scoped when a property is chosen.
-  const depositCollected = await db
+  const depositCollectedPromise = db
     .select({ total: sql`coalesce(sum(${paymentEntries.amountCents}), 0)`.mapWith(Number) })
     .from(paymentEntries)
     .innerJoin(
@@ -281,7 +263,7 @@ export async function getReport(
       ),
     );
 
-  const depositRefunded = await db
+  const depositRefundedPromise = db
     .select({ total: sql`coalesce(sum(${refundEntries.amountCents}), 0)`.mapWith(Number) })
     .from(refundEntries)
     .innerJoin(
@@ -306,7 +288,7 @@ export async function getReport(
       ),
     );
 
-  const depositDeducted = await db
+  const depositDeductedPromise = db
     .select({ total: sql`coalesce(sum(${depositDeductions.amountCents}), 0)`.mapWith(Number) })
     .from(depositDeductions)
     .innerJoin(
@@ -326,6 +308,48 @@ export async function getReport(
     .where(
       and(eq(depositDeductions.organizationId, organizationId), propertyScope),
     );
+
+  const [
+    blockRows,
+    stayRows,
+    periodPayments,
+    periodRefunds,
+    periodDeductions,
+    periodExpenseRows,
+    depositCollected,
+    depositRefunded,
+    depositDeducted,
+  ] = await Promise.all([
+    blockRowsPromise,
+    stayRowsPromise,
+    periodPaymentsPromise,
+    periodRefundsPromise,
+    periodDeductionsPromise,
+    periodExpenseRowsPromise,
+    depositCollectedPromise,
+    depositRefundedPromise,
+    depositDeductedPromise,
+  ]);
+
+  const stayIds = stayRows.map((stay) => stay.id);
+  const chargeRows =
+    stayIds.length === 0
+      ? []
+      : await db
+          .select({
+            reservationId: reservationCharges.reservationId,
+            type: reservationCharges.type,
+            quantity: reservationCharges.quantity,
+            unitAmountCents: reservationCharges.unitAmountCents,
+            isRefundableDeposit: reservationCharges.isRefundableDeposit,
+          })
+          .from(reservationCharges)
+          .where(
+            and(
+              eq(reservationCharges.organizationId, organizationId),
+              inArray(reservationCharges.reservationId, stayIds),
+            ),
+          );
 
   const summary = computeReport({
     from,

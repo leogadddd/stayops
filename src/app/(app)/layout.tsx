@@ -2,8 +2,12 @@ import { requireMembership, requireUser } from "@/lib/auth/session";
 import { AppHeader, AppSidebar } from "@/components/app/sidebar";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const user = await requireUser();
-  const membership = await requireMembership();
+  // These share the request-scoped auth cache, and running them together keeps
+  // the layout from adding a sequential wait before the page can render.
+  const [user, membership] = await Promise.all([
+    requireUser(),
+    requireMembership(),
+  ]);
   const identity = {
     organizationName: membership.organizationName,
     userName: user.name,
