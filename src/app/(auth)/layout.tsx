@@ -35,7 +35,16 @@ export default function AuthLayout({
         />
       </aside>
       <main className="flex items-center justify-center bg-paper px-6 py-12">
-        <div className="w-full max-w-md">{children}</div>
+        <div className="w-full max-w-md">
+          <Link
+            href="/"
+            aria-label="StayOps home"
+            className="mb-10 inline-flex lg:hidden"
+          >
+            <Logo />
+          </Link>
+          {children}
+        </div>
       </main>
     </div>
   );
