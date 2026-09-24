@@ -31,10 +31,11 @@ describe("branded app shell", () => {
 
   it("shows owner navigation including audit logs", () => {
     const markup = renderToStaticMarkup(h(AppSidebar, identity));
-    for (const href of ["/calendar", "/reservations", "/settings/properties", "/guests", "/tasks", "/reports", "/expenses", "/audit-logs", "/settings"]) {
+    for (const href of ["/dashboard", "/calendar", "/reservations", "/settings/properties", "/guests", "/tasks", "/reports", "/expenses", "/audit-logs", "/settings"]) {
       expect(markup).toContain(`href="${href}"`);
     }
     expect(markup).toContain('aria-current="page"');
+    expect(markup).not.toContain("Sign out");
   });
 
   it("does not offer staff owner-only destinations", () => {
@@ -52,10 +53,12 @@ describe("branded app shell", () => {
     expect(propertiesLink).toContain('aria-current="page"');
   });
 
-  it("provides real search and accessible mobile navigation", () => {
-    const markup = renderToStaticMarkup(h(AppHeader, { ...identity, dateLabel: "Sep 24, 2026" }));
-    expect(markup).toContain('action="/reservations"');
-    expect(markup).toContain('name="q"');
+  it("provides account controls, a live clock and accessible mobile navigation", () => {
+    const markup = renderToStaticMarkup(h(AppHeader, { ...identity, initialNow: "2026-09-24T01:02:03.000Z" }));
+    expect(markup).not.toContain('action="/reservations"');
+    expect(markup).not.toContain('name="q"');
+    expect(markup).toContain('aria-label="Current date and time"');
+    expect(markup).toContain('aria-label="Open account menu"');
     expect(markup).toContain('aria-label="Open navigation"');
     expect(markup).toContain('<dialog aria-label="Navigation"');
     expect(markup).toContain('aria-label="Close navigation"');
@@ -67,6 +70,7 @@ describe("branded app shell", () => {
     const markup = renderToStaticMarkup(await AppLayout({ children: h("p", null, "Page content") }));
     expect(requireMembership).toHaveBeenCalledOnce();
     expect(markup).toContain("h-dvh overflow-hidden");
+    expect(markup).toContain("flex-col overflow-hidden");
     expect(markup).toMatch(/<main[^>]*overflow-y-auto/);
     expect(markup.indexOf('data-testid="app-header"')).toBeLessThan(markup.indexOf('<main'));
     expect(markup).toContain('href="#main-content"');

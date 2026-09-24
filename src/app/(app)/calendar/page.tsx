@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ArrowDownToLine, BrushCleaning, Clock3, Plus } from "lucide-react";
+import { ArrowDownToLine, BrushCleaning, CalendarCheck, Clock3, Plus } from "lucide-react";
 import { requireMembership } from "@/lib/auth/session";
 import { calendarEventsForUnit, monthGridRange, type CalendarEvent } from "@/lib/calendar";
 import { addDaysLocal, isValidMonth, nightsBetween, shiftMonth, todayInTimeZone } from "@/lib/dates";
@@ -12,7 +12,6 @@ import { PageHeading } from "@/components/app/page-heading";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Select } from "@/components/ui/input";
-import { AvailabilityCheckForm } from "./availability-check-form";
 import { MonthCalendar, type DisplayCalendarEvent } from "./month-calendar";
 import { TodayPanel } from "./today-panel";
 
@@ -117,7 +116,7 @@ export default async function CalendarPage({ searchParams }: {
   });
 
   return (
-    <div className="mx-auto min-w-0 max-w-[1600px]">
+    <div className="mx-auto min-w-0 max-w-[1600px] overflow-hidden">
       <PageHeading title="Calendar">
         <div className="flex flex-1 flex-wrap items-center justify-between gap-3 sm:ml-5">
           <form method="get" className="flex min-w-0 items-center gap-2">
@@ -129,7 +128,10 @@ export default async function CalendarPage({ searchParams }: {
             </Select>
             <Button type="submit" variant="outline" size="sm">Show</Button>
           </form>
-          <Link href={newReservationHref(today)} className={buttonClassName("clay", "md")}><Plus className="h-4 w-4" aria-hidden />New reservation</Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/calendar/availability" className={buttonClassName("outline", "md")}><CalendarCheck className="h-4 w-4" aria-hidden />Check availability</Link>
+            <Link href={newReservationHref(today)} className={buttonClassName("clay", "md")}><Plus className="h-4 w-4" aria-hidden />New reservation</Link>
+          </div>
         </div>
       </PageHeading>
 
@@ -151,10 +153,6 @@ export default async function CalendarPage({ searchParams }: {
           {visibleUnits.length ? <MonthCalendar month={month} today={today} monthLabel={monthLabel} events={displayEvents} previousHref={calendarHref(shiftMonth(month, -1))} nextHref={calendarHref(shiftMonth(month, 1))} todayHref={calendarHref(today.slice(0, 7))} newReservationHref={canBookVisibleUnit ? newReservationHref : null} /> : <EmptyState title="No units to show" description="Add a unit to your property to see stays and availability here." action={membership.role === "owner" ? <Link href="/settings/properties" className={buttonClassName("outline", "md")}>Manage properties</Link> : undefined} />}
 
           <p className="mt-2 text-xs leading-relaxed text-ink/55">{multipleTimezones ? `Dates use each property's timezone. The calendar's today highlight uses ${timezone}; the Today panel uses each unit's local date.` : `Property timezone: ${timezone}.`} Inactive units keep their booking history; gray status bars apply only from today.</p>
-          <details className="mt-6 rounded-lg border border-pine/15 bg-linen">
-            <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-pine">Check availability for specific dates</summary>
-            <div className="border-t border-pine/10 p-3"><AvailabilityCheckForm units={allUnits.map((unit) => ({ id: unit.id, name: unitLabel(unit.id) }))} /></div>
-          </details>
         </div>
 
         <TodayPanel today={today} timezone={timezone} multipleTimezones={multipleTimezones} scopeLabel={selectedUnit ? unitLabel(selectedUnit.id) : "All units"} arrivals={arrivals.map(activityDisplay)} departures={departures.map(activityDisplay)} activeHolds={activeHolds.map(activityDisplay)} openTasks={openTasks.map((task) => ({ ...task, unitLabel: unitLabel(task.unitId) }))} />

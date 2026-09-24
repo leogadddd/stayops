@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, useEffect, useTransition } from "react";
+import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { FieldError, Input, Label } from "@/components/ui/input";
 import { UserPlus, X } from "lucide-react";
 import { inviteStaffAction, removeStaffAction, type OrgFormState } from "./actions";
@@ -54,25 +55,15 @@ export function RemoveStaffButton({
   membershipId: string;
   name: string;
 }) {
-  const [pending, startTransition] = useTransition();
-
   return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="sm"
-      disabled={pending}
-      aria-label={`Remove ${name}`}
-      onClick={() => {
-        if (window.confirm(`Remove ${name} from the organization?`)) {
-          startTransition(async () => {
-            await removeStaffAction(membershipId);
-          });
-        }
-      }}
-    >
-      <X className="h-4 w-4" aria-hidden />
-      {pending ? "Removing…" : "Remove"}
-    </Button>
+    <ConfirmationDialog
+      title={`Remove ${name}?`}
+      description="They will lose access to this organization immediately. Their past activity remains in the audit log."
+      confirmLabel="Remove staff member"
+      onConfirm={() => removeStaffAction(membershipId)}
+      trigger={<><X className="h-4 w-4" aria-hidden />Remove</>}
+      triggerSize="sm"
+      triggerAriaLabel={`Remove ${name}`}
+    />
   );
 }

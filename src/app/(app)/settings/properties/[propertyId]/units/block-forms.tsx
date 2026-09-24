@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, useEffect, useTransition } from "react";
+import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { FieldError, Input, Label } from "@/components/ui/input";
 import { addUnitBlockAction, removeUnitBlockAction, type BlockFormState } from "./block-actions";
 
@@ -44,22 +45,15 @@ export function BlockForms({ propertyId, unitId }: { propertyId: string; unitId:
 }
 
 export function RemoveBlockButton({ propertyId, unitId, blockId, label }: { propertyId: string; unitId: string; blockId: string; label: string }) {
-  const [pending, startTransition] = useTransition();
-
   return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="sm"
-      disabled={pending}
-      aria-label={`Remove block ${label}`}
-      onClick={() => {
-        if (window.confirm(`Remove the out-of-service block for ${label}?`)) {
-          startTransition(() => removeUnitBlockAction(propertyId, unitId, blockId));
-        }
-      }}
-    >
-      {pending ? "Removing…" : "Remove"}
-    </Button>
+    <ConfirmationDialog
+      title="Remove this blocked period?"
+      description={`${label} will become bookable again unless another hold, reservation, or block covers those nights.`}
+      confirmLabel="Remove block"
+      onConfirm={() => removeUnitBlockAction(propertyId, unitId, blockId)}
+      trigger="Remove"
+      triggerSize="sm"
+      triggerAriaLabel={`Remove block ${label}`}
+    />
   );
 }

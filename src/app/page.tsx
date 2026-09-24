@@ -10,5 +10,5 @@ export default async function Home() {
   if (memberships.length === 0) {
     redirect("/onboarding");
   }
-  redirect("/calendar");
+  redirect("/dashboard");
 }

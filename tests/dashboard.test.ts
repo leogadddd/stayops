@@ -1,0 +1,113 @@
+import * as React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import DashboardPage from "@/app/(app)/dashboard/page";
+import AvailabilityPage from "@/app/(app)/calendar/availability/page";
+import { requireMembership, type MembershipContext } from "@/lib/auth/session";
+import { listCalendarActivity } from "@/server/inventory/availability";
+import { listOrgUnits, listProperties } from "@/server/inventory/service";
+import { listTasks } from "@/server/operations/service";
+import { getReport } from "@/server/reports/service";
+
+vi.mock("@/lib/auth/session", () => ({ requireMembership: vi.fn() }));
+vi.mock("@/server/inventory/availability", () => ({ listCalendarActivity: vi.fn() }));
+vi.mock("@/server/inventory/service", () => ({ listOrgUnits: vi.fn(), listProperties: vi.fn() }));
+vi.mock("@/server/operations/service", () => ({ listTasks: vi.fn() }));
+vi.mock("@/server/reports/service", () => ({ getReport: vi.fn() }));
+vi.mock("@/app/(app)/calendar/actions", () => ({ checkAvailabilityAction: vi.fn() }));
+
+const owner: MembershipContext = {
+  organizationId: "org-a",
+  organizationName: "Riverside Stays",
+  organizationSlug: "riverside-stays",
+  userId: "user-a",
+  role: "owner",
+};
+const property = {
+  id: "property-a",
+  organizationId: "org-a",
+  name: "Riverside Residences",
+  address: "Manila",
+  timezone: "Asia/Manila",
+  checkInTime: "15:00",
+  checkOutTime: "11:00",
+  houseRules: null,
+  createdAt: new Date("2026-09-01T00:00:00Z"),
+  updatedAt: new Date("2026-09-01T00:00:00Z"),
+};
+const unit = {
+  id: "unit-a",
+  organizationId: "org-a",
+  propertyId: "property-a",
+  name: "Unit 12B",
+  status: "active" as const,
+  capacity: 2,
+  bedrooms: 1,
+  bathrooms: 1,
+  defaultNightlyRateCents: 550_000,
+  cleaningFeeCents: 50_000,
+  securityDepositCents: 200_000,
+  checklistTemplate: [],
+  createdAt: new Date("2026-09-01T00:00:00Z"),
+  updatedAt: new Date("2026-09-01T00:00:00Z"),
+};
+const report = {
+  summary: {
+    from: "2026-09-01", to: "2026-10-01", activeUnitCount: 1,
+    bookedValueCents: 1_200_000, accommodationBookedCents: 1_100_000,
+    oneTimeBookedCents: 100_000, occupiedNights: 12, bookableNights: 30,
+    occupancyRate: 0.4, avgAccommodationRateCents: 91_667,
+    bookingCollectedCents: 900_000, depositCollectedCents: 200_000,
+    bookingRefundedCents: 50_000, depositRefundedCents: 0,
+    depositsRetainedCents: 0, depositsHeldCents: 200_000,
+    operatingExpensesCents: 125_000, capitalSpendingCents: 0,
+    netOperatingCashCents: 725_000, propertyBreakdown: [],
+  },
+  properties: [{ id: "property-a", name: "Riverside Residences" }],
+  propertyNames: new Map([["property-a", "Riverside Residences"]]),
+  timezone: "Asia/Manila",
+};
+
+beforeAll(() => vi.stubGlobal("React", React));
+afterAll(() => vi.unstubAllGlobals());
+beforeEach(() => {
+  vi.resetAllMocks();
+  vi.mocked(requireMembership).mockResolvedValue(owner);
+  vi.mocked(listProperties).mockResolvedValue([property]);
+  vi.mocked(listOrgUnits).mockResolvedValue([unit]);
+  vi.mocked(listCalendarActivity).mockResolvedValue([]);
+  vi.mocked(listTasks).mockResolvedValue([]);
+  vi.mocked(getReport).mockResolvedValue(report);
+});
+
+describe("operations dashboard", () => {
+  it("shows owners real money, schedule and operations surfaces", async () => {
+    const html = renderToStaticMarkup(await DashboardPage());
+    expect(html).toContain("Money this month");
+    expect(html).toContain("Cash movement");
+    expect(html).toContain("Today&#x27;s schedule");
+    expect(html).toContain("Operations watchlist");
+    expect(html).toContain('href="/calendar/availability"');
+    expect(getReport).toHaveBeenCalledWith(owner.organizationId, expect.objectContaining({ from: expect.any(String), to: expect.any(String) }));
+  });
+
+  it("keeps financial reporting out of the staff dashboard", async () => {
+    vi.mocked(requireMembership).mockResolvedValue({ ...owner, role: "staff" });
+    const html = renderToStaticMarkup(await DashboardPage());
+    expect(html).not.toContain("Money this month");
+    expect(html).not.toContain("Cash movement");
+    expect(html).toContain("Today&#x27;s schedule");
+    expect(getReport).not.toHaveBeenCalled();
+  });
+});
+
+describe("availability page", () => {
+  it("keeps the availability form off the calendar surface on its own route", async () => {
+    const html = renderToStaticMarkup(await AvailabilityPage());
+    expect(html).toContain("Check availability");
+    expect(html).toContain("Unit 12B");
+    expect(html).toContain('href="/calendar"');
+    expect(html).toContain('name="checkIn"');
+    expect(html).toContain('name="checkOut"');
+  });
+});
