@@ -9,9 +9,9 @@ import { useActionFeedback } from "@/hooks/use-action-feedback";
 import { useReservationSaved } from "./use-reservation-saved";
 
 export function CheckOutForm({ reservationId }: { reservationId: string }) {
-  const save = useReservationSaved(checkOutAction.bind(null, reservationId), reservationId);
+  const save = useReservationSaved(checkOutAction.bind(null, reservationId), reservationId, "Guest checked out and turnover created.");
   const [state, formAction, pending] = useActionState<ReservationFormState, FormData>(save, {});
-  useActionFeedback(state, { success: "Guest checked out and turnover created." });
+  useActionFeedback(state);
 
   if (state.success) {
     return (

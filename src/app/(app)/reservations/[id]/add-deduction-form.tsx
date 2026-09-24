@@ -20,9 +20,9 @@ export function AddDeductionForm({
   reservationId: string;
   damageReports?: DamageOption[];
 }) {
-  const save = useReservationSaved(addDeductionAction.bind(null, reservationId), reservationId);
+  const save = useReservationSaved(addDeductionAction.bind(null, reservationId), reservationId, "Deposit deduction recorded.");
   const [state, formAction, pending] = useActionState<PaymentFormState, FormData>(save, {});
-  useActionFeedback(state, { success: "Deposit deduction recorded." });
+  useActionFeedback(state);
 
   return (
     <div className="space-y-3">

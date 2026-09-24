@@ -13,9 +13,9 @@ const PAYMENT_ALLOCATIONS = ["booking", "security_deposit"] as const;
 const PAYMENT_METHODS = ["gcash", "maya", "bank_transfer", "cash"] as const;
 
 export function RecordRefundForm({ reservationId }: { reservationId: string }) {
-  const save = useReservationSaved(recordRefundAction.bind(null, reservationId), reservationId);
+  const save = useReservationSaved(recordRefundAction.bind(null, reservationId), reservationId, "Refund recorded.");
   const [state, formAction, pending] = useActionState<PaymentFormState, FormData>(save, {});
-  useActionFeedback(state, { success: "Refund recorded." });
+  useActionFeedback(state);
 
   return (
     <div className="space-y-3">

@@ -48,10 +48,16 @@ export function GuestLinkCard({
 
   async function copyUrl() {
     if (!url) return;
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
-    toast.info("Guest link copied to clipboard.");
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      toast.info("Guest link copied to clipboard.");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Couldn’t copy the guest link", {
+        description: "Copy the link manually instead.",
+      });
+    }
   }
 
   return (

@@ -1,6 +1,7 @@
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { useReservationSaved } from "@/app/(app)/reservations/[id]/use-reservation-saved";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { requireMembership, requireOwner, type MembershipContext } from "@/lib/auth/session";
@@ -44,6 +45,7 @@ vi.mock("next/navigation", () => ({
   notFound: vi.fn(() => { throw new Error("Not found"); }),
   useRouter: vi.fn(() => ({ replace: vi.fn(), refresh: vi.fn() })),
 }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn() } }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/db", () => ({ db: {} }));
 vi.mock("@/server/reservations/service", () => ({ getReservationDetail: vi.fn(), isLiveHold: vi.fn(), listReservations: vi.fn(), ReservationError: class extends Error {} }));
@@ -237,7 +239,7 @@ type SaveAction = (previous: SaveState, formData: FormData) => Promise<SaveState
 function captureSave(action: SaveAction) {
   let save!: SaveAction;
   function SaveHarness() {
-    save = useReservationSaved(action, "reservation-a");
+    save = useReservationSaved(action, "reservation-a", "Payment recorded.");
     return null;
   }
   renderToStaticMarkup(React.createElement(SaveHarness));
@@ -246,7 +248,10 @@ function captureSave(action: SaveAction) {
 
 describe("reservation submission navigation", () => {
   const navigation = { replace: vi.fn(), refresh: vi.fn() };
-  beforeEach(() => vi.mocked(useRouter).mockReturnValue(navigation as unknown as ReturnType<typeof useRouter>));
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(useRouter).mockReturnValue(navigation as unknown as ReturnType<typeof useRouter>);
+  });
 
   it("navigates after the save resolves without needing a success render or effect", async () => {
     const pending = Promise.withResolvers<SaveState>();
@@ -259,6 +264,7 @@ describe("reservation submission navigation", () => {
     expect(navigation.replace).not.toHaveBeenCalled();
     pending.resolve({ success: true });
     await expect(result).resolves.toEqual({ success: true });
+    expect(toast.success).toHaveBeenCalledExactlyOnceWith("Payment recorded.");
     expect(navigation.replace).toHaveBeenCalledExactlyOnceWith("/reservations/reservation-a");
     expect(navigation.refresh).toHaveBeenCalledOnce();
   });

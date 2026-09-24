@@ -17,9 +17,9 @@ export function RecordProofForm({ reservationId, proofId, reference }: {
   proofId: string;
   reference: string;
 }) {
-  const save = useReservationSaved(recordProofPaymentAction.bind(null, reservationId, proofId), reservationId);
+  const save = useReservationSaved(recordProofPaymentAction.bind(null, reservationId, proofId), reservationId, "Payment proof recorded.");
   const [state, formAction, pending] = useActionState<PaymentFormState, FormData>(save, {});
-  useActionFeedback(state, { success: "Payment proof recorded." });
+  useActionFeedback(state);
 
   if (state.success) {
     return (

@@ -10,9 +10,9 @@ import { useActionFeedback } from "@/hooks/use-action-feedback";
 import { useReservationSaved } from "./use-reservation-saved";
 
 export function RecordPaymentForm({ reservationId }: { reservationId: string }) {
-  const save = useReservationSaved(recordPaymentAction.bind(null, reservationId), reservationId);
+  const save = useReservationSaved(recordPaymentAction.bind(null, reservationId), reservationId, "Payment recorded.");
   const [state, formAction, pending] = useActionState<PaymentFormState, FormData>(save, {});
-  useActionFeedback(state, { success: "Payment recorded." });
+  useActionFeedback(state);
   const [idempotencyKey] = useState(() => crypto.randomUUID());
 
   return (
