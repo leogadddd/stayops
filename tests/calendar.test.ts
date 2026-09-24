@@ -7,6 +7,7 @@ import { getOccupancySegments, listCalendarActivity, type OccupancySegment } fro
 import { listOrgUnits, listProperties } from "@/server/inventory/service";
 import { listTasks } from "@/server/operations/service";
 import { requireMembership } from "@/lib/auth/session";
+import { useRouter } from "next/navigation";
 import CalendarPage from "@/app/(app)/calendar/page";
 import { MonthCalendar } from "@/app/(app)/calendar/month-calendar";
 import { TodayPanel } from "@/app/(app)/calendar/today-panel";
@@ -16,6 +17,10 @@ vi.mock("@/server/inventory/service", () => ({ listOrgUnits: vi.fn(), listProper
 vi.mock("@/server/inventory/availability", () => ({ getOccupancySegments: vi.fn(), listCalendarActivity: vi.fn() }));
 vi.mock("@/server/operations/service", () => ({ listTasks: vi.fn() }));
 vi.mock("@/app/(app)/calendar/availability-check-form", () => ({ AvailabilityCheckForm: () => null }));
+vi.mock("next/navigation", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/navigation")>();
+  return { ...actual, useRouter: vi.fn(() => ({ push: vi.fn() })) };
+});
 
 function reservation(startDate: string, endDate: string, status: "hold" | "confirmed" | "checked_in" | "checked_out" = "confirmed", id = "reservation-1"): OccupancySegment {
   return { kind: "reservation", id, startDate, endDate, guestName: "Santos", status, expiresAt: status === "hold" ? new Date("2026-09-30T12:00:00Z") : null };
@@ -163,6 +168,7 @@ function propsFor<T extends React.ElementType>(tree: React.ReactNode, component:
 }
 
 describe("calendar page data boundaries", () => {
+  beforeEach(() => vi.mocked(useRouter).mockReturnValue({ push: vi.fn() } as unknown as ReturnType<typeof useRouter>));
   beforeAll(() => {
     vi.stubGlobal("React", React);
     vi.useFakeTimers();

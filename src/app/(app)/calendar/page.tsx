@@ -94,6 +94,8 @@ export default async function CalendarPage({ searchParams }: {
           : event.description ?? "Unit unavailable";
     return {
       ...event,
+      startTime: event.kind === "stay" || event.kind === "hold" ? propertyForUnit(event.unitId).checkInTime : undefined,
+      endTime: event.kind === "checkout" ? propertyForUnit(event.unitId).checkOutTime : undefined,
       unitLabel: unitLabel(event.unitId),
       detail,
       href: event.reservationId ? `/reservations/${event.reservationId}` : membership.role === "owner" ? `/settings/properties/${unit.propertyId}/units/${unit.id}` : undefined,
@@ -150,7 +152,7 @@ export default async function CalendarPage({ searchParams }: {
             ))}
           </div>
 
-          {visibleUnits.length ? <MonthCalendar month={month} today={today} monthLabel={monthLabel} events={displayEvents} previousHref={calendarHref(shiftMonth(month, -1))} nextHref={calendarHref(shiftMonth(month, 1))} todayHref={calendarHref(today.slice(0, 7))} newReservationHref={canBookVisibleUnit ? newReservationHref : null} /> : <EmptyState title="No units to show" description="Add a unit to your property to see stays and availability here." action={membership.role === "owner" ? <Link href="/settings/properties" className={buttonClassName("outline", "md")}>Manage properties</Link> : undefined} />}
+          {visibleUnits.length ? <MonthCalendar month={month} today={today} monthLabel={monthLabel} events={displayEvents} previousHref={calendarHref(shiftMonth(month, -1))} nextHref={calendarHref(shiftMonth(month, 1))} todayHref={calendarHref(today.slice(0, 7))} newReservationHref={canBookVisibleUnit ? newReservationHref : null} reservationUnitId={selectedUnit?.status === "active" ? selectedUnit.id : undefined} /> : <EmptyState title="No units to show" description="Add a unit to your property to see stays and availability here." action={membership.role === "owner" ? <Link href="/settings/properties" className={buttonClassName("outline", "md")}>Manage properties</Link> : undefined} />}
 
           <p className="mt-2 text-xs leading-relaxed text-ink/55">{multipleTimezones ? `Dates use each property's timezone. The calendar's today highlight uses ${timezone}; the Today panel uses each unit's local date.` : `Property timezone: ${timezone}.`} Inactive units keep their booking history; gray status bars apply only from today.</p>
         </div>

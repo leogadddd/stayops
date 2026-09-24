@@ -4,12 +4,22 @@ import { ArrowRightLeft, ChevronLeft, ChevronRight, Wrench } from "lucide-react"
 import { buttonClassName } from "@/components/ui/button";
 import { layoutMonthEvents, type CalendarEvent } from "@/lib/calendar";
 import { addDaysLocal, monthNightRange } from "@/lib/dates";
+import { CalendarSelection } from "./calendar-selection";
 
 export interface DisplayCalendarEvent extends CalendarEvent {
   unitLabel: string;
   detail: string;
   href?: string;
   accessibleLabel: string;
+  startTime?: string;
+  endTime?: string;
+}
+
+function dayFraction(time?: string) {
+  if (!time) return 0;
+  const match = /^(\d{2}):(\d{2})$/.exec(time);
+  if (!match) return 0;
+  return Math.min(1, Math.max(0, (Number(match[1]) * 60 + Number(match[2])) / 1440));
 }
 
 function EventSurface({ href, ...props }: Pick<ComponentProps<"div">, "children" | "className" | "style" | "aria-label" | "title"> & { href?: string }) {
@@ -36,7 +46,7 @@ function dateLabel(date: string) {
 }
 
 export function MonthCalendar({
-  month, today, monthLabel, events, previousHref, nextHref, todayHref, newReservationHref,
+  month, today, monthLabel, events, previousHref, nextHref, todayHref, newReservationHref, reservationUnitId,
 }: {
   month: string;
   today: string;
@@ -46,6 +56,7 @@ export function MonthCalendar({
   nextHref: string;
   todayHref: string;
   newReservationHref: ((date: string) => string) | null;
+  reservationUnitId?: string;
 }) {
   const weeks = layoutMonthEvents(month, events);
   const range = monthNightRange(month);
@@ -96,14 +107,18 @@ export function MonthCalendar({
                   })}
                 </div>
                 <div className="relative grid grid-cols-7 gap-y-1.5 px-1 pb-3 pt-1" style={{ gridTemplateRows: `repeat(${Math.max(week.laneCount, 1)}, 64px)`, minHeight: 78 }}>
-                  {week.events.map(({ event, startColumn, span, lane, continuesBefore, continuesAfter }) => (
-                    <EventSurface
+                  {newReservationHref ? <CalendarSelection days={week.days} unitId={reservationUnitId} /> : null}
+                  {week.events.map(({ event, startColumn, span, lane, continuesBefore, continuesAfter }) => {
+                    const startOffset = continuesBefore || event.kind === "checkout" ? 0 : dayFraction(event.startTime);
+                    const endOffset = continuesAfter || event.kind !== "checkout" ? 1 : dayFraction(event.endTime);
+                    return (
+                      <EventSurface
                       key={event.id}
                       href={event.href}
                       aria-label={`${event.accessibleLabel}${continuesBefore ? "; continued from previous week" : ""}${continuesAfter ? "; continues next week" : ""}`}
                       title={event.accessibleLabel}
-                      className={`relative mx-0.5 flex min-w-0 flex-col justify-center overflow-hidden rounded-md border px-2 py-1 transition-[filter] hover:brightness-95 focus-visible:z-10 ${EVENT_STYLES[event.kind]} ${continuesBefore ? "rounded-l-none border-l-2 border-l-current" : ""} ${continuesAfter ? "rounded-r-none border-r-2 border-r-current" : ""}`}
-                      style={{ gridColumn: `${startColumn + 1} / span ${span}`, gridRow: lane + 1 }}
+                      className={`relative z-10 mx-0.5 flex min-w-0 flex-col justify-center overflow-hidden rounded-md border px-2 py-1 transition-[filter] hover:brightness-95 focus-visible:z-10 ${EVENT_STYLES[event.kind]} ${continuesBefore ? "rounded-l-none border-l-2 border-l-current" : ""} ${continuesAfter ? "rounded-r-none border-r-2 border-r-current" : ""}`}
+                      style={{ gridColumn: `${startColumn + 1} / span ${span}`, gridRow: lane + 1, marginLeft: startOffset ? `${(startOffset / span) * 100}%` : undefined, marginRight: endOffset < 1 ? `${((1 - endOffset) / span) * 100}%` : undefined }}
                     >
                       <span className="flex min-w-0 items-center gap-1 text-xs font-semibold leading-4">
                         {event.kind === "checkout" ? <ArrowRightLeft className="h-3 w-3 shrink-0" aria-hidden /> : event.kind === "block" ? <Wrench className="h-3 w-3 shrink-0" aria-hidden /> : null}
@@ -112,7 +127,8 @@ export function MonthCalendar({
                       <span className="truncate text-[11px] leading-4">{event.unitLabel}</span>
                       <span className="truncate text-[10px] leading-4 opacity-85">{event.detail}</span>
                     </EventSurface>
-                  ))}
+                    );
+                  })}
                 </div>
               </section>
             ))}
@@ -128,7 +144,7 @@ export function MonthCalendar({
           <li key={kind} className="inline-flex items-center gap-2"><span aria-hidden className={`h-3.5 w-3.5 rounded-full border ${EVENT_STYLES[kind]}`} />{label}</li>
         ))}
       </ul>
-      <p id="calendar-date-help" className="mt-3 text-xs leading-relaxed text-ink/55">Stays cover nights only. Check-out is a separate one-day marker; that night is free unless another stay or block occupies it. Select a date to start a reservation.</p>
+      <p id="calendar-date-help" className="mt-3 text-xs leading-relaxed text-ink/55">Stays cover nights only. Check-out is a separate one-day marker; that night is free unless another stay or block occupies it. Drag across dates to start a reservation, or select a date for one night. Event edges reflect the property&apos;s arrival and departure times.</p>
       {agenda.length === 0 ? <p className="mt-4 rounded-lg border border-dashed border-pine/20 p-4 text-sm text-ink/60">No stays or blocks this month. Your calendar is clear.</p> : null}
 
       <section aria-labelledby="calendar-agenda" className="mt-6 md:hidden">
