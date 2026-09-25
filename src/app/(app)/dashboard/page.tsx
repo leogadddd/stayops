@@ -163,10 +163,10 @@ export default async function DashboardPage() {
             ))}
           </section>
 
-          <section className="mt-5 grid grid-cols-[minmax(0,1fr)] items-start gap-5 xl:grid-cols-[minmax(0,1.25fr)_minmax(20rem,0.75fr)]">
-            <Card>
+          <section className="mt-5 grid grid-cols-[minmax(0,1fr)] items-stretch gap-5 xl:grid-cols-[minmax(0,1.25fr)_minmax(20rem,0.75fr)]">
+            <Card className="flex flex-col">
               <CardHeader className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-display text-xl text-pine">Today&apos;s schedule</h2><p className="mt-1 text-xs text-ink/50">Check-outs first, then arrivals, in the order they happen.</p></div><Badge tone="neutral">{schedule.length} event{schedule.length === 1 ? "" : "s"}</Badge></CardHeader>
-              <CardBody className="p-0">
+              <CardBody className="flex flex-1 flex-col p-0">
                 {schedule.length ? <ol className="relative px-5 py-3">{schedule.map(({ kind, reservation }, index) => {
                   const property = propertyForUnit(reservation.unitId);
                   const unit = unitById.get(reservation.unitId);
@@ -185,11 +185,11 @@ export default async function DashboardPage() {
                       </Link>
                     </li>
                   );
-                })}</ol> : <div className="flex flex-col items-center px-5 py-10 text-center"><CircleCheck className="h-7 w-7 text-sage-deep" aria-hidden /><p className="mt-2 text-sm text-ink/60">No arrivals or departures today.</p><p className="mt-1 max-w-sm text-xs text-ink/45">Use the quiet window to clear turnover work and follow up on active holds.</p></div>}
+                })}</ol> : <div className="flex flex-1 flex-col items-center justify-center px-5 py-10 text-center"><CircleCheck className="h-7 w-7 text-sage-deep" aria-hidden /><p className="mt-2 text-sm text-ink/60">No arrivals or departures today.</p><p className="mt-1 max-w-sm text-xs text-ink/45">Use the quiet window to clear turnover work and follow up on active holds.</p></div>}
               </CardBody>
             </Card>
 
-            <Card>
+            <Card className="flex flex-col">
               <CardHeader className="flex items-center justify-between gap-3"><div><h2 className="font-display text-xl text-pine">Needs attention</h2><p className="mt-1 text-xs text-ink/50">Turnovers and holds waiting on you.</p></div><Link href="/tasks?status=open" className="text-xs font-medium text-clay-deep hover:underline">All tasks</Link></CardHeader>
               <CardBody className="space-y-5">
                 <div>
