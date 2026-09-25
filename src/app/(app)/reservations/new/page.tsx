@@ -56,7 +56,7 @@ export default async function NewReservationPage({
           cleaningFeeCents: membership.role === "owner" ? unit.cleaningFeeCents : null,
           securityDepositCents: membership.role === "owner" ? unit.securityDepositCents : null,
         }))}
-        guests={guestRows.map((guest) => ({ id: guest.id, name: guest.name }))}
+        guests={guestRows.map((guest) => ({ id: guest.id, name: guest.name, email: guest.email, phone: guest.phone }))}
         defaultCheckIn={params.checkIn ?? today}
         defaultCheckOut={params.checkOut ?? addDaysLocal(today, 1)}
         requestedUnitId={params.unit}

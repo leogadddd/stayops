@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useActionState } from "react";
-import { Plus, RotateCcw, Trash2 } from "lucide-react";
+import { Plus, RotateCcw, Trash2, X } from "lucide-react";
 import type { ChargeType } from "@/lib/db/schema";
 import { CHARGE_TYPES } from "@/lib/db/schema";
 import { PAYMENT_ALLOCATION_LABELS, PAYMENT_METHOD_LABELS } from "@/lib/labels";
@@ -20,7 +20,8 @@ import {
   formatPHP,
   pesosToCentavos,
 } from "@/lib/money";
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { Button, buttonClassName } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { FieldError, Input, Label, Select } from "@/components/ui/input";
 import { createReservationAction, type ReservationFormState } from "../actions";
@@ -87,7 +88,7 @@ export function ReservationForm({
 }: {
   isOwner: boolean;
   units: UnitOption[];
-  guests: { id: string; name: string }[];
+  guests: { id: string; name: string; email: string | null; phone: string | null }[];
   defaultCheckIn: string;
   defaultCheckOut: string;
   requestedUnitId?: string;
@@ -104,17 +105,19 @@ export function ReservationForm({
   );
   const [checkIn, setCheckIn] = useState(defaultCheckIn);
   const [checkOut, setCheckOut] = useState(defaultCheckOut);
-  const [guestCount, setGuestCount] = useState(1);
-  const [guestMode, setGuestMode] = useState<"existing" | "new">(
-    guests.length > 0 ? "existing" : "new",
-  );
-  const [guestId, setGuestId] = useState(guests[0]?.id ?? "");
+  // "new" creates a guest profile from the contact fields.
+  const [guestId, setGuestId] = useState(guests[0]?.id ?? "new");
+  const guestMode = guestId === "new" ? "new" : "existing";
+  const selectedGuest = guests.find((guest) => guest.id === guestId);
+  const [additional, setAdditional] = useState<string[]>([]);
   // null = follow the unit/date defaults; any edit forks into a manual set.
   const [customCharges, setCustomCharges] = useState<ChargeDraft[] | null>(
     null,
   );
   const [submitMode, setSubmitMode] = useState<"hold" | "confirmed">("hold");
   const [paymentAmount, setPaymentAmount] = useState("");
+  // Ticking "no payment yet" hides the payment fields so nothing is recorded.
+  const [noPayment, setNoPayment] = useState(false);
   useActionFeedback(state, {
     success: submitMode === "hold"
       ? "Reservation hold created."
@@ -151,6 +154,9 @@ export function ReservationForm({
   }, [state, router]);
 
   const selectedUnit = units.find((unit) => unit.id === unitId);
+  const capacity = selectedUnit?.capacity ?? 1;
+  const guestCount = 1 + additional.length;
+  const overCapacity = guestCount > capacity;
 
   const parsed = useMemo(
     () => charges.map((draft) => ({ draft, line: parseDraft(draft) })),
@@ -239,66 +245,25 @@ export function ReservationForm({
         <CardHeader>
           <h2 className="font-display text-lg text-pine">Stay details</h2>
         </CardHeader>
-        <CardBody className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="unitId">Unit</Label>
-              <Select
-                id="unitId"
-                name="unitId"
-                value={unitId}
-                onChange={(event) => setUnitId(event.target.value)}
-              >
-                {units.map((unit) => (
-                  <option key={unit.id} value={unit.id}>
-                    {unit.label} · sleeps {unit.capacity}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="guestCount">Guests</Label>
-              <Input
-                id="guestCount"
-                name="guestCount"
-                type="number"
-                min={1}
-                max={selectedUnit?.capacity ?? 50}
-                value={guestCount}
-                onChange={(event) => setGuestCount(Number(event.target.value) || 1)}
-                required
-              />
-              {selectedUnit ? (
-                <p className="mt-1 text-xs text-ink/50">
-                  This unit sleeps up to {selectedUnit.capacity}.
-                </p>
-              ) : null}
-            </div>
-            <div>
-              <Label htmlFor="checkIn">Check-in</Label>
-              <Input
-                id="checkIn"
-                name="checkIn"
-                type="date"
-                value={checkIn}
-                onChange={(event) => setCheckIn(event.target.value)}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="checkOut">Check-out</Label>
-              <Input
-                id="checkOut"
-                name="checkOut"
-                type="date"
-                value={checkOut}
-                onChange={(event) => setCheckOut(event.target.value)}
-                required
-              />
-              <p className="mt-1 text-xs text-ink/50">
-                The check-out day is free for the next guest.
-              </p>
-            </div>
+        <CardBody className="grid gap-4 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <Label htmlFor="unitId">Unit</Label>
+            <Select id="unitId" name="unitId" value={unitId} onChange={(event) => setUnitId(event.target.value)}>
+              {units.map((unit) => (
+                <option key={unit.id} value={unit.id}>
+                  {unit.label} · sleeps {unit.capacity}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="checkIn">Check-in</Label>
+            <Input id="checkIn" name="checkIn" type="date" value={checkIn} onChange={(event) => setCheckIn(event.target.value)} required />
+          </div>
+          <div>
+            <Label htmlFor="checkOut">Check-out</Label>
+            <Input id="checkOut" name="checkOut" type="date" value={checkOut} onChange={(event) => setCheckOut(event.target.value)} required />
+            <p className="mt-1 text-xs text-ink/50">The check-out day is free for the next guest.</p>
           </div>
         </CardBody>
       </Card>
@@ -308,49 +273,21 @@ export function ReservationForm({
           <h2 className="font-display text-lg text-pine">Primary guest</h2>
         </CardHeader>
         <CardBody className="space-y-4">
-          <div className="flex flex-wrap gap-4">
-            <label className="inline-flex items-center gap-2 text-sm text-ink">
-              <input
-                type="radio"
-                name="guestMode"
-                value="existing"
-                className="accent-pine"
-                checked={guestMode === "existing"}
-                onChange={() => setGuestMode("existing")}
-                disabled={guests.length === 0}
-              />
-              Existing guest
-            </label>
-            <label className="inline-flex items-center gap-2 text-sm text-ink">
-              <input
-                type="radio"
-                name="guestMode"
-                value="new"
-                className="accent-pine"
-                checked={guestMode === "new"}
-                onChange={() => setGuestMode("new")}
-              />
-              New guest
-            </label>
+          <input type="hidden" name="guestMode" value={guestMode} />
+          <div>
+            <Label htmlFor="guestId">Guest profile</Label>
+            <Select id="guestId" name="guestId" value={guestId} onChange={(event) => setGuestId(event.target.value)}>
+              {guests.map((guest) => (
+                <option key={guest.id} value={guest.id}>{guest.name}</option>
+              ))}
+              <option value="new">+ New guest</option>
+            </Select>
           </div>
-
           {guestMode === "existing" ? (
-            <div>
-              <Label htmlFor="guestId">Primary guest</Label>
-              <Select
-                id="guestId"
-                name="guestId"
-                value={guestId}
-                onChange={(event) => setGuestId(event.target.value)}
-                required
-              >
-                {guests.map((guest) => (
-                  <option key={guest.id} value={guest.id}>
-                    {guest.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
+            <dl className="grid gap-4 rounded-lg bg-paper px-4 py-3 text-sm sm:grid-cols-2">
+              <div><dt className="text-xs text-ink/55">Email</dt><dd className="mt-0.5 break-words">{selectedGuest?.email || "—"}</dd></div>
+              <div><dt className="text-xs text-ink/55">Phone</dt><dd className="mt-0.5">{selectedGuest?.phone || "—"}</dd></div>
+            </dl>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
@@ -359,55 +296,62 @@ export function ReservationForm({
               </div>
               <div>
                 <Label htmlFor="guestEmail">Email</Label>
-                <Input
-                  id="guestEmail"
-                  name="guestEmail"
-                  type="email"
-                  maxLength={200}
-                  placeholder="guest@example.com"
-                />
+                <Input id="guestEmail" name="guestEmail" type="email" maxLength={200} placeholder="guest@example.com" />
               </div>
               <div>
                 <Label htmlFor="guestPhone">Phone</Label>
-                <Input
-                  id="guestPhone"
-                  name="guestPhone"
-                  type="tel"
-                  maxLength={40}
-                  placeholder="+63 9xx xxx xxxx"
-                />
+                <Input id="guestPhone" name="guestPhone" type="tel" maxLength={40} placeholder="+63 9xx xxx xxxx" />
               </div>
               <div>
                 <Label htmlFor="guestNotes">Notes</Label>
-                <Input
-                  id="guestNotes"
-                  name="guestNotes"
-                  maxLength={2000}
-                  placeholder="Optional"
-                />
+                <Input id="guestNotes" name="guestNotes" maxLength={2000} placeholder="Optional" />
               </div>
-              <p className="text-xs text-ink/50 sm:col-span-2">
-                Add at least one contact method — email or phone.
-              </p>
             </div>
           )}
+          <p className="text-xs text-ink/50">
+            {guestMode === "new"
+              ? "A new guest profile is created when you save. Add at least one contact method — email or phone."
+              : "You can update this guest's contact details when editing the reservation."}
+          </p>
         </CardBody>
       </Card>
 
-      {guestCount > 1 ? <Card>
-        <CardHeader>
-          <h2 className="font-display text-lg text-pine">Additional guests</h2>
-          <p className="text-sm text-ink/60">Add the other {guestCount - 1} name{guestCount === 2 ? "" : "s"} for entry letters or contracts. These names do not create guest profiles.</p>
+      <Card>
+        <CardHeader className="flex flex-wrap items-baseline justify-between gap-2">
+          <div>
+            <h2 className="font-display text-lg text-pine">Additional guests</h2>
+            <p className="text-sm text-ink/60">Names for entry letters or contracts. These do not create guest profiles.</p>
+          </div>
+          <span className={`text-xs ${overCapacity ? "font-medium text-clay-deep" : "text-ink/55"}`}>{guestCount} of {capacity} guests</span>
         </CardHeader>
-        <CardBody className="grid gap-4 sm:grid-cols-2">
-          {Array.from({ length: guestCount - 1 }, (_, index) => (
-            <div key={index}>
-              <Label htmlFor={`occupant-${index}`}>Additional guest {index + 1}</Label>
-              <Input id={`occupant-${index}`} name="occupantName" required minLength={2} maxLength={120} placeholder="Full legal name" />
-            </div>
-          ))}
+        <CardBody className="space-y-3">
+          <input type="hidden" name="guestCount" value={guestCount} />
+          {additional.length ? (
+            <ul className="space-y-2">
+              {additional.map((name, index) => (
+                <li key={index} className="flex items-end gap-2">
+                  <div className="min-w-0 flex-1">
+                    <Label htmlFor={`occupant-${index}`}>Additional guest {index + 1}</Label>
+                    <Input id={`occupant-${index}`} name="occupantName" value={name} onChange={(event) => setAdditional(additional.map((value, position) => position === index ? event.target.value : value))} required minLength={2} maxLength={120} placeholder="Full legal name" />
+                  </div>
+                  <button type="button" onClick={() => setAdditional(additional.filter((_, position) => position !== index))} aria-label={`Remove additional guest ${index + 1}`} className="mb-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-ink/50 hover:bg-clay-mist hover:text-clay-deep">
+                    <X className="h-4 w-4" aria-hidden />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : <p className="text-sm text-ink/55">Only the primary guest is staying.</p>}
+          {overCapacity ? (
+            <p className="text-xs text-clay-deep" role="alert">This unit sleeps {capacity}. Remove {guestCount - capacity} guest{guestCount - capacity === 1 ? "" : "s"} or choose a larger unit.</p>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="button" variant="outline" size="sm" disabled={guestCount >= capacity} onClick={() => setAdditional([...additional, ""])}>
+              <Plus className="h-4 w-4" aria-hidden />Add guest
+            </Button>
+            {guestCount >= capacity && !overCapacity ? <span className="text-xs text-ink/50">The unit is at capacity.</span> : null}
+          </div>
         </CardBody>
-      </Card> : null}
+      </Card>
 
       {isOwner ? <Card>
         <CardHeader className="flex flex-wrap items-center justify-between gap-3">
@@ -525,38 +469,60 @@ export function ReservationForm({
           <h2 className="font-display text-lg text-pine">Initial payment record</h2>
           <p className="text-sm text-ink/60">Optional. This is recorded together with a confirmed booking, so the balance starts accurate.</p>
         </CardHeader>
-        <CardBody className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <Label htmlFor="payment-amount">Amount received (₱)</Label>
-            <Input id="payment-amount" name="paymentAmountPesos" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} inputMode="decimal" placeholder="e.g. 3,000" />
-          </div>
-          <div>
-            <Label htmlFor="payment-allocation">Towards</Label>
-            <Select id="payment-allocation" name="paymentAllocation" defaultValue="booking">
-              {(["booking", "security_deposit"] as const).map((allocation) => <option key={allocation} value={allocation}>{PAYMENT_ALLOCATION_LABELS[allocation]}</option>)}
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="payment-method">Method</Label>
-            <Select id="payment-method" name="paymentMethod" defaultValue="gcash">
-              {(["gcash", "maya", "bank_transfer", "cash"] as const).map((method) => <option key={method} value={method}>{PAYMENT_METHOD_LABELS[method]}</option>)}
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="payment-reference">Reference (optional)</Label>
-            <Input id="payment-reference" name="paymentReference" maxLength={120} placeholder="GCash reference or sender" />
-          </div>
-          <div className="sm:col-span-2">
-            <Label htmlFor="payment-received-at">Received (optional)</Label>
-            <Input id="payment-received-at" name="paymentReceivedAt" type="datetime-local" />
-            <p className="mt-1 text-xs text-ink/50">Leave blank to record it now. Times use the property timezone.</p>
-          </div>
+        <CardBody className="space-y-4">
+          <label className="flex items-start gap-2 text-sm text-ink">
+            <input
+              type="checkbox"
+              name="acknowledgeUnpaid"
+              className="mt-0.5 accent-pine"
+              checked={noPayment}
+              onChange={(event) => {
+                setNoPayment(event.target.checked);
+                if (event.target.checked) setPaymentAmount("");
+              }}
+              required={submitMode === "confirmed" && totals.bookingTotalCents > 0 && !paymentAmount.trim()}
+            />
+            <span>No payment received yet</span>
+          </label>
+          {noPayment ? (
+            <p className="rounded-lg bg-paper px-4 py-3 text-sm text-ink/70">
+              The booking total of <strong>{formatPHP(totals.bookingTotalCents)}</strong> stays due from the guest. Record payments from the reservation once they arrive.
+            </p>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="payment-amount">Amount received (₱)</Label>
+                <Input id="payment-amount" name="paymentAmountPesos" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} inputMode="decimal" placeholder="e.g. 3,000" />
+              </div>
+              <div>
+                <Label htmlFor="payment-allocation">Towards</Label>
+                <Select id="payment-allocation" name="paymentAllocation" defaultValue="booking">
+                  {(["booking", "security_deposit"] as const).map((allocation) => <option key={allocation} value={allocation}>{PAYMENT_ALLOCATION_LABELS[allocation]}</option>)}
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="payment-method">Method</Label>
+                <Select id="payment-method" name="paymentMethod" defaultValue="gcash">
+                  {(["gcash", "maya", "bank_transfer", "cash"] as const).map((method) => <option key={method} value={method}>{PAYMENT_METHOD_LABELS[method]}</option>)}
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="payment-reference">Reference (optional)</Label>
+                <Input id="payment-reference" name="paymentReference" maxLength={120} placeholder="GCash reference or sender" />
+              </div>
+              <div className="sm:col-span-2">
+                <Label htmlFor="payment-received-at">Received (optional)</Label>
+                <Input id="payment-received-at" name="paymentReceivedAt" type="datetime-local" />
+                <p className="mt-1 text-xs text-ink/50">Leave blank to record it now. Times use the property timezone.</p>
+              </div>
+            </div>
+          )}
         </CardBody>
       </Card> : null}
 
       <Card>
         <CardHeader>
-          <h2 className="font-display text-lg text-pine">How to save it</h2>
+          <h2 className="font-display text-lg text-pine">Save reservation</h2>
         </CardHeader>
         <CardBody className="space-y-4">
           <div className="max-w-56">
@@ -573,31 +539,16 @@ export function ReservationForm({
             </p>
           </div>
 
-          {isOwner && totals.bookingTotalCents > 0 && !paymentAmount.trim() ? (
-            <label className="flex items-start gap-2 text-sm text-ink">
-              <input
-                type="checkbox"
-                name="acknowledgeUnpaid"
-                className="mt-0.5 accent-pine"
-                required={submitMode === "confirmed"}
-              />
-              <span>
-                No payment is recorded yet — the booking total of{" "}
-                <strong>{formatPHP(totals.bookingTotalCents)}</strong> is still
-                due from the guest.
-              </span>
-            </label>
-          ) : null}
-
           <FieldError message={clientError ?? state.error} />
 
           <div className="flex flex-wrap gap-3">
+            <Link href="/reservations" className={buttonClassName("outline", "md")}>Cancel</Link>
             <Button
               type="submit"
               name="mode"
               value="hold"
               variant="outline"
-              disabled={pending}
+              disabled={pending || overCapacity}
               onClick={() => setSubmitMode("hold")}
             >
               {pending && submitMode === "hold" ? "Placing hold…" : "Place hold"}
@@ -608,7 +559,7 @@ export function ReservationForm({
                 name="mode"
                 value="confirmed"
                 variant="clay"
-                disabled={pending}
+                disabled={pending || overCapacity}
                 onClick={() => setSubmitMode("confirmed")}
               >
                 {pending && submitMode === "confirmed"
