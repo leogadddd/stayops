@@ -19,6 +19,10 @@
   --color-clay-deep: #8c3f2c;
   --color-clay-mist: #f3e4de;
 
+  --color-sand: #eee6d9;
+  --color-sand-deep: #c49a6c;
+  --color-bark: #624a32;
+
   --color-ink: #22312d;
 
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;

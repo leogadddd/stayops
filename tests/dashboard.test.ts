@@ -3,20 +3,23 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import DashboardPage from "@/app/(app)/dashboard/page";
 import AvailabilityPage from "@/app/(app)/calendar/availability/page";
+import { addDaysLocal } from "@/lib/dates";
 import { requireMembership, type MembershipContext } from "@/lib/auth/session";
-import { listCalendarActivity } from "@/server/inventory/availability";
+import { listExpenseTotalsByCategory } from "@/server/expenses/service";
+import { getOccupancySegments, listCalendarActivity } from "@/server/inventory/availability";
 import { listOrgUnits, listProperties } from "@/server/inventory/service";
 import { findFreeUnitIds } from "@/server/inventory/stay-search";
 import { listTasks } from "@/server/operations/service";
-import { getReport } from "@/server/reports/service";
+import { getMonthlyTrend } from "@/server/reports/service";
 
 vi.mock("@/lib/auth/session", () => ({ requireMembership: vi.fn() }));
-vi.mock("@/server/inventory/availability", () => ({ listCalendarActivity: vi.fn() }));
+vi.mock("@/server/inventory/availability", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/server/inventory/availability")>()), listCalendarActivity: vi.fn(), getOccupancySegments: vi.fn() }));
+vi.mock("@/server/expenses/service", () => ({ listExpenseTotalsByCategory: vi.fn() }));
 vi.mock("@/server/inventory/service", () => ({ listOrgUnits: vi.fn(), listProperties: vi.fn() }));
 vi.mock("@/server/inventory/stay-search", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/server/inventory/stay-search")>()), findFreeUnitIds: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/server/operations/service", () => ({ listTasks: vi.fn() }));
-vi.mock("@/server/reports/service", () => ({ getReport: vi.fn() }));
+vi.mock("@/server/reports/service", () => ({ getMonthlyTrend: vi.fn() }));
 
 const owner: MembershipContext = {
   organizationId: "org-a",
@@ -85,7 +88,14 @@ beforeEach(() => {
   vi.mocked(listOrgUnits).mockResolvedValue([unit]);
   vi.mocked(listCalendarActivity).mockResolvedValue([]);
   vi.mocked(listTasks).mockResolvedValue([]);
-  vi.mocked(getReport).mockResolvedValue(report);
+  vi.mocked(getOccupancySegments).mockImplementation(async (_org, _units, start) => new Map([["unit-a", [
+    { kind: "reservation", id: "stay-a", startDate: start, endDate: addDaysLocal(start, 3), status: "confirmed", guestName: "Ana Cruz", expiresAt: null },
+  ]]]));
+  vi.mocked(getMonthlyTrend).mockResolvedValue([
+    { month: "2026-08", summary: { ...report.summary, from: "2026-08-01", to: "2026-09-01", bookingCollectedCents: 600_000 } },
+    { month: "2026-09", summary: report.summary },
+  ]);
+  vi.mocked(listExpenseTotalsByCategory).mockResolvedValue([{ category: "cleaning", amountCents: 125_000 }]);
 });
 
 describe("operations dashboard", () => {
@@ -96,7 +106,23 @@ describe("operations dashboard", () => {
     expect(html).toContain("Today&#x27;s schedule");
     expect(html).toContain("Operations watchlist");
     expect(html).toContain('href="/calendar/availability"');
-    expect(getReport).toHaveBeenCalledWith(owner.organizationId, expect.objectContaining({ from: expect.any(String), to: expect.any(String) }));
+    expect(html).toContain("Next 14 days");
+    expect(html).toContain("3 of 14 unit-nights booked");
+    expect(html).toContain("2-month trend");
+    expect(html).toContain("Up 50% vs Aug");
+    expect(html).toContain("Spending by category");
+    expect(html).toContain("Cleaning");
+    expect(getMonthlyTrend).toHaveBeenCalledWith(owner.organizationId, expect.stringMatching(/^\d{4}-\d{2}$/), 6);
+  });
+
+  it("keeps the operations dashboard when the money summary fails", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(getMonthlyTrend).mockRejectedValue(new Error("db down"));
+    const html = renderToStaticMarkup(await DashboardPage());
+    expect(html).toContain("temporarily unavailable");
+    expect(html).toContain("Next 14 days");
+    expect(error).toHaveBeenCalled();
+    error.mockRestore();
   });
 
   it("keeps financial reporting out of the staff dashboard", async () => {
@@ -105,7 +131,11 @@ describe("operations dashboard", () => {
     expect(html).not.toContain("Money this month");
     expect(html).not.toContain("Cash movement");
     expect(html).toContain("Today&#x27;s schedule");
-    expect(getReport).not.toHaveBeenCalled();
+    expect(html).toContain("Next 14 days");
+    expect(html).not.toContain("month trend");
+    expect(html).not.toContain("Spending by category");
+    expect(getMonthlyTrend).not.toHaveBeenCalled();
+    expect(listExpenseTotalsByCategory).not.toHaveBeenCalled();
   });
 });
 
