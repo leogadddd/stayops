@@ -10,6 +10,9 @@ export default defineConfig({
   dialect: "postgresql",
   schema: "./src/lib/db/schema/index.ts",
   out: "./drizzle",
+  // Index prefixes collided because 0004 was never generated; timestamps
+  // keep new migration and snapshot file names unique.
+  migrations: { prefix: "timestamp" },
   dbCredentials: {
     url: process.env.DATABASE_URL,
   },
