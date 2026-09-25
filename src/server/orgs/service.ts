@@ -84,6 +84,16 @@ export interface OrganizationProfileInput {
   taxId: string;
 }
 
+/** The stored object key (or legacy data URL) currently used for the logo. */
+export async function getOrganizationLogoUrl(organizationId: string): Promise<string | null> {
+  const organization = await db.query.organizations.findFirst({
+    columns: { logoUrl: true },
+    where: eq(organizations.id, organizationId),
+  });
+  if (!organization) throw new OrgError("Organization not found.");
+  return organization.logoUrl;
+}
+
 export async function createOrganization(input: {
   name: string;
   slug?: string;

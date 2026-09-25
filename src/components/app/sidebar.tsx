@@ -46,7 +46,12 @@ const NAV_ITEMS = [
   { href: "/tasks", label: "Tasks", icon: ClipboardList, ownerOnly: false },
   { href: "/expenses", label: "Expenses", icon: Receipt, ownerOnly: true },
   { href: "/reports", label: "Reports", icon: BarChart3, ownerOnly: true },
-  { href: "/settings", label: "Settings", icon: Settings, ownerOnly: true },
+  {
+    href: "/settings/general",
+    label: "Settings",
+    icon: Settings,
+    ownerOnly: true,
+  },
 ] as const;
 
 type SidebarProps = {
@@ -72,7 +77,7 @@ function Navigation({
       {NAV_ITEMS.filter((item) => !item.ownerOnly || role === "owner").map(
         ({ href, label, icon: Icon }) => {
           const active =
-            href === "/settings"
+            href === "/settings/general"
               ? pathname.startsWith("/settings") &&
                 !pathname.startsWith("/properties")
               : pathname === href || pathname.startsWith(`${href}/`);

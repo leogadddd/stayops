@@ -10,10 +10,12 @@ import {
   updateOrganizationRegion,
   updateOrganizationName,
   updatePaymentInstructions,
+  getOrganizationLogoUrl,
 } from "@/server/orgs/service";
 import { unexpectedErrorMessage } from "@/lib/errors";
-import { imageDataUrlFromValue } from "@/server/inventory/image-upload";
+import { imageUploadFromDataUrl } from "@/server/inventory/image-upload";
 import { InventoryError } from "@/server/inventory/validation";
+import { createObjectStorageFromEnvironment, StorageError } from "@/server/storage/service";
 
 export interface OrgFormState {
   error?: string;
@@ -21,7 +23,7 @@ export interface OrgFormState {
 }
 
 function toFormError(error: unknown): OrgFormState {
-  if (error instanceof OrgError || error instanceof InventoryError) {
+  if (error instanceof OrgError || error instanceof InventoryError || error instanceof StorageError) {
     return { error: error.message };
   }
   if (error instanceof PermissionError) {
@@ -57,7 +59,22 @@ export async function saveOrganizationProfile(
   const membership = await requireMembership();
   assertOwner(membership);
   try {
-    const logoUrl = imageDataUrlFromValue(String(formData.get("logoDataUrl") ?? ""));
+    const removeLogo = formData.get("removeLogo") === "true";
+    const logo = removeLogo
+      ? undefined
+      : imageUploadFromDataUrl(String(formData.get("logoDataUrl") ?? ""));
+    const currentLogoUrl = removeLogo
+      ? await getOrganizationLogoUrl(membership.organizationId)
+      : null;
+    // The cropper always produces PNG. New uploads replace this one object.
+    const logoUrl = removeLogo
+      ? null
+      : logo
+      ? `org/${membership.organizationId}/logo/logo.png`
+      : undefined;
+    if (logo && logoUrl) {
+      await createObjectStorageFromEnvironment().put({ key: logoUrl, ...logo });
+    }
     await updateOrganizationProfile({
       organizationId: membership.organizationId,
       actorUserId: membership.userId,
@@ -78,10 +95,15 @@ export async function saveOrganizationProfile(
         taxId: String(formData.get("taxId") ?? ""),
       },
     });
+    if (removeLogo && currentLogoUrl && !currentLogoUrl.startsWith("data:")) {
+      await createObjectStorageFromEnvironment().delete(currentLogoUrl);
+    }
   } catch (error) {
     return toFormError(error);
   }
   revalidatePath("/settings");
+  revalidatePath("/settings/organization");
+  revalidatePath("/settings/organization/edit");
   revalidatePath("/dashboard");
   return { success: true };
 }

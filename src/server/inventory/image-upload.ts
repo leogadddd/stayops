@@ -39,3 +39,15 @@ export function imageDataUrlFromValue(value: string) {
   }
   return value;
 }
+
+/** Convert a validated data URL from the logo cropper into storage-ready bytes. */
+export function imageUploadFromDataUrl(value: string) {
+  const dataUrl = imageDataUrlFromValue(value);
+  if (!dataUrl) return undefined;
+  const match = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl);
+  if (!match) throw new InventoryError("Upload a JPG, PNG, or WebP image.", "logo");
+  return {
+    contentType: match[1]!,
+    body: Buffer.from(match[2]!, "base64"),
+  };
+}

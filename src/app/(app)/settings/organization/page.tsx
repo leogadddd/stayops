@@ -19,7 +19,12 @@ export default async function OrganizationSettingsPage() {
 
   return (
     <div className="min-w-0">
-      <OrganizationProfileForm values={organization} />
+      <OrganizationProfileForm values={{
+        ...organization,
+        logoUrl: organization.logoUrl?.startsWith("data:")
+          ? organization.logoUrl
+          : organization.logoUrl ? `/api/orgs/${organization.id}/logo` : null,
+      }} />
     </div>
   );
 }

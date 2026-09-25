@@ -205,6 +205,9 @@ export function createObjectStorageFromEnvironment(
     endpoint,
     region,
     credentials: { accessKeyId, secretAccessKey },
+    // Neon Object Storage uses a branch endpoint, so the bucket belongs in
+    // the URL path rather than as a virtual-host subdomain.
+    forcePathStyle: true,
   };
   return new S3ObjectStorage({ bucket, client: new S3Client(config) });
 }

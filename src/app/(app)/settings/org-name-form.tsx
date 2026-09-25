@@ -1,12 +1,11 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { FieldError, Input, Label } from "@/components/ui/input";
-import { Save } from "lucide-react";
+import { Input, Label } from "@/components/ui/input";
 import { renameOrganization, type OrgFormState } from "./actions";
 import { useActionFeedback } from "@/hooks/use-action-feedback";
+import { SettingsSaveBar } from "./settings-save-bar";
 
 export function OrgNameForm({ defaultName }: { defaultName: string }) {
   const [state, formAction, pending] = useActionState<OrgFormState, FormData>(
@@ -15,15 +14,26 @@ export function OrgNameForm({ defaultName }: { defaultName: string }) {
   );
   useActionFeedback(state, { success: "Organization name updated." });
   const router = useRouter();
+  const [dirty, setDirty] = useState(false);
   useEffect(() => {
     if (state.success) {
-      router.push("/settings");
       router.refresh();
     }
   }, [state.success, router]);
+  const saveBarVisible = dirty || pending || Boolean(state.error);
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form
+      action={formAction}
+      onChange={(event) =>
+        setDirty(
+          String(new FormData(event.currentTarget).get("name") ?? "") !==
+            defaultName,
+        )
+      }
+      onSubmit={() => setDirty(false)}
+      className={saveBarVisible ? "space-y-4" : "space-y-4"}
+    >
       <div>
         <Label htmlFor="name">Name</Label>
         <Input
@@ -34,17 +44,13 @@ export function OrgNameForm({ defaultName }: { defaultName: string }) {
           minLength={2}
           maxLength={80}
         />
-        <FieldError message={state.error} />
-        {state.success ? (
-          <p className="mt-1.5 text-sm text-pine" role="status">
-            Saved.
-          </p>
-        ) : null}
       </div>
-      <Button type="submit" disabled={pending}>
-        <Save className="h-4 w-4" aria-hidden />
-        {pending ? "Saving…" : "Save"}
-      </Button>
+      <SettingsSaveBar
+        visible={saveBarVisible}
+        pending={pending}
+        error={state.error}
+        label="Save name"
+      />
     </form>
   );
 }

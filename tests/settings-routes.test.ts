@@ -248,8 +248,8 @@ describe("read-only summaries and reusable tables", () => {
 });
 
 const editors = [
-  { name: "organization", render: () => React.createElement(OrgNameForm, { defaultName: owner.organizationName }), destination: "/settings" },
-  { name: "payment instructions", render: () => React.createElement(PaymentInstructionsForm, { defaultValue: "" }), destination: "/settings" },
+  { name: "organization", render: () => React.createElement(OrgNameForm, { defaultName: owner.organizationName }), destination: undefined },
+  { name: "payment instructions", render: () => React.createElement(PaymentInstructionsForm, { defaultValue: "" }), destination: undefined },
   { name: "staff", render: () => React.createElement(InviteStaffForm), destination: "/settings" },
   { name: "new property", render: () => React.createElement(PropertyForm), destination: "/properties" },
   { name: "edit property", render: () => React.createElement(PropertyForm, { propertyId: property.id }), destination: propertyHref },
@@ -264,11 +264,12 @@ function flushNavigationEffects() {
 }
 
 describe("editor save navigation", () => {
-  it.each(editors)("navigates after a successful $name save", ({ render, destination }) => {
+  it.each(editors)("handles a successful $name save", ({ render, destination }) => {
     vi.mocked(React.useActionState).mockReturnValue([{ success: true }, vi.fn(), false]);
     renderToStaticMarkup(render());
     flushNavigationEffects();
-    expect(navigation.push).toHaveBeenCalledExactlyOnceWith(destination);
+    if (destination) expect(navigation.push).toHaveBeenCalledExactlyOnceWith(destination);
+    else expect(navigation.push).not.toHaveBeenCalled();
     expect(navigation.refresh).toHaveBeenCalledOnce();
   });
 

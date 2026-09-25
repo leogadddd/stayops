@@ -2,12 +2,11 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Globe2, Save } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { FieldError, Label } from "@/components/ui/input";
+import { Label } from "@/components/ui/input";
 import { TimezonePicker } from "@/components/ui/timezone-picker";
 import { useActionFeedback } from "@/hooks/use-action-feedback";
 import { saveOrganizationRegion, type OrgFormState } from "./actions";
+import { SettingsSaveBar } from "./settings-save-bar";
 
 export function RegionForm({ defaultTimezone }: { defaultTimezone: string }) {
   const [state, formAction, pending] = useActionState<OrgFormState, FormData>(
@@ -16,15 +15,18 @@ export function RegionForm({ defaultTimezone }: { defaultTimezone: string }) {
   );
   const router = useRouter();
   const [dirty, setDirty] = useState(false);
+  const [selectedTimezone, setSelectedTimezone] = useState(defaultTimezone);
+  const [savedTimezone, setSavedTimezone] = useState(defaultTimezone);
   useActionFeedback(state, { success: "Region updated." });
   useEffect(() => {
     if (state.success) {
       router.refresh();
     }
   }, [state.success, router]);
+  const saveBarVisible = dirty || pending || Boolean(state.error);
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form action={formAction} onSubmit={() => { setDirty(false); setSavedTimezone(selectedTimezone); }} className={saveBarVisible ? "space-y-6 pb-24" : "space-y-6"}>
       <div>
         <Label htmlFor="defaultTimezone">Organization timezone</Label>
         <TimezonePicker
@@ -32,7 +34,10 @@ export function RegionForm({ defaultTimezone }: { defaultTimezone: string }) {
           name="defaultTimezone"
           defaultValue={defaultTimezone}
           required
-          onValueChange={(timezone) => setDirty(timezone !== defaultTimezone)}
+          onValueChange={(timezone) => {
+            setSelectedTimezone(timezone);
+            setDirty(timezone !== savedTimezone);
+          }}
         />
         <p className="mt-2 text-sm leading-relaxed text-ink/60">
           Used for organization-wide timestamps and as the default when you
@@ -40,7 +45,7 @@ export function RegionForm({ defaultTimezone }: { defaultTimezone: string }) {
           stays, and operations.
         </p>
       </div>
-      {dirty || pending || state.error ? <div className="border-t border-pine/10 pt-5"><FieldError message={state.error} /><Button type="submit" variant="clay" disabled={pending}><Save className="h-4 w-4" aria-hidden />{pending ? "Saving…" : "Save changes"}</Button></div> : null}
+      <SettingsSaveBar visible={saveBarVisible} pending={pending} error={state.error} />
     </form>
   );
 }
