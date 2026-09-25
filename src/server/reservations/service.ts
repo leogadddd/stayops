@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, ilike, isNull, or } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   accessTokens,
@@ -123,6 +123,10 @@ export interface ReservationListFilters {
   query?: string;
   status?: ReservationStatus;
   unitId?: string;
+  /** "checkin" (latest stay first, the default) or "booked" (newest booking first). */
+  sort?: "checkin" | "booked";
+  /** Adds bookingTotalCents (charges excluding the deposit). Owner views only. */
+  includeTotals?: boolean;
 }
 
 export async function listReservations(
@@ -147,6 +151,14 @@ export async function listReservations(
     conditions.push(eq(reservations.unitId, filters.unitId));
   }
 
+  // Correlated so each row carries its own charge total without a GROUP BY.
+  const bookingTotalCents = sql<number>`coalesce((
+    select sum(${reservationCharges.amountCents}) from ${reservationCharges}
+    where ${reservationCharges.reservationId} = ${reservations.id}
+      and ${reservationCharges.organizationId} = ${reservations.organizationId}
+      and ${reservationCharges.type} <> 'security_deposit'
+  ), 0)`.mapWith(Number);
+
   return db
     .select({
       id: reservations.id,
@@ -160,6 +172,8 @@ export async function listReservations(
       guestName: guests.name,
       unitId: units.id,
       unitName: units.name,
+      propertyName: properties.name,
+      ...(filters.includeTotals ? { bookingTotalCents } : {}),
     })
     .from(reservations)
     .innerJoin(
@@ -176,8 +190,19 @@ export async function listReservations(
         eq(reservations.organizationId, units.organizationId),
       ),
     )
+    .leftJoin(
+      properties,
+      and(
+        eq(units.propertyId, properties.id),
+        eq(units.organizationId, properties.organizationId),
+      ),
+    )
     .where(and(...conditions))
-    .orderBy(desc(reservations.checkInDate));
+    .orderBy(
+      ...(filters.sort === "booked"
+        ? [desc(reservations.createdAt)]
+        : [desc(reservations.checkInDate), desc(reservations.createdAt)]),
+    );
 }
 
 export async function getReservationDetail(

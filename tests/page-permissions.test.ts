@@ -222,7 +222,7 @@ describe("new reservation financial boundary", () => {
   it("does not send prices or confirmed-booking access to staff", async () => {
     vi.mocked(inventory.listOrgUnits).mockResolvedValue([{
       id: "unit-a", propertyId: "property-a", name: "Test unit", status: "active",
-      capacity: 2, defaultNightlyRateCents: 765_432, cleaningFeeCents: 12_345,
+      capacity: 2, bedrooms: 1, bathrooms: 1, imageUrl: null, defaultNightlyRateCents: 765_432, cleaningFeeCents: 12_345,
       securityDepositCents: 123_456, checkInTime: "15:00", checkOutTime: "11:00",
     }] as Awaited<ReturnType<typeof inventory.listOrgUnits>>);
     vi.mocked(inventory.listProperties).mockResolvedValue([]);
@@ -231,7 +231,8 @@ describe("new reservation financial boundary", () => {
     const form = elements(tree).find((node) => node.type === ReservationForm);
     expect(form?.props.isOwner).toBe(false);
     expect(form?.props.units).toEqual([{
-      id: "unit-a", label: "Test unit", capacity: 2,
+      id: "unit-a", label: "Test unit", name: "Test unit", propertyName: null, imageUrl: null,
+      capacity: 2, bedrooms: 1, bathrooms: 1, checkInTime: "15:00", checkOutTime: "11:00",
       nightlyRateCents: null, cleaningFeeCents: null, securityDepositCents: null,
     }]);
   });
@@ -244,7 +245,7 @@ describe("reservation financial boundary", () => {
       id: "turnover-a", doneItems: 1, totalItems: 3,
     } as Awaited<ReturnType<typeof getTaskForReservation>>);
     vi.mocked(getReservationLedger).mockResolvedValue({
-      balances: { bookingBalanceCents: 654_321 },
+      balances: { bookingTotalCents: 1_530_864, depositTotalCents: 123_456, paidBookingCents: 876_543, paidDepositCents: 123_456, refundedBookingCents: 0, refundedDepositCents: 0, deductedCents: 0, bookingBalanceCents: 654_321, depositHeldCents: 123_456, depositOutstandingCents: 0 },
       payments: [{ reference: "private-payment-reference" }],
       refunds: [], deductions: [], proofs: [],
     } as unknown as Awaited<ReturnType<typeof getReservationLedger>>);

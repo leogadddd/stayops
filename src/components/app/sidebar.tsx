@@ -67,7 +67,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   new: "New", edit: "Edit", organization: "Organization", "payment-instructions": "Payment instructions", staff: "Staff",
   payments: "Payments", refunds: "Refunds", deductions: "Deductions", damage: "Damage", proofs: "Payment proofs",
   "check-in": "Check in", "check-out": "Check out", confirm: "Confirm", cancel: "Cancel", blocks: "Blocks",
-  checklist: "Checklist", ready: "Mark ready", resolve: "Resolve", record: "Record payment",
+  checklist: "Checklist", ready: "Mark ready", resolve: "Resolve", record: "Record payment", confirmation: "Saved",
 };
 
 export function AppHeader({ initialNow, ...props }: SidebarProps & { initialNow: string }) {

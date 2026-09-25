@@ -1,17 +1,21 @@
 "use client";
 
-import { useActionState } from "react";
-import { CheckCircle2 } from "lucide-react";
+import { useActionState, useState } from "react";
+import { CheckCircle2, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { FieldError, Input, Label, Textarea } from "@/components/ui/input";
+import { DateTimeInput } from "@/components/ui/date-time-input";
+import { FieldError, Label, Textarea } from "@/components/ui/input";
 import { checkOutAction, type ReservationFormState } from "../actions";
 import { useActionFeedback } from "@/hooks/use-action-feedback";
 import { useReservationSaved } from "./use-reservation-saved";
 
-export function CheckOutForm({ reservationId, defaultActualCheckoutAt }: { reservationId: string; defaultActualCheckoutAt: string }) {
+const QUICK_NOTES = ["Unit in good shape", "Keys returned", "Left early", "Needs deep clean"];
+
+export function CheckOutForm({ reservationId, timeZone = "Asia/Manila" }: { reservationId: string; timeZone?: string }) {
   const save = useReservationSaved(checkOutAction.bind(null, reservationId), reservationId, "Guest checked out and turnover created.");
   const [state, formAction, pending] = useActionState<ReservationFormState, FormData>(save, {});
   useActionFeedback(state);
+  const [note, setNote] = useState("");
 
   if (state.success) {
     return (
@@ -22,25 +26,25 @@ export function CheckOutForm({ reservationId, defaultActualCheckoutAt }: { reser
     );
   }
 
+  const addNote = (text: string) => setNote((current) => (current.trim() ? `${current.trim().replace(/[.]$/, "")}. ${text}.` : `${text}.`));
+
   return (
-    <form action={formAction} className="space-y-3">
-      <div>
-        <Label htmlFor="actual-check-out">Actual check-out</Label>
-        <Input id="actual-check-out" name="actualCheckoutAt" type="datetime-local" defaultValue={defaultActualCheckoutAt} required />
-        <p className="mt-1 text-xs text-ink/50">Turnover starts at this actual departure time.</p>
-      </div>
+    <form action={formAction} className="space-y-5">
+      <DateTimeInput name="actualCheckoutAt" label="Actual check-out" timeZone={timeZone} hint="The turnover starts from this departure time." />
       <div>
         <Label htmlFor="check-out-note">Note (optional)</Label>
-        <Textarea
-          id="check-out-note"
-          name="note"
-          maxLength={500}
-          placeholder="e.g. Left at 11 AM, unit in good shape."
-          className="min-h-16"
-        />
+        <div className="mb-2 flex flex-wrap gap-2" role="group" aria-label="Quick notes">
+          {QUICK_NOTES.map((text) => (
+            <button key={text} type="button" onClick={() => addNote(text)} className="rounded-full border border-pine/15 px-3 py-1 text-xs font-medium text-pine transition-colors hover:border-pine/35">
+              + {text}
+            </button>
+          ))}
+        </div>
+        <Textarea id="check-out-note" name="note" maxLength={500} value={note} onChange={(event) => setNote(event.target.value)} placeholder="e.g. Left at 11 AM, unit in good shape." className="min-h-20" />
       </div>
       <FieldError message={state.error} />
-      <Button type="submit" variant="primary" disabled={pending}>
+      <Button type="submit" variant="clay" size="lg" disabled={pending} className="w-full">
+        <LogOut className="h-4 w-4" aria-hidden />
         {pending ? "Checking out…" : "Check out & start turnover"}
       </Button>
     </form>

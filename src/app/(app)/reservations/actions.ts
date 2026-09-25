@@ -246,7 +246,7 @@ export async function checkInAction(
       organizationId: membership.organizationId,
       actorUserId: membership.userId,
       reservationId,
-      data: { note: readString(formData, "note"), actualCheckoutAt: readString(formData, "actualCheckoutAt") || undefined },
+      data: { note: readString(formData, "note") },
     });
   } catch (error) {
     return toFormError(error);
@@ -267,7 +267,8 @@ export async function checkOutAction(
       organizationId: membership.organizationId,
       actorUserId: membership.userId,
       reservationId,
-      data: { note: readString(formData, "note") },
+      // Blank means "now"; the turnover starts at this actual departure time.
+      data: { note: readString(formData, "note"), actualCheckoutAt: readString(formData, "actualCheckoutAt") || undefined },
     });
   } catch (error) {
     return toFormError(error);
