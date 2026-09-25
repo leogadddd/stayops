@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -30,18 +30,30 @@ export function TableActionsMenu({
   onDelete?: () => Promise<DeleteResult>;
 }) {
   const [open, setOpen] = useState(false);
-  const [position, setPosition] = useState({ top: 0, right: 0 });
   const trigger = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
-  const show = () => {
-    const rect = trigger.current?.getBoundingClientRect();
-    if (rect) {
-      setPosition({ top: rect.bottom + 6, right: Math.max(8, window.innerWidth - rect.right) });
-    }
-    setOpen(true);
-  };
+  // Place the menu below the trigger, right-aligned, flipping above it when
+  // there is no room below and keeping it inside the viewport. Runs before
+  // paint so the menu never flashes in the wrong spot.
+  useLayoutEffect(() => {
+    const anchor = trigger.current?.getBoundingClientRect();
+    const element = menu.current;
+    if (!open || !anchor || !element) return;
+    const { width, height } = element.getBoundingClientRect();
+    const gap = 6;
+    const margin = 8;
+    const fitsBelow = anchor.bottom + gap + height <= window.innerHeight - margin;
+    const fitsAbove = anchor.top - gap - height >= margin;
+    const top = fitsBelow || !fitsAbove
+      ? Math.min(anchor.bottom + gap, window.innerHeight - margin - height)
+      : anchor.top - gap - height;
+    const left = Math.min(Math.max(anchor.right - width, margin), window.innerWidth - margin - width);
+    element.style.top = `${Math.max(margin, top)}px`;
+    element.style.left = `${left}px`;
+    element.style.visibility = "visible";
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -74,8 +86,7 @@ export function TableActionsMenu({
       ref={menu}
       role="menu"
       aria-label={`Actions for ${label}`}
-      className="fixed z-50 w-44 overflow-hidden rounded-lg border border-pine/15 bg-linen p-1.5 text-left shadow-xl"
-      style={position}
+      className="invisible fixed left-0 top-0 z-50 w-44 overflow-hidden rounded-lg border border-pine/15 bg-linen p-1.5 text-left shadow-xl"
     >
       <Link href={viewHref} role="menuitem" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-pine hover:bg-pine-mist/70" onClick={() => setOpen(false)}>
         <Eye className="h-4 w-4" aria-hidden />View
@@ -110,7 +121,7 @@ export function TableActionsMenu({
         aria-label={`Open actions for ${label}`}
         aria-haspopup="menu"
         aria-expanded={open}
-        onClick={() => open ? setOpen(false) : show()}
+        onClick={() => setOpen(!open)}
         className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-pine hover:bg-pine-mist/70"
       >
         <MoreHorizontal className="h-5 w-5" aria-hidden />
