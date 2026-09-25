@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { ChevronDown, LogOut, UserRound } from "lucide-react";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { signOutAndRedirect } from "@/lib/auth/sign-out";
@@ -55,9 +56,9 @@ export function AccountMenu({ userName, userEmail, role }: {
             <p className="mt-2 inline-flex rounded-full bg-sage/45 px-2 py-1 text-[11px] font-medium text-pine">{role === "owner" ? "Organization owner" : "Team member"}</p>
           </div>
           <div className="p-2">
-            <button type="button" role="menuitem" disabled title="Profile settings are coming soon" className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-ink/45 disabled:cursor-not-allowed">
-              <UserRound className="h-4 w-4" aria-hidden />Profile <span className="ml-auto text-[10px] uppercase tracking-wide">Soon</span>
-            </button>
+            <Link href="/settings/profile" role="menuitem" onClick={() => setOpen(false)} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-ink hover:bg-pine-mist hover:text-pine">
+              <UserRound className="h-4 w-4" aria-hidden />Profile
+            </Link>
             <ConfirmationDialog
               title="Sign out of StayOps?"
               description="You will return to the sign-in page. Any unsaved form changes on this page will be lost."

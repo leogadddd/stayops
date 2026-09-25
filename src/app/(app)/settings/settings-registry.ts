@@ -1,4 +1,4 @@
-import { Building2, Globe2, SlidersHorizontal } from "lucide-react";
+import { Building2, Globe2, SlidersHorizontal, UserRound } from "lucide-react";
 
 /**
  * Add a category here as its dedicated settings surface is introduced.
@@ -6,6 +6,7 @@ import { Building2, Globe2, SlidersHorizontal } from "lucide-react";
  */
 export const SETTINGS_NAVIGATION = [
   { href: "/settings/general", label: "General", icon: SlidersHorizontal },
+  { href: "/settings/profile", label: "Profile", icon: UserRound },
   { href: "/settings/organization", label: "Organization", icon: Building2, ownerOnly: true },
   { href: "/settings/region", label: "Region", icon: Globe2, ownerOnly: true },
 ] as const;
