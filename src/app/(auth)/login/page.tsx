@@ -1,13 +1,62 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth/client";
 import { Button } from "@/components/ui/button";
 import { PasswordInput } from "@/components/ui/password-input";
 import { FieldError, Input, Label } from "@/components/ui/input";
+
+const SESSION_RETRY_MS = 5000;
+
+/**
+ * Shown when the server couldn't look up the session (see getSession). Keeps
+ * checking in the background and sends the user back into the app as soon as
+ * their session is reachable again.
+ */
+function useSessionRecovery(active: boolean) {
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!active) return;
+    toast.error("We couldn’t load your session", {
+      id: "session-unavailable",
+      description: "We’ll reconnect you automatically once it’s back.",
+      duration: Infinity,
+    });
+
+    let stopped = false;
+    let timer: number | undefined;
+
+    async function check() {
+      const { data, error } = await authClient
+        .getSession()
+        .catch((error: unknown) => ({ data: null, error }));
+      if (stopped) return;
+      if (error) {
+        timer = window.setTimeout(check, SESSION_RETRY_MS);
+        return;
+      }
+      toast.dismiss("session-unavailable");
+      if (data) {
+        toast.success("You’re back online.");
+        router.replace("/");
+        router.refresh();
+      } else {
+        // The service is reachable but there is no session: sign in as usual.
+        router.replace("/login");
+      }
+    }
+
+    timer = window.setTimeout(check, SESSION_RETRY_MS);
+    return () => {
+      stopped = true;
+      window.clearTimeout(timer);
+    };
+  }, [active, router]);
+}
 
 const DEMO_ACCOUNT = {
   email: "owner@stayops.dev",
@@ -16,7 +65,9 @@ const DEMO_ACCOUNT = {
 
 function LoginContent() {
   const router = useRouter();
-  const demoRequested = useSearchParams().get("demo") === "1";
+  const searchParams = useSearchParams();
+  const demoRequested = searchParams.get("demo") === "1";
+  useSessionRecovery(searchParams.get("session") === "unavailable");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [email, setEmail] = useState("");
