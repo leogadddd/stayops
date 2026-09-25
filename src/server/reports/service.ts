@@ -13,13 +13,7 @@ import {
   units,
   expenses,
 } from "@/lib/db/schema";
-import {
-  isLocalDate,
-  localDateTimeToUtc,
-  monthNightRange,
-  rangesOverlap,
-  shiftMonth,
-} from "@/lib/dates";
+import { isLocalDate, localDateTimeToUtc, rangesOverlap } from "@/lib/dates";
 import {
   computeReport,
   OCCUPANCY_STATUSES,
@@ -383,33 +377,6 @@ export async function getReport(
     propertyNames,
     timezone,
   };
-}
-
-export interface MonthlyReport {
-  /** yyyy-mm */
-  month: string;
-  summary: ReportSummary;
-}
-
-/**
- * Whole-month summaries for the `count` months ending with `lastMonth`,
- * oldest first. Each month reuses getReport so trend numbers match reports.
- */
-export async function getMonthlyTrend(
-  organizationId: string,
-  lastMonth: string,
-  count: number,
-): Promise<MonthlyReport[]> {
-  const months = Array.from({ length: count }, (_, index) =>
-    shiftMonth(lastMonth, index - count + 1),
-  );
-  return Promise.all(
-    months.map(async (month) => {
-      const range = monthNightRange(month);
-      const report = await getReport(organizationId, { from: range.start, to: range.end });
-      return { month, summary: report.summary };
-    }),
-  );
 }
 
 function dayCount(from: string, to: string): number {

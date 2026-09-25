@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gte, lt } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { auditEvents, expenses, properties, units } from "@/lib/db/schema";
 import { isValidMonth, monthNightRange } from "@/lib/dates";
@@ -82,26 +82,6 @@ export async function listExpenses(
     )
     .where(and(...conditions))
     .orderBy(desc(expenses.paidDate), desc(expenses.createdAt));
-}
-
-/** Expense totals per category paid in [from, to), largest first. */
-export async function listExpenseTotalsByCategory(
-  organizationId: string,
-  range: { from: string; to: string },
-): Promise<{ category: string; amountCents: number }[]> {
-  const total = sql`sum(${expenses.amountCents})`.mapWith(Number);
-  return db
-    .select({ category: expenses.category, amountCents: total })
-    .from(expenses)
-    .where(
-      and(
-        eq(expenses.organizationId, organizationId),
-        gte(expenses.paidDate, range.from),
-        lt(expenses.paidDate, range.to),
-      ),
-    )
-    .groupBy(expenses.category)
-    .orderBy(desc(total));
 }
 
 export async function createExpense(input: {
