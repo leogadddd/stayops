@@ -1,76 +1,62 @@
-"use client";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import {
+  ArrowRight,
+  BrushCleaning,
+  CalendarCheck,
+  CalendarDays,
+  ChartNoAxesCombined,
+} from "lucide-react";
+import { buttonClassName } from "@/components/ui/button";
+import { requireUser } from "@/lib/auth/session";
+import { getOnboardingState } from "./state";
+import { StepNav } from "./step-nav";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { FieldError, Input, Label } from "@/components/ui/input";
+const FEATURES = [
+  { label: "Calendar", icon: CalendarDays },
+  { label: "Reservations & payments", icon: CalendarCheck },
+  { label: "Turnovers", icon: BrushCleaning },
+  { label: "Reports", icon: ChartNoAxesCombined },
+];
 
-export default function OnboardingPage() {
-  const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
-
-  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError(null);
-    setPending(true);
-    const form = new FormData(event.currentTarget);
-    const res = await fetch("/api/orgs", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: String(form.get("name") ?? "") }),
-    });
-    setPending(false);
-    if (!res.ok) {
-      const body = (await res.json().catch(() => null)) as {
-        error?: string;
-      } | null;
-      const message = body?.error ?? "Something went wrong. Please try again.";
-      setError(message);
-      toast.error("Couldn’t create the organization", { description: message });
-      return;
-    }
-    toast.success("Organization created", { description: "Your StayOps workspace is ready." });
-    router.push("/calendar");
-    router.refresh();
-  }
+export default async function OnboardingIntroPage() {
+  const user = await requireUser();
+  const state = await getOnboardingState(user.id);
+  if (state.membership && state.membership.role !== "owner") redirect("/dashboard");
 
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-paper px-6">
-      <div className="w-full max-w-lg">
-        <p className="text-xs font-medium uppercase tracking-[0.25em] text-clay">
-          Set up · Step 1 of 1
-        </p>
-        <h1 className="mt-3 font-display text-4xl text-pine">
-          Name your organization
-        </h1>
-        <p className="mt-3 text-sm leading-relaxed text-ink/60">
-          This is usually the name of your hosting business — it appears on
-          your calendar and reports. You&apos;ll add properties and units in
-          the next step.
-        </p>
+    <div>
+      <h1 className="animate-rise font-display text-4xl leading-tight text-pine sm:text-5xl">
+        A calmer way to run your staycation.
+      </h1>
+      <p
+        className="animate-rise mt-4 max-w-xl text-base leading-relaxed text-ink/65"
+        style={{ animationDelay: "80ms" }}
+      >
+        StayOps keeps your bookings, payments, cleaning and expenses in one
+        place.
+      </p>
+      <ul
+        className="animate-rise mt-6 flex flex-wrap gap-2"
+        style={{ animationDelay: "160ms" }}
+      >
+        {FEATURES.map(({ label, icon: Icon }) => (
+          <li
+            key={label}
+            className="flex items-center gap-1.5 rounded-full border border-pine/12 bg-linen px-3 py-1.5 text-xs text-pine"
+          >
+            <Icon className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden />
+            {label}
+          </li>
+        ))}
+      </ul>
 
-        <form
-          onSubmit={onSubmit}
-          className="mt-8 rounded-2xl border border-pine/10 bg-white p-6"
-        >
-          <Label htmlFor="name">Organization name</Label>
-          <Input
-            id="name"
-            name="name"
-            required
-            minLength={2}
-            maxLength={80}
-            placeholder="e.g. Dela Cruz Stays"
-            autoFocus
-          />
-          <FieldError message={error ?? undefined} />
-          <Button type="submit" className="mt-5 w-full" disabled={pending}>
-            {pending ? "Creating…" : "Create organization"}
-          </Button>
-        </form>
-      </div>
-    </main>
+      <StepNav>
+        <Link href="/onboarding/organization" className={buttonClassName("clay", "lg")}>
+          Get started
+          <ArrowRight className="h-4 w-4" aria-hidden />
+        </Link>
+      </StepNav>
+    </div>
   );
 }

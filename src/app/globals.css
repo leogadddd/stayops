@@ -54,6 +54,28 @@
     scrollbar-color: #9fb8a9 #f6f3ed;
     scrollbar-width: thin;
   }
+
+  /* Gentle entrance for onboarding content; stagger with animation-delay. */
+  .animate-rise {
+    animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-rise {
+      animation: none;
+    }
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Sonner, shaped to feel like a compact StayOps status card. */

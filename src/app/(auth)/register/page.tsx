@@ -48,7 +48,7 @@ export default function RegisterPage() {
       toast.error("Couldn’t create your account", { description: message });
       return;
     }
-    toast.success("Account created", { description: "Let’s set up your organization." });
+    toast.success("Account created", { description: "Let’s get you set up." });
     router.push("/onboarding");
     router.refresh();
   }
