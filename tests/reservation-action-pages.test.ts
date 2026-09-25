@@ -209,6 +209,19 @@ describe("read-only reservation detail and shared tables", () => {
     for (const path of ["payments/new", "refunds/new", "deductions/new", "cancel"]) expect(serialize(tree)).toContain(`/reservations/reservation-a/${path}`);
   });
 
+  it.each([
+    ["owner", "confirmed", true],
+    ["owner", "checked_in", false],
+    ["owner", "checked_out", false],
+    ["owner", "cancelled", false],
+    ["staff", "confirmed", false],
+  ] as const)("shows Edit to %s for a %s reservation: %s", async (role, status, visible) => {
+    if (role === "owner") vi.mocked(requireMembership).mockResolvedValue(owner);
+    vi.mocked(getReservationDetail).mockResolvedValue(fixture(status));
+    const html = serialize(await ReservationDetailPage({ params }));
+    expect(html.includes("/reservations/reservation-a/edit")).toBe(visible);
+  });
+
   it("uses the shared Table for the reservations list", async () => {
     vi.mocked(listOrgUnits).mockResolvedValue([]);
     vi.mocked(listReservations).mockResolvedValue([{ ...fixture().reservation, guestName: "Test guest", unitName: "Test unit" }] as Awaited<ReturnType<typeof listReservations>>);

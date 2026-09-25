@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { ArrowRight, BedDouble, LogOut, Plus } from "lucide-react";
+import { ArrowRight, BedDouble, LogOut, Pencil, Plus } from "lucide-react";
 import { requireMembership } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { RESERVATION_STATUS_LABELS } from "@/lib/labels";
@@ -62,6 +62,8 @@ export default async function ReservationDetailPage({ params }: { params: Promis
   const liveHold = isLiveHold(reservation.status, reservation.expiresAt);
   const moneyEditable = reservation.status !== "cancelled" && reservation.status !== "expired";
   const canCancel = isOwner && (liveHold || reservation.status === "confirmed");
+  // Matches updateReservation: only an active hold or a confirmed booking is editable.
+  const canEdit = isOwner && (liveHold || reservation.status === "confirmed");
   const canReportDamage = reservation.status === "checked_in" || reservation.status === "checked_out";
   const href = `/reservations/${reservation.id}`;
 
@@ -71,6 +73,7 @@ export default async function ReservationDetailPage({ params }: { params: Promis
         description={`${unit.name}${property ? ` · ${property.name}` : ""} · ${DATE_LABEL.format(new Date(`${reservation.checkInDate}T00:00:00Z`))} – ${DATE_LABEL.format(new Date(`${reservation.checkOutDate}T00:00:00Z`))} · ${nights.length} ${nights.length === 1 ? "night" : "nights"}`}>
         <div className="flex flex-wrap items-center gap-3">
           <Badge tone={STATUS_TONE[reservation.status] ?? "neutral"}>{RESERVATION_STATUS_LABELS[reservation.status]}</Badge>
+          {canEdit ? <Link href={`${href}/edit`} className={buttonClassName("outline", "md")}><Pencil className="h-4 w-4" aria-hidden />Edit</Link> : null}
           {reservation.status === "confirmed" ? <Link href={`${href}/check-in`} className={buttonClassName("primary", "md")}><BedDouble className="h-4 w-4" aria-hidden />Check in</Link> : null}
           {reservation.status === "checked_in" ? <Link href={`${href}/check-out`} className={buttonClassName("primary", "md")}><LogOut className="h-4 w-4" aria-hidden />Check out</Link> : null}
           {isOwner && liveHold ? <Link href={`${href}/confirm`} className={buttonClassName("primary", "md")}>Confirm hold</Link> : null}
@@ -156,6 +159,7 @@ export default async function ReservationDetailPage({ params }: { params: Promis
                 {isOwner && liveHold ? <Link href={`${href}/confirm`} className={buttonClassName("outline", "md", "w-full justify-between")}>Confirm hold<ArrowRight className="h-4 w-4" aria-hidden /></Link> : null}
                 {reservation.status === "confirmed" ? <Link href={`${href}/check-in`} className={buttonClassName("outline", "md", "w-full justify-between")}>Check in guest<ArrowRight className="h-4 w-4" aria-hidden /></Link> : null}
                 {reservation.status === "checked_in" ? <Link href={`${href}/check-out`} className={buttonClassName("outline", "md", "w-full justify-between")}>Check out guest<ArrowRight className="h-4 w-4" aria-hidden /></Link> : null}
+                {canEdit ? <Link href={`${href}/edit`} className={buttonClassName("outline", "md", "w-full justify-between")}>Edit reservation<Pencil className="h-4 w-4" aria-hidden /></Link> : null}
                 {canReportDamage ? <Link href={`${href}/damage/new`} className={buttonClassName("outline", "md", "w-full justify-between")}>Report damage<Plus className="h-4 w-4" aria-hidden /></Link> : null}
                 {canCancel ? <Link href={`${href}/cancel`} className={buttonClassName("ghost", "md", "w-full justify-start text-clay")}>{reservation.status === "hold" ? "Cancel hold" : "Cancel reservation"}</Link> : null}
                 {!liveHold && !canReportDamage && reservation.status !== "confirmed" ? <Link href="/reservations/new" className={buttonClassName("clay", "md", "w-full")}><Plus className="h-4 w-4" aria-hidden />New reservation</Link> : null}
