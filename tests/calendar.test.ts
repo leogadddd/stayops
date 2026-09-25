@@ -1,7 +1,7 @@
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { calendarEventsForUnit, layoutMonthBars, layoutMonthEvents, monthGridRange, type BarInterval, type CalendarInterval } from "@/lib/calendar";
+import { calendarEventsForUnit, layoutMonthBars, layoutMonthEvents, MIN_BAR_WIDTH, monthGridRange, type BarInterval, type CalendarInterval } from "@/lib/calendar";
 import { listNights } from "@/lib/dates";
 import { getOccupancySegments, listCalendarActivity, type OccupancySegment } from "@/server/inventory/availability";
 import { listOrgUnits, listProperties } from "@/server/inventory/service";
@@ -203,6 +203,29 @@ describe("layoutMonthBars", () => {
   it("keeps whole-day blocks on day edges", () => {
     const [week] = layoutMonthBars("2026-09", [{ id: "block", startDate: "2026-09-04", endDate: "2026-09-06" }]);
     expect(week!.bars[0]).toMatchObject({ start: 5, end: 7 });
+  });
+
+  it("widens short pieces so every bar can carry a name", () => {
+    // Checks in Sat Sep 5 at 20:00, out Mon Sep 7 at 09:00: a 0.17-day tail in week one.
+    const weeks = layoutMonthBars("2026-09", [stayBar("late", "2026-09-05", "2026-09-07", "20:00", "09:00")]);
+    const tail = weeks[0]!.bars[0]!;
+    expect(tail.end).toBe(7);
+    expect(tail.end - tail.start).toBeCloseTo(MIN_BAR_WIDTH);
+    expect(tail.continuesAfter).toBe(true);
+    // Its piece in the next week starts at the Sunday edge and grows rightward.
+    const early = layoutMonthBars("2026-09", [stayBar("early", "2026-09-05", "2026-09-06", "14:00", "03:00")])[1]!.bars[0]!;
+    expect(early).toMatchObject({ start: 0, continuesBefore: true });
+    expect(early.end).toBeCloseTo(MIN_BAR_WIDTH);
+  });
+
+  it("packs lanes with the widened extent so short bars never overlap", () => {
+    const [week] = layoutMonthBars("2026-09", [
+      stayBar("blip", "2026-09-01", "2026-09-01", "10:00", "11:00"),
+      stayBar("next", "2026-09-01", "2026-09-02", "12:00", "11:00"),
+    ]);
+    const [blip, next] = ["blip", "next"].map((id) => week!.bars.find((bar) => bar.event.id === id)!);
+    expect(blip!.end - blip!.start).toBeCloseTo(MIN_BAR_WIDTH);
+    expect(next!.lane).not.toBe(blip!.lane);
   });
 
   it("splits a stay across weeks", () => {

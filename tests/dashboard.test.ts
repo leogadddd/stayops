@@ -6,15 +6,17 @@ import AvailabilityPage from "@/app/(app)/calendar/availability/page";
 import { requireMembership, type MembershipContext } from "@/lib/auth/session";
 import { listCalendarActivity } from "@/server/inventory/availability";
 import { listOrgUnits, listProperties } from "@/server/inventory/service";
+import { findFreeUnitIds } from "@/server/inventory/stay-search";
 import { listTasks } from "@/server/operations/service";
 import { getReport } from "@/server/reports/service";
 
 vi.mock("@/lib/auth/session", () => ({ requireMembership: vi.fn() }));
 vi.mock("@/server/inventory/availability", () => ({ listCalendarActivity: vi.fn() }));
 vi.mock("@/server/inventory/service", () => ({ listOrgUnits: vi.fn(), listProperties: vi.fn() }));
+vi.mock("@/server/inventory/stay-search", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/server/inventory/stay-search")>()), findFreeUnitIds: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/server/operations/service", () => ({ listTasks: vi.fn() }));
 vi.mock("@/server/reports/service", () => ({ getReport: vi.fn() }));
-vi.mock("@/app/(app)/calendar/actions", () => ({ checkAvailabilityAction: vi.fn() }));
 
 const owner: MembershipContext = {
   organizationId: "org-a",
@@ -109,11 +111,36 @@ describe("operations dashboard", () => {
 
 describe("availability page", () => {
   it("keeps the availability form off the calendar surface on its own route", async () => {
-    const html = renderToStaticMarkup(await AvailabilityPage());
+    const html = renderToStaticMarkup(await AvailabilityPage({ searchParams: Promise.resolve({}) }));
     expect(html).toContain("Check availability");
     expect(html).toContain("Guests");
     expect(html).toContain('href="/calendar"');
     expect(html).toContain('name="checkIn"');
     expect(html).toContain('name="checkOut"');
+    expect(html).toContain("Where can they stay?");
+  });
+
+  it("renders results from URL params and carries the search to the stay page", async () => {
+    vi.mocked(findFreeUnitIds).mockResolvedValue(new Set(["unit-a"]));
+    const html = renderToStaticMarkup(await AvailabilityPage({ searchParams: Promise.resolve({ checkIn: "2026-10-01", checkOut: "2026-10-03", guests: "2" }) }));
+    expect(html).toContain("1 stay available");
+    expect(html).toContain('href="/calendar/availability/unit-a?checkIn=2026-10-01&amp;checkOut=2026-10-03&amp;guests=2"');
+    expect(html).toContain("₱11,500 total");
+    expect(html).toContain('value="2026-10-01"');
+  });
+
+  it("leaves out units too small for the guest count and hides rates from staff", async () => {
+    vi.mocked(requireMembership).mockResolvedValue({ ...owner, role: "staff" });
+    vi.mocked(findFreeUnitIds).mockResolvedValue(new Set());
+    const html = renderToStaticMarkup(await AvailabilityPage({ searchParams: Promise.resolve({ checkIn: "2026-10-01", checkOut: "2026-10-03", guests: "3" }) }));
+    expect(html).toContain("No stays available");
+    expect(html).toContain("1 too small");
+    expect(html).not.toContain("₱");
+  });
+
+  it("shows an error for an invalid range instead of searching", async () => {
+    const html = renderToStaticMarkup(await AvailabilityPage({ searchParams: Promise.resolve({ checkIn: "2026-10-03", checkOut: "2026-10-01", guests: "2" }) }));
+    expect(html).toContain("Check-out must be after check-in.");
+    expect(findFreeUnitIds).not.toHaveBeenCalled();
   });
 });

@@ -28,8 +28,6 @@ const FULL_DATE_LABEL = new Intl.DateTimeFormat("en-PH", {
 // Bars are one line; weeks show MAX_LANES rows until expanded.
 const LANE_HEIGHT = 34;
 const MAX_LANES = 3;
-// Continuation pieces narrower than this (in days) show colour only.
-const MIN_LABELLED_PIECE = 0.75;
 const HATCH: CSSProperties = {
   backgroundImage: "repeating-linear-gradient(135deg, #d9dbd7 0 5px, #c6c9c4 5px 10px)",
 };
@@ -148,9 +146,6 @@ export function MonthCalendar({
                       const { className, style } = barStyle(event);
                       const hidden = lane >= MAX_LANES ? "hidden group-has-[:checked]/week:flex" : "flex";
                       const showMarker = event.turnover && !continuesAfter;
-                      // A sliver at a week edge only gets colour; the stay's
-                      // name is on its longer piece in the other week.
-                      const labelled = !(continuesBefore || continuesAfter) || end - start >= MIN_LABELLED_PIECE;
                       return (
                         <div key={event.id} className={`absolute ${hidden}`} style={{ left: pct(start), width: pct(end - start), top: lane * LANE_HEIGHT, height: LANE_HEIGHT - 4 }}>
                           <EventTrigger
@@ -158,17 +153,13 @@ export function MonthCalendar({
                             href={event.href}
                             aria-label={`${event.accessibleLabel}${continuesBefore ? "; continued from previous week" : ""}${continuesAfter ? "; continues next week" : ""}`}
                             title={event.accessibleLabel}
-                            className={`z-10 flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden px-2.5 text-[13px] leading-none transition-[filter] hover:brightness-95 focus-visible:z-20 ${className} ${continuesBefore ? "rounded-l-none border-l-0" : "ml-0.5 rounded-l-full"} ${continuesAfter ? "rounded-r-none border-r-0" : "mr-0.5 rounded-r-full"}`}
+                            className={`z-10 flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden px-2.5 text-[13px] leading-none transition-[filter] hover:brightness-95 focus-visible:z-20 ${className} ${continuesBefore ? "rounded-l-none border-l-0" : "ml-0.5 rounded-l-full"} ${continuesAfter ? "rounded-r-none border-r-0" : "mr-0.5 rounded-r-full"} ${showMarker ? "pr-4" : ""}`}
                             style={style}
                           >
-                            {labelled ? (
-                              <>
-                                {event.kind === "block" ? <Wrench className="h-3.5 w-3.5 shrink-0" aria-hidden /> : null}
-                                <span className="truncate font-semibold">{event.kind === "block" ? event.description ?? event.title : event.title}</span>
-                                {event.timeLabel && end - start >= 1.7 ? <span className="shrink-0 tabular-nums opacity-70">{event.timeLabel}</span> : null}
-                                {showUnit && end - start >= 3.2 ? <span className="truncate opacity-75">· {event.unitLabel}</span> : null}
-                              </>
-                            ) : null}
+                            {event.kind === "block" ? <Wrench className="h-3.5 w-3.5 shrink-0" aria-hidden /> : null}
+                            <span className="truncate font-semibold">{event.kind === "block" ? event.description ?? event.title : event.title}</span>
+                            {event.timeLabel && end - start >= 1.7 ? <span className="shrink-0 tabular-nums opacity-70">{event.timeLabel}</span> : null}
+                            {showUnit && end - start >= 3.2 ? <span className="truncate opacity-75">· {event.unitLabel}</span> : null}
                           </EventTrigger>
                           {showMarker ? (
                             <span aria-hidden className="pointer-events-none absolute right-0 top-1/2 z-20 inline-flex h-6 w-6 -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full border border-clay/50 bg-clay-mist text-clay-deep shadow-sm" title={`Turnover ${event.turnover!.startTime}–${event.turnover!.endTime}`}>

@@ -161,6 +161,18 @@ function dayFraction(time: string | undefined): number {
 
 // Keeps a same-day early departure visible as a sliver.
 const MIN_TIMED_WIDTH = 0.15;
+// Every drawn piece is at least this wide (in days) so it can carry a name,
+// including a stay's short tail at a week edge. Lanes are packed with the
+// widened extent, so a widened bar never overlaps its neighbour.
+export const MIN_BAR_WIDTH = 0.55;
+
+/** Widen a short piece inside [0, 7], growing away from the week edge it's cut at. */
+function widen(start: number, end: number, continuesBefore: boolean, continuesAfter: boolean) {
+  if (end - start >= MIN_BAR_WIDTH) return { start, end };
+  if (continuesAfter && !continuesBefore) return { start: Math.max(0, end - MIN_BAR_WIDTH), end };
+  const grown = { start, end: start + MIN_BAR_WIDTH };
+  return grown.end > 7 ? { start: 7 - MIN_BAR_WIDTH, end: 7 } : grown;
+}
 
 /** Month layout with time-accurate edges for stays and whole days for blocks. */
 export function layoutMonthBars<T extends BarInterval>(month: string, events: readonly T[]) {
@@ -179,13 +191,12 @@ export function layoutMonthBars<T extends BarInterval>(month: string, events: re
     const weekEnd = offset + 7;
     const candidates = spans
       .filter(({ start, end }) => start < end && start < weekEnd && end > offset)
-      .map(({ event, start, end }) => ({
-        event,
-        start: Math.max(start, offset) - offset,
-        end: Math.min(end, weekEnd) - offset,
-        continuesBefore: start < offset,
-        continuesAfter: end > weekEnd,
-      }))
+      .map(({ event, start, end }) => {
+        const continuesBefore = start < offset;
+        const continuesAfter = end > weekEnd;
+        const shown = widen(Math.max(start, offset) - offset, Math.min(end, weekEnd) - offset, continuesBefore, continuesAfter);
+        return { event, ...shown, continuesBefore, continuesAfter };
+      })
       .sort((a, b) => a.start - b.start || b.end - a.end || a.event.id.localeCompare(b.event.id));
     const laneEnds: number[] = [];
     const bars: WeekBar<T>[] = candidates.map((bar) => {
