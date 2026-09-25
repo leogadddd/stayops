@@ -5,22 +5,21 @@ import { requireOwner } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { organizations } from "@/lib/db/schema";
 import { PermissionDenied } from "@/components/app/permission-denied";
-import { OrganizationProfileForm } from "../../org-profile-form";
+import { OrganizationProfileForm } from "../org-profile-form";
 
-export const metadata: Metadata = { title: "Edit organization" };
+export const metadata: Metadata = { title: "Organization settings" };
 
-export default async function EditOrganizationPage() {
+export default async function OrganizationSettingsPage() {
   const membership = await requireOwner();
   if (!membership) return <PermissionDenied />;
-
-  const org = await db.query.organizations.findFirst({
+  const organization = await db.query.organizations.findFirst({
     where: eq(organizations.id, membership.organizationId),
   });
-  if (!org) notFound();
+  if (!organization) notFound();
 
   return (
     <div className="min-w-0">
-      <OrganizationProfileForm values={org} />
+      <OrganizationProfileForm values={organization} />
     </div>
   );
 }

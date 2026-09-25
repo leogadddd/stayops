@@ -85,6 +85,27 @@
       "when": 1790668800000,
       "tag": "0012_amenities",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790668800001,
+      "tag": "20260925123352_opposite_dazzler",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790668800002,
+      "tag": "20260925134209_unique_impossible_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790668800003,
+      "tag": "20260925140951_melodic_stick",
+      "breakpoints": true
     }
   ]
 }

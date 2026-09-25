@@ -25,3 +25,17 @@ export async function imageDataUrlFromForm(formData: FormData, key: string) {
   const bytes = await value.arrayBuffer();
   return `data:${value.type};base64,${Buffer.from(bytes).toString("base64")}`;
 }
+
+/** Validate a client-cropped image produced by the organization logo editor. */
+export function imageDataUrlFromValue(value: string) {
+  if (!value) return undefined;
+  if (!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(value)) {
+    throw new InventoryError("Upload a JPG, PNG, or WebP image.", "logo");
+  }
+  // Base64 adds roughly one third overhead; keep the resulting value within
+  // the same 4 MB input limit used by normal image uploads.
+  if (value.length > Math.ceil(MAX_IMAGE_BYTES * 4 / 3) + 128) {
+    throw new InventoryError("Image must be 4 MB or smaller.", "logo");
+  }
+  return value;
+}

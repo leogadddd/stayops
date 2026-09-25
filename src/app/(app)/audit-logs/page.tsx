@@ -3,6 +3,9 @@ import type { Metadata } from "next";
 import { requireOwner } from "@/lib/auth/session";
 import { formatAuditDetails, formatAuditTarget } from "@/lib/audit";
 import { isLocalDate } from "@/lib/dates";
+import { db } from "@/lib/db";
+import { organizations } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 import { AUDIT_ACTION_LABELS } from "@/lib/labels";
 import { getAuditLogPage } from "@/server/audit/service";
 import { PageHeading } from "@/components/app/page-heading";
@@ -13,10 +16,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 export const metadata: Metadata = { title: "Audit logs" };
 
-const TIME_LABEL = new Intl.DateTimeFormat("en-PH", {
-  dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Manila",
-});
-
 type AuditSearchParams = { action?: string; actor?: string; startDate?: string; endDate?: string; page?: string };
 
 export default async function AuditLogsPage({ searchParams = Promise.resolve({}) }: { searchParams?: Promise<AuditSearchParams> } = {}) {
@@ -24,6 +23,12 @@ export default async function AuditLogsPage({ searchParams = Promise.resolve({})
   if (!membership) return <PermissionDenied />;
 
   const params = await searchParams;
+  const organization = await db.query.organizations.findFirst({ where: eq(organizations.id, membership.organizationId) });
+  const timeLabel = new Intl.DateTimeFormat("en-PH", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: organization?.defaultTimezone ?? "Asia/Manila",
+  });
   const action = params.action?.trim() || undefined;
   const actor = params.actor?.trim() || undefined;
   const startDate = params.startDate && isLocalDate(params.startDate) ? params.startDate : undefined;
@@ -46,7 +51,7 @@ export default async function AuditLogsPage({ searchParams = Promise.resolve({})
 
   return (
     <div className="min-w-0 overflow-hidden">
-      <PageHeading title="Audit logs" description="Recorded activity in your organization. Times shown in Philippine time (Asia/Manila)." />
+      <PageHeading title="Audit logs" description={`Recorded activity in your organization. Times shown in ${organization?.defaultTimezone ?? "Asia/Manila"}.`} />
 
       <form method="get" className="flex flex-wrap items-end gap-3 rounded-2xl border border-pine/10 bg-white p-4 shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
         <div className="min-w-48 flex-1"><label htmlFor="audit-action" className="mb-1.5 block text-sm font-medium text-ink">Action</label><Input id="audit-action" name="action" defaultValue={action ?? ""} placeholder="e.g. payment or reservation" /></div>
@@ -66,7 +71,7 @@ export default async function AuditLogsPage({ searchParams = Promise.resolve({})
               const target = formatAuditTarget(event);
               const actorLabel = event.actorName ?? (event.action === "payment_proof.submitted" ? "Guest portal" : event.actorUserId ? "Former user" : "System");
               return <TableRow key={event.id}>
-                <TableCell className="whitespace-nowrap align-top text-ink/65"><time dateTime={event.createdAt.toISOString()}>{TIME_LABEL.format(event.createdAt)}</time></TableCell>
+                <TableCell className="whitespace-nowrap align-top text-ink/65"><time dateTime={event.createdAt.toISOString()}>{timeLabel.format(event.createdAt)}</time></TableCell>
                 <TableCell className="min-w-56 align-top"><p className="font-medium text-pine">{AUDIT_ACTION_LABELS[event.action] ?? event.action}</p>{details ? <p className="mt-1 max-w-md text-sm leading-relaxed text-ink/55">{details}</p> : null}</TableCell>
                 <TableCell className="min-w-40 align-top"><p className="font-medium text-pine">{target.label}</p><p className="mt-1 text-xs text-ink/45">{target.kind}</p></TableCell>
                 <TableCell className="whitespace-nowrap align-top">{actorLabel}</TableCell>

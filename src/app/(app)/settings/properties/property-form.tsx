@@ -13,19 +13,7 @@ import {
 } from "./actions";
 import { useActionFeedback } from "@/hooks/use-action-feedback";
 import { AmenityPicker, type AmenityOption } from "./amenity-picker";
-
-const COMMON_TIMEZONES = [
-  "Asia/Manila",
-  "Asia/Singapore",
-  "Asia/Hong_Kong",
-  "Asia/Tokyo",
-  "Asia/Dubai",
-  "Australia/Sydney",
-  "Europe/London",
-  "America/New_York",
-  "America/Los_Angeles",
-  "UTC",
-];
+import { TimezonePicker } from "@/components/ui/timezone-picker";
 
 export interface PropertyFormValues {
   name: string;
@@ -51,12 +39,14 @@ const EMPTY: PropertyFormValues = {
 export function PropertyForm({
   propertyId,
   initialValues,
+  defaultTimezone,
   amenityOptions = [],
   selectedAmenityIds = [],
 }: {
   /** Present → edit mode; absent → create mode. */
   propertyId?: string;
   initialValues?: PropertyFormValues;
+  defaultTimezone?: string;
   amenityOptions?: AmenityOption[];
   selectedAmenityIds?: string[];
 }) {
@@ -70,7 +60,7 @@ export function PropertyForm({
   useActionFeedback(state, {
     success: propertyId ? "Property updated." : "Property created.",
   });
-  const values = initialValues ?? EMPTY;
+  const values = initialValues ?? { ...EMPTY, timezone: defaultTimezone ?? EMPTY.timezone };
   const router = useRouter();
   useEffect(() => {
     if (state.success) {
@@ -124,10 +114,7 @@ export function PropertyForm({
         <CardBody className="grid gap-4 sm:grid-cols-3">
           <div>
             <Label htmlFor="timezone">Timezone</Label>
-            <Input id="timezone" name="timezone" defaultValue={values.timezone} list="timezone-options" required />
-            <datalist id="timezone-options">
-              {COMMON_TIMEZONES.map((zone) => <option key={zone} value={zone} />)}
-            </datalist>
+            <TimezonePicker id="timezone" name="timezone" defaultValue={values.timezone} required />
           </div>
           <div>
             <Label htmlFor="checkInTime">Default check-in</Label>

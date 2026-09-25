@@ -81,6 +81,8 @@ export const DAMAGE_STATUS_LABELS: Record<DamageStatus, string> = {
 export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "organization.created": "Organization created",
   "organization.renamed": "Organization renamed",
+  "organization.profile_updated": "Organization profile updated",
+  "organization.region_updated": "Organization region updated",
   "organization.payment_instructions_updated": "Guest payment instructions updated",
   "organization.staff_invited": "Staff member added",
   "organization.staff_removed": "Staff member removed",

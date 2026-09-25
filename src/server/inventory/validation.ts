@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { isLocalDate } from "@/lib/dates";
 import { UNIT_STATUSES } from "@/lib/db/schema";
+import { isSupportedTimeZone } from "@/lib/timezones";
 
 export class InventoryError extends Error {
   constructor(
@@ -19,6 +20,7 @@ export function isValidHmTime(value: string): boolean {
 }
 
 export function isValidTimeZone(value: string): boolean {
+  if (!isSupportedTimeZone(value)) return false;
   try {
     new Intl.DateTimeFormat("en-US", { timeZone: value });
     return true;

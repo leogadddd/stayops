@@ -30,7 +30,7 @@ import { UnitEditForm } from "@/app/(app)/settings/properties/[propertyId]/units
 import { BlockForms } from "@/app/(app)/settings/properties/[propertyId]/units/block-forms";
 import { ChecklistTemplateEditor } from "@/app/(app)/settings/properties/[propertyId]/units/checklist-template-editor";
 
-const navigation = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
+const navigation = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn(), redirect: vi.fn() }));
 vi.mock("react", async (importOriginal) => ({
   ...await importOriginal<typeof import("react")>(),
   useActionState: vi.fn(),
@@ -38,6 +38,7 @@ vi.mock("react", async (importOriginal) => ({
 }));
 vi.mock("next/navigation", () => ({
   useRouter: () => navigation,
+  redirect: navigation.redirect,
   notFound: () => { throw new Error("Not found"); },
 }));
 vi.mock("@/lib/auth/session", () => ({ requireOwner: vi.fn() }));
@@ -51,7 +52,7 @@ vi.mock("@/server/inventory/amenities", () => ({
   listAmenities: vi.fn(async () => []), listPropertyAmenities: vi.fn(async () => []), listUnitAmenities: vi.fn(async () => []),
 }));
 vi.mock("@/app/(app)/settings/actions", () => ({
-  renameOrganization: vi.fn(), savePaymentInstructions: vi.fn(), inviteStaffAction: vi.fn(), removeStaffAction: vi.fn(),
+  renameOrganization: vi.fn(), saveOrganizationProfile: vi.fn(), savePaymentInstructions: vi.fn(), inviteStaffAction: vi.fn(), removeStaffAction: vi.fn(),
 }));
 vi.mock("@/app/(app)/settings/properties/actions", () => ({
   createPropertyAction: vi.fn(), updatePropertyAction: vi.fn(), createUnitAction: vi.fn(),
@@ -96,7 +97,7 @@ const unitPages = [
 ];
 const newPages = [
   { name: "audit logs", render: () => AuditLogsPage(), firstRead: getAuditLogPage },
-  { name: "organization edit", render: () => EditOrganizationPage(), firstRead: db.query.organizations.findFirst },
+  { name: "organization edit", render: () => EditOrganizationPage(), firstRead: db.query.organizations.findFirst, hasPageHeading: false },
   { name: "payment instructions edit", render: () => EditPaymentInstructionsPage(), firstRead: db.query.organizations.findFirst },
   { name: "staff create", render: () => NewStaffPage(), firstRead: undefined },
   { name: "property create", render: () => NewPropertyPage(), firstRead: undefined },
@@ -111,7 +112,9 @@ beforeEach(() => {
   vi.mocked(React.useActionState).mockReturnValue([{}, vi.fn(), false]);
   vi.mocked(requireOwner).mockResolvedValue(owner);
   vi.mocked(db.query.organizations.findFirst).mockResolvedValue({
-    id: owner.organizationId, name: owner.organizationName, slug: owner.organizationSlug,
+    id: owner.organizationId, name: owner.organizationName, displayName: null, slug: owner.organizationSlug, defaultTimezone: "Asia/Manila",
+    contactEmail: null, contactPhone: null, logoUrl: null, addressLine1: null, addressLine2: null,
+    city: null, municipality: null, province: null, region: null, country: "Philippines", businessAddress: null, legalName: null, taxId: null,
     paymentInstructions: "Contact the owner for payment details", createdAt: new Date("2026-09-01T00:00:00Z"),
     updatedAt: new Date("2026-09-01T00:00:00Z"),
   });
@@ -135,7 +138,9 @@ describe("dedicated owner route boundaries", () => {
     for (const read of reads) expect(read).not.toHaveBeenCalled();
   });
 
-  it.each(newPages)("renders $name after its own owner check", async ({ render, firstRead }) => {
+  it.each(newPages)("renders $name after its own owner check", async (page) => {
+    const { render, firstRead } = page;
+    const hasPageHeading = !("hasPageHeading" in page) || page.hasPageHeading !== false;
     const tree = await render();
     expect(tree.type).not.toBe(PermissionDenied);
     expect(requireOwner).toHaveBeenCalledOnce();
@@ -145,7 +150,9 @@ describe("dedicated owner route boundaries", () => {
       expect(ownerCheckOrder).toBeDefined();
       expect(vi.mocked(firstRead).mock.invocationCallOrder[0]).toBeGreaterThan(ownerCheckOrder ?? Infinity);
     }
-    expect(renderToStaticMarkup(tree)).toContain("<h1");
+    const html = renderToStaticMarkup(tree);
+    if (hasPageHeading) expect(html).toContain("<h1");
+    else expect(html).not.toContain("<h1");
   });
 
   it.each([...propertyPages, ...unitPages])("scopes $name property reads to the trusted tenant", async ({ render }) => {
@@ -178,14 +185,10 @@ describe("dedicated owner route boundaries", () => {
 });
 
 describe("read-only summaries and reusable tables", () => {
-  it("keeps settings forms and the audit query off the settings overview", async () => {
-    const html = renderToStaticMarkup(await SettingsPage());
-    expect(html).not.toContain("<form");
-    expect(html).toContain('data-slot="table"');
-    expect(html).toContain("Contact the owner for payment details");
-    for (const href of ["/settings/organization/edit", "/settings/payment-instructions/edit", "/settings/staff/new", "/audit-logs"]) expect(html).toContain(`href="${href}"`);
+  it("redirects the settings entry point to General", async () => {
+    await SettingsPage();
+    expect(navigation.redirect).toHaveBeenCalledWith("/settings/general");
     expect(listAuditEvents).not.toHaveBeenCalled();
-    expect(html).toContain("Remove Team member");
   });
 
   it("lists properties in a shared table and links to a separate create route", async () => {

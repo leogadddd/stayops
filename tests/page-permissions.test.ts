@@ -14,7 +14,6 @@ import { ReservationForm } from "@/app/(app)/reservations/new/reservation-form";
 import { expireStaleHolds } from "@/server/reservations/holds";
 import { getReservationLedger } from "@/server/payments/service";
 import { getTaskForReservation, listOpenDamageReports } from "@/server/operations/service";
-import SettingsPage from "@/app/(app)/settings/page";
 import SettingsLayout from "@/app/(app)/settings/layout";
 import PropertiesPage from "@/app/(app)/settings/properties/page";
 import PropertyDetailPage from "@/app/(app)/settings/properties/[propertyId]/page";
@@ -39,6 +38,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/navigation", () => ({
   notFound: vi.fn(() => { throw new Error("Not found"); }),
   redirect: vi.fn(() => { throw new Error("Unexpected redirect"); }),
+  usePathname: vi.fn(() => "/settings/organization"),
 }));
 vi.mock("@/lib/db", () => ({
   db: {
@@ -110,7 +110,6 @@ const protectedReads = [
 ];
 
 const ownerPages = [
-  { name: "settings", render: () => SettingsPage(), firstRead: db.query.organizations.findFirst },
   { name: "properties", render: () => PropertiesPage(), firstRead: inventory.listProperties },
   {
     name: "property detail",
@@ -146,7 +145,13 @@ describe("independent owner page boundaries", () => {
 
   it.each(ownerPages)("allows owners through the $name boundary", async ({ render, firstRead }) => {
     vi.mocked(requireOwner).mockResolvedValue(owner);
-    vi.mocked(db.query.organizations.findFirst).mockResolvedValue(undefined);
+    vi.mocked(db.query.organizations.findFirst).mockResolvedValue({
+      id: owner.organizationId, name: owner.organizationName, displayName: null,
+      slug: owner.organizationSlug, defaultTimezone: "Asia/Manila", contactEmail: null,
+      contactPhone: null, logoUrl: null, addressLine1: null, addressLine2: null,
+      city: null, municipality: null, province: null, region: null, country: "Philippines", businessAddress: null, legalName: null, taxId: null,
+      paymentInstructions: null, createdAt: new Date(), updatedAt: new Date(),
+    });
     vi.mocked(db.select).mockReturnValue({
       from: () => ({ innerJoin: () => ({ where: async () => [] }) }),
     } as unknown as ReturnType<typeof db.select>);
@@ -177,20 +182,13 @@ describe("independent owner page boundaries", () => {
     expect(tree.type).not.toBe(PermissionDenied);
     expect(requireOwner).toHaveBeenCalledOnce();
     expect(firstRead).toHaveBeenCalledOnce();
-    if (firstRead !== db.query.organizations.findFirst) {
-      expect(vi.mocked(firstRead).mock.calls[0]?.[0]).toBe(owner.organizationId);
-    }
+    expect(vi.mocked(firstRead).mock.calls[0]?.[0]).toBe(owner.organizationId);
   });
 
-  it("retains the settings layout guard in addition to the page guards", async () => {
-    const tree = await SettingsLayout({ children: "Protected settings content" });
-    expect(tree.type).toBe(PermissionDenied);
-    expect(renderToStaticMarkup(tree)).not.toContain("Protected settings content");
-    for (const read of protectedReads) expect(read).not.toHaveBeenCalled();
-
-    vi.mocked(requireOwner).mockResolvedValue(owner);
-    expect(renderToStaticMarkup(await SettingsLayout({ children: "Owner settings" })))
-      .toContain("Owner settings");
+  it("allows team members into the settings shell for personal settings", async () => {
+    const tree = await SettingsLayout({ children: "Personal settings" });
+    expect(renderToStaticMarkup(tree)).toContain("Personal settings");
+    expect(requireMembership).toHaveBeenCalledOnce();
   });
 });
 
