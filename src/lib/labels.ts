@@ -95,6 +95,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "unit_block.created": "Unit blocked",
   "unit_block.removed": "Unit block removed",
   "guest.created": "Guest added",
+  "guest.updated": "Guest details updated",
   "reservation.created": "Reservation or hold created",
   "reservation.confirmed": "Hold confirmed",
   "reservation.cancelled": "Reservation cancelled",

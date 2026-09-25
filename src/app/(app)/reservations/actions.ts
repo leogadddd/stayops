@@ -223,7 +223,10 @@ export async function updateReservationAction(reservationId: string, _prev: Rese
   assertOwner(membership);
   try {
     await updateReservation({ organizationId: membership.organizationId, actorUserId: membership.userId, reservationId, data: {
-      checkIn: readString(formData, "checkIn"), checkOut: readString(formData, "checkOut"), guestCount: Number(readString(formData, "guestCount")), guestId: readString(formData, "guestId"),
+      checkIn: readString(formData, "checkIn"), checkOut: readString(formData, "checkOut"), guestCount: Number(readString(formData, "guestCount")),
+      // "new" creates a guest profile from the contact fields below.
+      guestId: readString(formData, "guestId") === "new" ? undefined : readString(formData, "guestId") || undefined,
+      primaryGuest: readString(formData, "guestName") ? { name: readString(formData, "guestName"), email: readString(formData, "guestEmail") || undefined, phone: readString(formData, "guestPhone") || undefined } : undefined,
       unitId: readString(formData, "unitId"), occupantNames: formData.getAll("occupantName").map((value) => String(value).trim()),
       charges: formData.getAll("chargeType").map((type, index) => ({ type: String(type) as ChargeLineInput["type"], description: String(formData.getAll("chargeDescription")[index] ?? "").trim(), quantity: Number(formData.getAll("chargeQuantity")[index] ?? 0), unitAmountCents: pesosToCentavos(String(formData.getAll("chargeAmountPesos")[index] ?? "")) })),
     } });
