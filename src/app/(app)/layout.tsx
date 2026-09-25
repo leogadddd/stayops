@@ -20,7 +20,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <AppSidebar {...identity} />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <AppHeader {...identity} initialNow={new Date().toISOString()} />
-        <main id="main-content" tabIndex={-1} className="app-scroll min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
+        <main id="main-content" tabIndex={-1} className="app-scroll relative min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
       </div>
     </div>
   );
