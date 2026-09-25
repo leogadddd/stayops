@@ -6,6 +6,7 @@ import { InventoryError } from "@/server/inventory/validation";
 import { PageHeading } from "@/components/app/page-heading";
 import { PermissionDenied } from "@/components/app/permission-denied";
 import { UnitCreateForm } from "../../../unit-create-form";
+import { listAmenities } from "@/server/inventory/amenities";
 
 export const metadata: Metadata = { title: "Add unit" };
 
@@ -25,7 +26,7 @@ export default async function NewUnitPage({ params }: { params: Promise<{ proper
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeading title="Add unit" description={`Create an independently bookable space in ${property.name}.`} backHref={`/settings/properties/${property.id}`} backLabel={property.name} />
-      <UnitCreateForm propertyId={property.id} defaults={{ checkInTime: property.checkInTime, checkOutTime: property.checkOutTime }} />
+      <UnitCreateForm propertyId={property.id} defaults={{ checkInTime: property.checkInTime, checkOutTime: property.checkOutTime }} amenityOptions={await listAmenities(membership.organizationId, "unit")} />
     </div>
   );
 }

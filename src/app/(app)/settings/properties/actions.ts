@@ -15,6 +15,8 @@ import {
   updateProperty,
   updateUnit,
 } from "@/server/inventory/service";
+import { createAmenity, type AmenityOption } from "@/server/inventory/amenities";
+import { AMENITY_SCOPES, type AmenityScope } from "@/lib/db/schema";
 import { InventoryError } from "@/server/inventory/validation";
 import { imageDataUrlFromForm } from "@/server/inventory/image-upload";
 import { unexpectedErrorMessage } from "@/lib/errors";
@@ -38,6 +40,10 @@ function readTurnoverDuration(formData: FormData): number {
   const hours = Number(readString(formData, "turnoverHours") || "0");
   const minutes = Number(readString(formData, "turnoverMinutes") || "0");
   return hours * 60 + minutes;
+}
+
+function readAmenityIds(formData: FormData): string[] {
+  return formData.getAll("amenityId").map((value) => String(value)).filter(Boolean);
 }
 
 function toFormError(error: unknown): InventoryFormState {
@@ -73,6 +79,7 @@ export async function createPropertyAction(
         houseRules: readString(formData, "houseRules") || undefined,
         imageUrl: await imageDataUrlFromForm(formData, "image"),
       },
+      amenityIds: readAmenityIds(formData),
     });
   } catch (error) {
     return toFormError(error);
@@ -104,6 +111,7 @@ export async function updatePropertyAction(
         houseRules: readString(formData, "houseRules") || undefined,
         imageUrl: await imageDataUrlFromForm(formData, "image"),
       },
+      amenityIds: readAmenityIds(formData),
     });
   } catch (error) {
     return toFormError(error);
@@ -169,6 +177,7 @@ export async function createUnitAction(
       actorUserId: membership.userId,
       propertyId,
       data: await unitDataFromForm(formData),
+      amenityIds: readAmenityIds(formData),
     });
   } catch (error) {
     return toFormError(error);
@@ -192,6 +201,7 @@ export async function updateUnitAction(
       actorUserId: membership.userId,
       unitId,
       data: await unitDataFromForm(formData),
+      amenityIds: readAmenityIds(formData),
     });
   } catch (error) {
     return toFormError(error);
@@ -252,4 +262,24 @@ export async function updateChecklistTemplateAction(
   revalidatePath(`/settings/properties/${propertyId}/units/${unitId}`);
   revalidatePath("/tasks");
   return { success: true };
+}
+
+export async function createAmenityAction(
+  scope: AmenityScope,
+  name: string,
+): Promise<{ amenity?: AmenityOption; error?: string }> {
+  const membership = await requireMembership();
+  assertOwner(membership);
+  if (!AMENITY_SCOPES.includes(scope)) return { error: "Choose a property or unit amenity." };
+  try {
+    const amenity = await createAmenity({
+      organizationId: membership.organizationId,
+      actorUserId: membership.userId,
+      scope,
+      name,
+    });
+    return { amenity };
+  } catch (error) {
+    return toFormError(error);
+  }
 }

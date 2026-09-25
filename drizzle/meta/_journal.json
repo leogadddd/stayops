@@ -78,6 +78,13 @@
       "when": 1790582400000,
       "tag": "0011_inventory_cover_images",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790668800000,
+      "tag": "0012_amenities",
+      "breakpoints": true
     }
   ]
 }

@@ -6,6 +6,7 @@ import { InventoryError } from "@/server/inventory/validation";
 import { PageHeading } from "@/components/app/page-heading";
 import { PermissionDenied } from "@/components/app/permission-denied";
 import { PropertyForm } from "../../property-form";
+import { listAmenities, listPropertyAmenities } from "@/server/inventory/amenities";
 
 export const metadata: Metadata = { title: "Edit property" };
 
@@ -22,10 +23,15 @@ export default async function EditPropertyPage({ params }: { params: Promise<{ p
     throw error;
   }
 
+  const [amenityOptions, selected] = await Promise.all([
+    listAmenities(membership.organizationId, "property"),
+    listPropertyAmenities(membership.organizationId, property.id),
+  ]);
+
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeading title="Edit property" description={property.name} backHref={`/settings/properties/${property.id}`} backLabel={property.name} />
-      <PropertyForm propertyId={property.id} initialValues={{ name: property.name, address: property.address ?? "", timezone: property.timezone, checkInTime: property.checkInTime, checkOutTime: property.checkOutTime, turnoverDurationMinutes: property.turnoverDurationMinutes, houseRules: property.houseRules ?? "", imageUrl: property.imageUrl }} />
+      <PropertyForm propertyId={property.id} amenityOptions={amenityOptions} selectedAmenityIds={selected.map((amenity) => amenity.id)} initialValues={{ name: property.name, address: property.address ?? "", timezone: property.timezone, checkInTime: property.checkInTime, checkOutTime: property.checkOutTime, turnoverDurationMinutes: property.turnoverDurationMinutes, houseRules: property.houseRules ?? "", imageUrl: property.imageUrl }} />
     </div>
   );
 }

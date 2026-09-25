@@ -16,6 +16,8 @@ import { buttonClassName } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { RemoveBlockButton } from "../block-forms";
+import { AmenityList } from "../../../amenity-icons";
+import { listUnitAmenities } from "@/server/inventory/amenities";
 
 export const metadata: Metadata = { title: "Unit" };
 
@@ -35,7 +37,10 @@ export default async function UnitDetailPage({ params }: { params: Promise<{ pro
   }
   if (unit.propertyId !== property.id) notFound();
 
-  const blocks = await listUnitBlocks(membership.organizationId, unit.id, todayInTimeZone(property.timezone));
+  const [blocks, amenities] = await Promise.all([
+    listUnitBlocks(membership.organizationId, unit.id, todayInTimeZone(property.timezone)),
+    listUnitAmenities(membership.organizationId, unit.id),
+  ]);
   const checklist = normalizeChecklistTemplate(unit.checklistTemplate);
   const unitHref = `/settings/properties/${property.id}/units/${unit.id}`;
 
@@ -59,6 +64,7 @@ export default async function UnitDetailPage({ params }: { params: Promise<{ pro
             <div><dt className="text-ink/55">Nightly rate</dt><dd className="mt-1 text-pine">{formatPHP(unit.defaultNightlyRateCents)}</dd></div>
             <div><dt className="text-ink/55">Cleaning fee</dt><dd className="mt-1 text-pine">{unit.cleaningFeeCents === null ? "Not set" : formatPHP(unit.cleaningFeeCents)}</dd></div>
             <div><dt className="text-ink/55">Refundable deposit</dt><dd className="mt-1 text-pine">{unit.securityDepositCents === null ? "Not set" : formatPHP(unit.securityDepositCents)}</dd></div>
+            <div className="sm:col-span-3"><dt className="mb-2 text-ink/55">Amenities</dt><dd><AmenityList amenities={amenities} emptyLabel="No amenities selected." /></dd></div>
           </dl>
         </CardBody>
       </Card>

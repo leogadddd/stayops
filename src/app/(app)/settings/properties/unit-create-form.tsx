@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { createUnitAction, type InventoryFormState } from "./actions";
 import { useActionFeedback } from "@/hooks/use-action-feedback";
 import { UnitFormFields } from "./unit-form-fields";
+import type { AmenityOption } from "./amenity-picker";
 
-export function UnitCreateForm({ propertyId, defaults }: {
+export function UnitCreateForm({ propertyId, defaults, amenityOptions }: {
   propertyId: string;
+  amenityOptions?: AmenityOption[];
   /** New units start from the property's default arrival and departure. */
   defaults?: { checkInTime: string; checkOutTime: string };
 }) {
@@ -37,6 +39,7 @@ export function UnitCreateForm({ propertyId, defaults }: {
         submitLabel="Add unit"
         pendingLabel="Adding…"
         editing={false}
+        amenityOptions={amenityOptions}
       />
     </form>
   );

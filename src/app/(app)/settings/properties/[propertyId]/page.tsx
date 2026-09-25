@@ -15,6 +15,8 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { TableActionsMenu } from "@/components/ui/table-actions-menu";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { deleteUnitAction } from "../actions";
+import { AmenityList } from "../amenity-icons";
+import { listPropertyAmenities } from "@/server/inventory/amenities";
 
 export const metadata: Metadata = { title: "Property" };
 
@@ -30,7 +32,10 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
     if (error instanceof InventoryError) notFound();
     throw error;
   }
-  const propertyUnits = await listPropertyUnits(membership.organizationId, property.id);
+  const [propertyUnits, amenities] = await Promise.all([
+    listPropertyUnits(membership.organizationId, property.id),
+    listPropertyAmenities(membership.organizationId, property.id),
+  ]);
   const propertyHref = `/settings/properties/${property.id}`;
 
   return (
@@ -48,6 +53,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
             <div><dt className="text-ink/55">Timezone</dt><dd className="mt-1 text-pine">{property.timezone}</dd></div>
             <div><dt className="text-ink/55">Default arrival time · all units</dt><dd className="mt-1 text-pine">{property.checkInTime}</dd></div>
             <div><dt className="text-ink/55">Default departure time · all units</dt><dd className="mt-1 text-pine">{property.checkOutTime}</dd></div>
+            <div className="sm:col-span-3"><dt className="mb-2 text-ink/55">Amenities</dt><dd><AmenityList amenities={amenities} emptyLabel="No amenities selected." /></dd></div>
             <div className="sm:col-span-3"><dt className="text-ink/55">House rules · shown to guests</dt><dd className="mt-1 whitespace-pre-wrap break-words leading-relaxed text-pine">{property.houseRules || "No house rules provided."}</dd></div>
           </dl>
         </CardBody>

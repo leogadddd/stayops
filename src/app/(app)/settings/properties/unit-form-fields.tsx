@@ -5,6 +5,7 @@ import { UNIT_STATUS_LABELS } from "@/lib/labels";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { FieldError, Input, Label, Select } from "@/components/ui/input";
+import { AmenityPicker, type AmenityOption } from "./amenity-picker";
 
 export interface UnitFormValues {
   name: string;
@@ -22,8 +23,10 @@ export interface UnitFormValues {
 }
 
 /** The sections shared by the add-unit and edit-unit forms. */
-export function UnitFormFields({ values, error, pending, cancelHref, submitLabel, pendingLabel, editing }: {
+export function UnitFormFields({ values, error, pending, cancelHref, submitLabel, pendingLabel, editing, amenityOptions = [], selectedAmenityIds = [] }: {
   values: UnitFormValues;
+  amenityOptions?: AmenityOption[];
+  selectedAmenityIds?: string[];
   error?: string;
   pending: boolean;
   cancelHref: string;
@@ -128,11 +131,15 @@ export function UnitFormFields({ values, error, pending, cancelHref, submitLabel
         </CardBody>
       </Card>
 
-      <p className="rounded-xl border border-dashed border-pine/20 bg-sage/20 px-4 py-3 text-sm text-ink/60">
-        {editing
-          ? "Manage amenities, per-stay add-ons, and date-specific price rules from this unit's page."
-          : "Save the unit first, then manage its amenities, per-stay add-ons, and date-specific price rules from the unit page."}
-      </p>
+      <Card>
+        <CardHeader>
+          <h2 className="font-display text-lg text-pine">Unit amenities</h2>
+          <p className="text-sm text-ink/60">What guests get inside the unit, like towels, toiletries, and kitchen tools.</p>
+        </CardHeader>
+        <CardBody>
+          <AmenityPicker scope="unit" options={amenityOptions} defaultSelected={selectedAmenityIds} />
+        </CardBody>
+      </Card>
 
       <Card>
         <CardHeader><h2 className="font-display text-lg text-pine">{editing ? "Save changes" : "Save unit"}</h2></CardHeader>

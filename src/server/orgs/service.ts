@@ -3,6 +3,7 @@ import "server-only";
 import { and, eq, ne } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { auditEvents, memberships, organizations, user } from "@/lib/db/schema";
+import { seedDefaultAmenities } from "@/server/inventory/amenities";
 
 export const ORG_NAME_MAX = 80;
 export const ORG_SLUG_MAX = 60;
@@ -85,6 +86,7 @@ export async function createOrganization(input: {
     if (!org) {
       throw new OrgError("Failed to create the organization.");
     }
+    await seedDefaultAmenities(tx, org.id);
 
     await tx.insert(memberships).values({
       organizationId: org.id,

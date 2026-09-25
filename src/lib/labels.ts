@@ -94,6 +94,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "unit.checklist_updated": "Turnover checklist updated",
   "unit_block.created": "Unit blocked",
   "unit_block.removed": "Unit block removed",
+  "amenity.created": "Amenity added",
   "guest.created": "Guest added",
   "guest.updated": "Guest details updated",
   "reservation.created": "Reservation or hold created",

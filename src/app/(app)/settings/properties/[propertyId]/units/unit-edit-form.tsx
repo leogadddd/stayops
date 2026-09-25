@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { updateUnitAction, type InventoryFormState } from "../../actions";
 import { useActionFeedback } from "@/hooks/use-action-feedback";
 import { UnitFormFields, type UnitFormValues } from "../../unit-form-fields";
+import type { AmenityOption } from "../../amenity-picker";
 
 export type { UnitFormValues };
 
@@ -12,10 +13,14 @@ export function UnitEditForm({
   propertyId,
   unitId,
   values,
+  amenityOptions,
+  selectedAmenityIds,
 }: {
   propertyId: string;
   unitId: string;
   values: UnitFormValues;
+  amenityOptions?: AmenityOption[];
+  selectedAmenityIds?: string[];
 }) {
   const [state, formAction, pending] = useActionState<InventoryFormState, FormData>(
     updateUnitAction.bind(null, propertyId, unitId),
@@ -41,6 +46,8 @@ export function UnitEditForm({
         submitLabel="Save changes"
         pendingLabel="Saving…"
         editing
+        amenityOptions={amenityOptions}
+        selectedAmenityIds={selectedAmenityIds}
       />
     </form>
   );

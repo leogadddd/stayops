@@ -38,3 +38,12 @@ new snapshot together. New migrations use timestamp file prefixes (see
 Don't edit a migration that has already been applied anywhere; add a new
 one. Don't use `db:push` for real changes, since it skips the migration
 history.
+
+## Amenities
+
+Each organization has its own amenity catalog (`amenities`, scoped
+`property` or `unit`). Defaults live in `src/lib/amenities.ts`; new
+organizations get them in `createOrganization`, and
+`npm run db:seed-amenities` backfills existing organizations (idempotent).
+Adding a default means updating that list, its icon in
+`amenity-icons.tsx`, and rerunning the seed.

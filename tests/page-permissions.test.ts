@@ -47,6 +47,9 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 vi.mock("@/server/audit/service", () => ({ listAuditEvents: vi.fn() }));
+vi.mock("@/server/inventory/amenities", () => ({
+  listAmenities: vi.fn(async () => []), listPropertyAmenities: vi.fn(async () => []), listUnitAmenities: vi.fn(async () => []),
+}));
 vi.mock("@/server/inventory/service", () => ({
   listProperties: vi.fn(),
   listPropertyUnits: vi.fn(),

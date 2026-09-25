@@ -47,6 +47,9 @@ vi.mock("@/server/inventory/service", () => ({
   listProperties: vi.fn(), listPropertyUnits: vi.fn(), getPropertyOrThrow: vi.fn(),
   getUnitOrThrow: vi.fn(), listUnitBlocks: vi.fn(),
 }));
+vi.mock("@/server/inventory/amenities", () => ({
+  listAmenities: vi.fn(async () => []), listPropertyAmenities: vi.fn(async () => []), listUnitAmenities: vi.fn(async () => []),
+}));
 vi.mock("@/app/(app)/settings/actions", () => ({
   renameOrganization: vi.fn(), savePaymentInstructions: vi.fn(), inviteStaffAction: vi.fn(), removeStaffAction: vi.fn(),
 }));

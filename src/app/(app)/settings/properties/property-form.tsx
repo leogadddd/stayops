@@ -12,6 +12,7 @@ import {
   type InventoryFormState,
 } from "./actions";
 import { useActionFeedback } from "@/hooks/use-action-feedback";
+import { AmenityPicker, type AmenityOption } from "./amenity-picker";
 
 const COMMON_TIMEZONES = [
   "Asia/Manila",
@@ -50,10 +51,14 @@ const EMPTY: PropertyFormValues = {
 export function PropertyForm({
   propertyId,
   initialValues,
+  amenityOptions = [],
+  selectedAmenityIds = [],
 }: {
   /** Present → edit mode; absent → create mode. */
   propertyId?: string;
   initialValues?: PropertyFormValues;
+  amenityOptions?: AmenityOption[];
+  selectedAmenityIds?: string[];
 }) {
   const action = propertyId
     ? updatePropertyAction.bind(null, propertyId)
@@ -98,6 +103,16 @@ export function PropertyForm({
             <p className="mt-1 text-xs text-ink/50">JPG, PNG, or WebP · up to 4 MB.{values.imageUrl ? " Leave blank to keep the current photo." : ""}</p>
             {values.imageUrl ? <img src={values.imageUrl} alt="Current property cover" className="mt-3 h-32 w-48 rounded-lg object-cover" /> : null}
           </div>
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <h2 className="font-display text-lg text-pine">Property amenities</h2>
+          <p className="text-sm text-ink/60">Shared facilities of the building or compound, like a pool, parking, or gym.</p>
+        </CardHeader>
+        <CardBody>
+          <AmenityPicker scope="property" options={amenityOptions} defaultSelected={selectedAmenityIds} />
         </CardBody>
       </Card>
 
