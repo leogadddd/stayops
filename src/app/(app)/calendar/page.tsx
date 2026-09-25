@@ -1,9 +1,9 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ArrowDownToLine, BrushCleaning, CalendarCheck, Clock3, Plus } from "lucide-react";
+import { CalendarCheck, Plus } from "lucide-react";
 import { requireMembership } from "@/lib/auth/session";
 import { calendarEventsForUnit, monthGridRange, type CalendarEvent } from "@/lib/calendar";
-import { addDaysLocal, isValidMonth, nightsBetween, shiftMonth, todayInTimeZone } from "@/lib/dates";
+import { addDaysLocal, isValidMonth, nightsBetween, shiftMonth, todayInTimeZone, utcToLocalDateTimeParts } from "@/lib/dates";
 import { RESERVATION_STATUS_LABELS, UNIT_STATUS_LABELS } from "@/lib/labels";
 import { getOccupancySegments, listCalendarActivity } from "@/server/inventory/availability";
 import { listOrgUnits, listProperties } from "@/server/inventory/service";
@@ -17,6 +17,17 @@ import { TodayPanel } from "./today-panel";
 
 export const metadata: Metadata = { title: "Calendar" };
 const MONTH_LABEL = new Intl.DateTimeFormat("en-PH", { month: "long", year: "numeric", timeZone: "UTC" });
+const SHORT_DATE = new Intl.DateTimeFormat("en-PH", { month: "short", day: "numeric", timeZone: "UTC" });
+const DAY_LABEL = new Intl.DateTimeFormat("en-PH", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+function timeLabel(time: string) {
+  const [hour, minute] = time.split(":");
+  return `${Number(hour) % 12 || 12}:${minute} ${Number(hour) < 12 ? "AM" : "PM"}`;
+}
+/** "3PM", "10:30AM": fits on a slim calendar bar. */
+function compactTimeLabel(time: string) {
+  const [hour, minute] = time.split(":");
+  return `${Number(hour) % 12 || 12}${minute === "00" ? "" : `:${minute}`}${Number(hour) < 12 ? "AM" : "PM"}`;
+}
 
 export default async function CalendarPage({ searchParams }: {
   searchParams: Promise<{ month?: string; unit?: string }>;
@@ -61,7 +72,6 @@ export default async function CalendarPage({ searchParams }: {
   }).format(date);
   const visibleIds = new Set(visibleUnits.map((unit) => unit.id));
   const openTasks = taskRows.filter((task) => visibleIds.has(task.unitId));
-  const needsCleaning = new Set(openTasks.map((task) => task.unitId)).size;
   const arrivals = activity.filter((reservation) => reservation.status !== "hold" && reservation.startDate === todayByUnit.get(reservation.unitId));
   const departures = activity.filter((reservation) => reservation.status !== "hold" && reservation.endDate === todayByUnit.get(reservation.unitId));
   const activeHolds = activity.filter((reservation) => reservation.status === "hold");
@@ -71,34 +81,94 @@ export default async function CalendarPage({ searchParams }: {
   const events: CalendarEvent[] = visibleUnits.flatMap((unit) =>
     calendarEventsForUnit(unit.id, segmentsByUnit.get(unit.id) ?? []),
   );
-  const displayEvents: DisplayCalendarEvent[] = events.map((event) => {
+  // Turnovers render as a marker where the departing stay ends, not as bars.
+  const turnoverByReservation = new Map(
+    events.filter((event) => event.kind === "turnover" && event.reservationId).map((event) => [event.reservationId!, event]),
+  );
+  const shortDate = (date: string) => SHORT_DATE.format(new Date(`${date}T00:00:00Z`));
+  const dayLabel = (date: string) => DAY_LABEL.format(new Date(`${date}T00:00:00Z`));
+  const displayEvents = events.flatMap((event): DisplayCalendarEvent[] => {
+    if (event.kind === "turnover") return [];
     const unit = unitMap.get(event.unitId)!;
-    // Reservation storage is night-based and ends on checkout date. For the
-    // calendar surface, retain that checkout day so its right edge can land
-    // on the unit's actual departure time (rather than midnight before it).
+    const timezone = propertyForUnit(event.unitId).timezone;
     const reservationEvent = event.kind === "stay" || event.kind === "hold";
     const nights = nightsBetween(event.startDate, event.endDate);
-    const displayEndDate = reservationEvent
-      ? addDaysLocal(event.endDate, 1)
-      : event.endDate;
     const nightLabel = `${nights} night${nights === 1 ? "" : "s"}`;
-    const detail = event.kind === "turnover"
-      ? event.description ?? "Turnover"
-      : event.kind === "hold"
-        ? `Hold · ${nightLabel}${event.expiresAt ? ` · expires ${expiryLabel(event.expiresAt, event.unitId)}` : ""}`
-        : event.kind === "stay"
-          ? `${RESERVATION_STATUS_LABELS[event.status!]} · ${nightLabel}`
-          : event.description ?? "Unit unavailable";
-    return {
+    const turnover = event.reservationId ? turnoverByReservation.get(event.reservationId) : undefined;
+    const turnoverWindow = turnover?.startTime && turnover.endTime ? { startTime: turnover.startTime, endTime: turnover.endTime } : undefined;
+    const href = event.reservationId ? `/reservations/${event.reservationId}` : membership.role === "owner" ? `/settings/properties/${unit.propertyId}/units/${unit.id}` : undefined;
+    const title = event.kind === "block" ? event.description ?? event.title : event.title;
+
+    if (!reservationEvent) {
+      const lastNight = addDaysLocal(event.endDate, -1);
+      return [{
+        ...event,
+        unitLabel: unitLabel(event.unitId),
+        detail: event.description ?? "Unit unavailable",
+        href,
+        accessibleLabel: `Blocked · ${title} · ${unitLabel(event.unitId)} · ${shortDate(event.startDate)} to ${shortDate(lastNight)}`,
+        quickView: {
+          kindLabel: "Blocked",
+          tone: "block",
+          title,
+          unitLabel: unitLabel(event.unitId),
+          facts: [
+            { label: "From", value: dayLabel(event.startDate) },
+            { label: "Through", value: dayLabel(lastNight) },
+          ],
+          href,
+          hrefLabel: "View unit",
+        },
+      }];
+    }
+
+    // The bar ends at the recorded departure when there is one, otherwise at
+    // the unit's expected check-out time on the checkout date.
+    const actual = event.actualCheckoutAt ? utcToLocalDateTimeParts(event.actualCheckoutAt, timezone) : null;
+    const endDate = actual?.date ?? event.endDate;
+    const endTime = actual?.time ?? unit.checkOutTime;
+    const tone = event.kind === "hold" ? "hold" : event.status === "checked_in" ? "in-house" : event.status === "checked_out" ? "checked-out" : "confirmed";
+    const kindLabel = event.kind === "hold" ? "Hold" : RESERVATION_STATUS_LABELS[event.status!];
+    const detail = event.kind === "hold"
+      ? `Hold · ${nightLabel}${event.expiresAt ? ` · expires ${expiryLabel(event.expiresAt, event.unitId)}` : ""}`
+      : `${kindLabel} · ${nightLabel}`;
+    const checkInLabel = `${shortDate(event.startDate)}, ${timeLabel(unit.checkInTime)}`;
+    const checkOutLabel = `${shortDate(endDate)}, ${timeLabel(endTime)}${actual ? " (actual)" : ""}`;
+    const facts = [
+      { label: "Nights", value: String(nights) },
+      ...(event.guestCount ? [{ label: "Guests", value: String(event.guestCount) }] : []),
+      ...(event.kind === "hold" && event.expiresAt ? [{ label: "Hold expires", value: expiryLabel(event.expiresAt, event.unitId) }] : []),
+    ];
+    return [{
       ...event,
-      endDate: displayEndDate,
-      startTime: event.kind === "stay" || event.kind === "hold" ? unit.checkInTime : event.startTime,
-      endTime: reservationEvent ? unit.checkOutTime : event.endTime,
+      endDate,
+      timed: true,
+      startTime: unit.checkInTime,
+      endTime,
+      turnover: turnoverWindow,
+      timeLabel: `${compactTimeLabel(unit.checkInTime)} → ${compactTimeLabel(endTime)}`,
       unitLabel: unitLabel(event.unitId),
       detail,
-      href: event.reservationId ? `/reservations/${event.reservationId}` : membership.role === "owner" ? `/settings/properties/${unit.propertyId}/units/${unit.id}` : undefined,
-      accessibleLabel: `${event.title} · ${unitLabel(event.unitId)} · ${detail} · ${event.startDate} to ${displayEndDate} (end date exclusive)`,
-    };
+      href,
+      accessibleLabel: `${event.title} · ${unitLabel(event.unitId)} · ${detail} · check-in ${checkInLabel} · check-out ${checkOutLabel}${turnover ? ` · ${turnover.description}` : ""}`,
+      quickView: {
+        kindLabel,
+        tone,
+        title: event.title,
+        unitLabel: unitLabel(event.unitId),
+        checkIn: { date: dayLabel(event.startDate), time: timeLabel(unit.checkInTime) },
+        checkOut: {
+          date: dayLabel(endDate),
+          time: timeLabel(endTime),
+          actual: Boolean(actual),
+          expected: actual ? `${shortDate(event.endDate)}, ${timeLabel(unit.checkOutTime)}` : undefined,
+        },
+        facts,
+        turnover: turnoverWindow ? `Turnover ${timeLabel(turnoverWindow.startTime)} – ${timeLabel(turnoverWindow.endTime)}` : undefined,
+        href,
+        hrefLabel: "View reservation",
+      },
+    }];
   });
 
   const calendarHref = (targetMonth: string) => `/calendar?${new URLSearchParams({ month: targetMonth, ...(selectedUnit ? { unit: selectedUnit.id } : {}) })}`;
@@ -110,8 +180,8 @@ export default async function CalendarPage({ searchParams }: {
     ...reservation,
     unitLabel: unitLabel(reservation.unitId),
     timezone: propertyForUnit(reservation.unitId).timezone,
-    checkInTime: propertyForUnit(reservation.unitId).checkInTime,
-    checkOutTime: propertyForUnit(reservation.unitId).checkOutTime,
+    checkInTime: unitMap.get(reservation.unitId)!.checkInTime ?? propertyForUnit(reservation.unitId).checkInTime,
+    checkOutTime: unitMap.get(reservation.unitId)!.checkOutTime ?? propertyForUnit(reservation.unitId).checkOutTime,
     expiryLabel: reservation.expiresAt ? expiryLabel(reservation.expiresAt, reservation.unitId) : null,
   });
 
@@ -135,24 +205,9 @@ export default async function CalendarPage({ searchParams }: {
         </div>
       </PageHeading>
 
-      <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_18rem] 2xl:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_19rem] 2xl:grid-cols-[minmax(0,1fr)_21rem]">
         <div className="min-w-0">
-          <div className="mb-5 grid grid-cols-3 gap-2 sm:gap-4">
-            {[
-              { label: "Arriving today", count: arrivals.length, icon: ArrowDownToLine, href: "#today-arrivals", tone: "bg-sage/40", iconTone: "bg-sage" },
-              { label: "Active holds", count: activeHolds.length, icon: Clock3, href: "#active-holds", tone: "bg-[#eee6d9]", iconTone: "bg-[#e6d7c1]" },
-              { label: "Needs cleaning", count: needsCleaning, icon: BrushCleaning, href: "#needs-cleaning", tone: "bg-sage/40", iconTone: "bg-sage" },
-            ].map(({ label, count, icon: Icon, href, tone, iconTone }) => (
-              <Link key={label} href={href} className={`flex min-w-0 items-center gap-3 rounded-lg p-3 transition-[filter] hover:brightness-95 sm:p-4 ${tone}`}>
-                <span className={`hidden h-11 w-11 shrink-0 items-center justify-center rounded-full text-pine lg:inline-flex ${iconTone}`}><Icon className="h-5 w-5" strokeWidth={1.6} aria-hidden /></span>
-                <div><p className="text-[11px] leading-4 text-ink/80 sm:text-xs">{label}</p><p className="mt-1 font-display text-3xl leading-none text-pine">{count}</p></div>
-              </Link>
-            ))}
-          </div>
-
-          {visibleUnits.length ? <MonthCalendar month={month} today={today} monthLabel={monthLabel} events={displayEvents} previousHref={calendarHref(shiftMonth(month, -1))} nextHref={calendarHref(shiftMonth(month, 1))} todayHref={calendarHref(today.slice(0, 7))} newReservationHref={canBookVisibleUnit ? newReservationHref : null} reservationUnitId={selectedUnit?.status === "active" ? selectedUnit.id : undefined} /> : <EmptyState title="No units to show" description="Add a unit to your property to see stays and availability here." action={membership.role === "owner" ? <Link href="/settings/properties" className={buttonClassName("outline", "md")}>Manage properties</Link> : undefined} />}
-
-          <p className="mt-2 text-xs leading-relaxed text-ink/55">{multipleTimezones ? `Dates use each property's timezone. The calendar's today highlight uses ${timezone}; the Today panel uses each unit's local date.` : `Property timezone: ${timezone}.`} Inactive units keep their booking history; gray status bars apply only from today.</p>
+          {visibleUnits.length ? <MonthCalendar month={month} today={today} monthLabel={monthLabel} events={displayEvents} previousHref={calendarHref(shiftMonth(month, -1))} nextHref={calendarHref(shiftMonth(month, 1))} todayHref={calendarHref(today.slice(0, 7))} newReservationHref={canBookVisibleUnit ? newReservationHref : null} reservationUnitId={selectedUnit?.status === "active" ? selectedUnit.id : undefined} showUnit={!selectedUnit && allUnits.length > 1} /> : <EmptyState title="No units to show" description="Add a unit to your property to see stays and availability here." action={membership.role === "owner" ? <Link href="/settings/properties" className={buttonClassName("outline", "md")}>Manage properties</Link> : undefined} />}
         </div>
 
         <TodayPanel today={today} timezone={timezone} multipleTimezones={multipleTimezones} scopeLabel={selectedUnit ? unitLabel(selectedUnit.id) : "All units"} arrivals={arrivals.map(activityDisplay)} departures={departures.map(activityDisplay)} activeHolds={activeHolds.map(activityDisplay)} openTasks={openTasks.map((task) => ({ ...task, unitLabel: unitLabel(task.unitId) }))} />

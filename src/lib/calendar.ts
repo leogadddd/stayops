@@ -15,6 +15,8 @@ export interface CalendarEvent extends CalendarInterval {
   reservationId?: string;
   status?: "hold" | "confirmed" | "checked_in" | "checked_out";
   expiresAt?: Date | null;
+  guestCount?: number;
+  actualCheckoutAt?: Date | null;
   startTime?: string;
   endTime?: string;
 }
@@ -71,6 +73,8 @@ export function calendarEventsForUnit(
       reservationId: segment.id,
       status: segment.status,
       expiresAt: segment.expiresAt,
+      guestCount: segment.guestCount,
+      actualCheckoutAt: segment.actualCheckoutAt,
     };
     return [stay];
   });
@@ -124,6 +128,73 @@ export function layoutMonthEvents<T extends CalendarInterval>(
       };
     });
     weeks.push({ start, days: weekDays, events: placements, laneCount: laneEnds.length });
+  }
+  return weeks;
+}
+
+export interface BarInterval extends CalendarInterval {
+  // Timed events (stays, holds) start at startTime on startDate and end at
+  // endTime on endDate, so a 10:00 checkout and a 14:00 check-in on the same
+  // day share a lane. Other events cover whole days with an exclusive endDate.
+  timed?: boolean;
+  startTime?: string;
+  endTime?: string;
+}
+
+export interface WeekBar<T extends BarInterval> {
+  event: T;
+  start: number; // Days from the week's Sunday, fractional, 0–7.
+  end: number;
+  lane: number;
+  continuesBefore: boolean;
+  continuesAfter: boolean;
+}
+
+function daysFrom(from: string, to: string): number {
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+}
+
+function dayFraction(time: string | undefined): number {
+  const match = time ? /^(\d{2}):(\d{2})/.exec(time) : null;
+  return match ? Math.min(1, (Number(match[1]) * 60 + Number(match[2])) / 1440) : 0.5;
+}
+
+// Keeps a same-day early departure visible as a sliver.
+const MIN_TIMED_WIDTH = 0.15;
+
+/** Month layout with time-accurate edges for stays and whole days for blocks. */
+export function layoutMonthBars<T extends BarInterval>(month: string, events: readonly T[]) {
+  const range = monthGridRange(month);
+  const days = listNights(range.start, range.end);
+  const spans = events.map((event) => {
+    if (!event.timed) {
+      return { event, start: daysFrom(range.start, event.startDate), end: daysFrom(range.start, event.endDate) };
+    }
+    const start = daysFrom(range.start, event.startDate) + dayFraction(event.startTime);
+    const end = daysFrom(range.start, event.endDate) + dayFraction(event.endTime);
+    return { event, start, end: Math.max(end, start + MIN_TIMED_WIDTH) };
+  });
+  const weeks = [];
+  for (let offset = 0; offset < days.length; offset += 7) {
+    const weekEnd = offset + 7;
+    const candidates = spans
+      .filter(({ start, end }) => start < end && start < weekEnd && end > offset)
+      .map(({ event, start, end }) => ({
+        event,
+        start: Math.max(start, offset) - offset,
+        end: Math.min(end, weekEnd) - offset,
+        continuesBefore: start < offset,
+        continuesAfter: end > weekEnd,
+      }))
+      .sort((a, b) => a.start - b.start || b.end - a.end || a.event.id.localeCompare(b.event.id));
+    const laneEnds: number[] = [];
+    const bars: WeekBar<T>[] = candidates.map((bar) => {
+      let lane = laneEnds.findIndex((lastEnd) => lastEnd <= bar.start);
+      if (lane === -1) lane = laneEnds.length;
+      laneEnds[lane] = bar.end;
+      return { ...bar, lane };
+    });
+    weeks.push({ start: days[offset]!, days: days.slice(offset, offset + 7), bars, laneCount: laneEnds.length });
   }
   return weeks;
 }
