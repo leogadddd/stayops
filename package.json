@@ -19,6 +19,7 @@
     "db:push": "drizzle-kit push",
     "db:seed": "tsx --tsconfig tsconfig.scripts.json scripts/seed.ts",
     "db:seed-amenities": "tsx --tsconfig tsconfig.scripts.json scripts/seed-amenities.ts",
+    "db:seed-calendar-demo": "tsx --tsconfig tsconfig.scripts.json scripts/seed-calendar-demo.ts",
     "db:reset-demo": "tsx --tsconfig tsconfig.scripts.json scripts/reset-demo.ts",
     "db:setup": "docker compose up -d && drizzle-kit migrate && tsx --tsconfig tsconfig.scripts.json scripts/seed.ts && tsx --tsconfig tsconfig.scripts.json scripts/seed-amenities.ts"
   },
