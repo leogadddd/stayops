@@ -19,11 +19,11 @@ export interface EventQuickViewData {
 }
 
 const TONE: Record<EventQuickViewData["tone"], string> = {
-  confirmed: "bg-sage text-pine",
+  confirmed: "bg-[#b5cfbd] text-pine-deep",
   "in-house": "bg-pine text-paper",
-  "checked-out": "bg-pine-mist text-pine/70",
-  hold: "border border-dashed border-[#c7a574] bg-[#f4ebdc] text-[#624a32]",
-  block: "bg-[#e4e5e2] text-[#444b48]",
+  "checked-out": "bg-[#d7e1dc] text-pine-soft",
+  hold: "border border-dashed border-[#b0823f] bg-[#f1ddb9] text-[#553a1b]",
+  block: "bg-[#d9dbd7] text-[#323835]",
 };
 
 const QuickViewContext = createContext<(data: EventQuickViewData) => void>(() => {});

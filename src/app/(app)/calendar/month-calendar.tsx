@@ -26,26 +26,38 @@ const FULL_DATE_LABEL = new Intl.DateTimeFormat("en-PH", {
 });
 
 // Bars are one line; weeks show MAX_LANES rows until expanded.
-const LANE_HEIGHT = 26;
+const LANE_HEIGHT = 34;
 const MAX_LANES = 3;
+// Continuation pieces narrower than this (in days) show colour only.
+const MIN_LABELLED_PIECE = 0.75;
 const HATCH: CSSProperties = {
-  backgroundImage: "repeating-linear-gradient(135deg, #e4e5e2 0 5px, #d7d9d5 5px 10px)",
+  backgroundImage: "repeating-linear-gradient(135deg, #d9dbd7 0 5px, #c6c9c4 5px 10px)",
+};
+
+// Past stays stay calm but legible; upcoming stays carry the most colour
+// after in-house.
+const TONES = {
+  confirmed: "border border-[#8fb09b] bg-[#b5cfbd] text-pine-deep",
+  inHouse: "border border-pine bg-pine text-paper",
+  checkedOut: "border border-[#b3c4bb] bg-[#d7e1dc] text-pine-soft",
+  hold: "border border-dashed border-[#b0823f] bg-[#f1ddb9] text-[#553a1b]",
+  blocked: "border border-[#a9ada8] text-[#323835]",
 };
 
 function barStyle(event: DisplayCalendarEvent): { className: string; style?: CSSProperties } {
-  if (event.kind === "hold") return { className: "border border-dashed border-[#c7a574] bg-[#f4ebdc] text-[#624a32]" };
-  if (event.kind === "block" || event.kind === "unavailable") return { className: "border border-[#c9cbc8] text-[#444b48]", style: HATCH };
-  if (event.status === "checked_in") return { className: "border border-pine bg-pine text-paper" };
-  if (event.status === "checked_out") return { className: "border border-pine/10 bg-pine-mist text-pine/60" };
-  return { className: "border border-[#b6c9bc] bg-sage text-pine" };
+  if (event.kind === "hold") return { className: TONES.hold };
+  if (event.kind === "block" || event.kind === "unavailable") return { className: TONES.blocked, style: HATCH };
+  if (event.status === "checked_in") return { className: TONES.inHouse };
+  if (event.status === "checked_out") return { className: TONES.checkedOut };
+  return { className: TONES.confirmed };
 }
 
 const LEGEND: { label: string; swatch: ReturnType<typeof barStyle> }[] = [
-  { label: "Confirmed", swatch: { className: "border border-[#b6c9bc] bg-sage" } },
-  { label: "In-house", swatch: { className: "border border-pine bg-pine" } },
-  { label: "Checked out", swatch: { className: "border border-pine/10 bg-pine-mist" } },
-  { label: "Hold", swatch: { className: "border border-dashed border-[#c7a574] bg-[#f4ebdc]" } },
-  { label: "Blocked", swatch: { className: "border border-[#c9cbc8]", style: HATCH } },
+  { label: "Confirmed", swatch: { className: TONES.confirmed } },
+  { label: "In-house", swatch: { className: TONES.inHouse } },
+  { label: "Checked out", swatch: { className: TONES.checkedOut } },
+  { label: "Hold", swatch: { className: TONES.hold } },
+  { label: "Blocked", swatch: { className: TONES.blocked, style: HATCH } },
 ];
 
 function dateLabel(date: string) {
@@ -136,6 +148,9 @@ export function MonthCalendar({
                       const { className, style } = barStyle(event);
                       const hidden = lane >= MAX_LANES ? "hidden group-has-[:checked]/week:flex" : "flex";
                       const showMarker = event.turnover && !continuesAfter;
+                      // A sliver at a week edge only gets colour; the stay's
+                      // name is on its longer piece in the other week.
+                      const labelled = !(continuesBefore || continuesAfter) || end - start >= MIN_LABELLED_PIECE;
                       return (
                         <div key={event.id} className={`absolute ${hidden}`} style={{ left: pct(start), width: pct(end - start), top: lane * LANE_HEIGHT, height: LANE_HEIGHT - 4 }}>
                           <EventTrigger
@@ -143,17 +158,21 @@ export function MonthCalendar({
                             href={event.href}
                             aria-label={`${event.accessibleLabel}${continuesBefore ? "; continued from previous week" : ""}${continuesAfter ? "; continues next week" : ""}`}
                             title={event.accessibleLabel}
-                            className={`z-10 flex min-w-0 flex-1 items-center gap-1 overflow-hidden px-2 text-xs leading-none transition-[filter] hover:brightness-95 focus-visible:z-20 ${className} ${continuesBefore ? "rounded-l-none border-l-0" : "ml-0.5 rounded-l-full"} ${continuesAfter ? "rounded-r-none border-r-0" : "mr-0.5 rounded-r-full"}`}
+                            className={`z-10 flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden px-2.5 text-[13px] leading-none transition-[filter] hover:brightness-95 focus-visible:z-20 ${className} ${continuesBefore ? "rounded-l-none border-l-0" : "ml-0.5 rounded-l-full"} ${continuesAfter ? "rounded-r-none border-r-0" : "mr-0.5 rounded-r-full"}`}
                             style={style}
                           >
-                            {event.kind === "block" ? <Wrench className="h-3 w-3 shrink-0" aria-hidden /> : null}
-                            <span className="truncate font-semibold">{event.kind === "block" ? event.description ?? event.title : event.title}</span>
-                            {event.timeLabel && end - start >= 1.2 ? <span className="shrink-0 tabular-nums opacity-70">{event.timeLabel}</span> : null}
-                            {showUnit && end - start >= 2.6 ? <span className="truncate opacity-75">· {event.unitLabel}</span> : null}
+                            {labelled ? (
+                              <>
+                                {event.kind === "block" ? <Wrench className="h-3.5 w-3.5 shrink-0" aria-hidden /> : null}
+                                <span className="truncate font-semibold">{event.kind === "block" ? event.description ?? event.title : event.title}</span>
+                                {event.timeLabel && end - start >= 1.7 ? <span className="shrink-0 tabular-nums opacity-70">{event.timeLabel}</span> : null}
+                                {showUnit && end - start >= 3.2 ? <span className="truncate opacity-75">· {event.unitLabel}</span> : null}
+                              </>
+                            ) : null}
                           </EventTrigger>
                           {showMarker ? (
-                            <span aria-hidden className="pointer-events-none absolute right-0 top-1/2 z-20 inline-flex h-5 w-5 -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full border border-clay/30 bg-clay-mist text-clay-deep shadow-sm" title={`Turnover ${event.turnover!.startTime}–${event.turnover!.endTime}`}>
-                              <BrushCleaning className="h-3 w-3" />
+                            <span aria-hidden className="pointer-events-none absolute right-0 top-1/2 z-20 inline-flex h-6 w-6 -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full border border-clay/50 bg-clay-mist text-clay-deep shadow-sm" title={`Turnover ${event.turnover!.startTime}–${event.turnover!.endTime}`}>
+                              <BrushCleaning className="h-3.5 w-3.5" />
                             </span>
                           ) : null}
                         </div>
