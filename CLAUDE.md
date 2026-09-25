@@ -24,9 +24,10 @@ without a migration makes queries fail at runtime with errors like
    than the last applied one, and 0008–0011 were hand-dated into late
    September 2026, so bump `when` past 1790668800000 until the real clock
    passes it.
-5. Apply it: `npm run db:migrate`. It must succeed against the local database.
-   `drizzle-kit migrate` can exit 1 without printing the error; run
-   `npx tsx --tsconfig tsconfig.scripts.json scripts/migrate.ts` to see it.
+5. Apply it: `npm run db:migrate` (runs `scripts/migrate.ts`). It prints the
+   target database and either "Applied N migrations", "Already up to date",
+   or the real Postgres error. Check the host before migrating: `.env`
+   decides which database it touches.
 6. Check nothing is left over: run `npm run db:generate` again. It must print
    `No schema changes, nothing to migrate`.
 7. Run `npm run test:integration` (applies all migrations to `stayops_test`
