@@ -12,6 +12,7 @@ import {
   setTaskItemCompleted,
   updateTaskNotes,
 } from "@/server/operations/service";
+import { unexpectedErrorMessage } from "@/lib/errors";
 
 export interface TaskFormState {
   error?: string;
@@ -33,7 +34,7 @@ function toFormError(error: unknown): TaskFormState {
     const first = error.issues[0];
     return { error: first ? first.message : "Check the form and try again." };
   }
-  throw error;
+  return { error: unexpectedErrorMessage(error, "tasks") };
 }
 
 export async function setTaskItemCompletedAction(

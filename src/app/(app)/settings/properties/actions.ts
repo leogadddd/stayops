@@ -17,6 +17,7 @@ import {
 } from "@/server/inventory/service";
 import { InventoryError } from "@/server/inventory/validation";
 import { imageDataUrlFromForm } from "@/server/inventory/image-upload";
+import { unexpectedErrorMessage } from "@/lib/errors";
 
 export interface InventoryFormState {
   error?: string;
@@ -49,7 +50,7 @@ function toFormError(error: unknown): InventoryFormState {
   if (error instanceof PermissionError) {
     return { error: error.message };
   }
-  throw error;
+  return { error: unexpectedErrorMessage(error, "inventory") };
 }
 
 export async function createPropertyAction(

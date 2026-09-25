@@ -9,6 +9,7 @@ import {
   updateOrganizationName,
   updatePaymentInstructions,
 } from "@/server/orgs/service";
+import { unexpectedErrorMessage } from "@/lib/errors";
 
 export interface OrgFormState {
   error?: string;
@@ -22,7 +23,7 @@ function toFormError(error: unknown): OrgFormState {
   if (error instanceof PermissionError) {
     return { error: error.message };
   }
-  throw error;
+  return { error: unexpectedErrorMessage(error, "settings") };
 }
 
 export async function renameOrganization(

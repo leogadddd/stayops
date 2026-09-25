@@ -9,6 +9,7 @@ import {
 } from "@/server/inventory/availability";
 import { listOrgUnits, listProperties } from "@/server/inventory/service";
 import { listNights, localDateTimeToUtc } from "@/lib/dates";
+import { unexpectedErrorMessage } from "@/lib/errors";
 
 export interface AvailabilityFormState {
   error?: string;
@@ -47,19 +48,24 @@ export async function checkAvailabilityAction(
     return { error: "Check-out must be after check-in." };
   }
 
-  const [units, properties] = await Promise.all([listOrgUnits(membership.organizationId), listProperties(membership.organizationId)]);
-  const candidates = units.filter((unit) => unit.status === "active" && unit.capacity >= guestCount);
-  const propertyById = new Map(properties.map((property) => [property.id, property]));
-  const segmentsByUnit = await getOccupancySegments(membership.organizationId, candidates.map((unit) => unit.id), checkIn, checkOut);
-  const availableUnits = candidates.flatMap((unit) => {
-    const segments = segmentsByUnit.get(unit.id) ?? [];
-    const check = checkIntervalAvailability(segments, checkIn, checkOut);
-    const property = propertyById.get(unit.propertyId);
-    const arrivalAt = property ? localDateTimeToUtc(`${checkIn}T${unit.checkInTime}`, property.timezone) : null;
-    if (!check.available || (arrivalAt && findTurnoverArrivalConflict(segments, arrivalAt))) return [];
-    const query = new URLSearchParams({ unit: unit.id, checkIn, checkOut });
-    return [{ id: unit.id, name: properties.length > 1 && property ? `${property.name} · ${unit.name}` : unit.name, capacity: unit.capacity, imageUrl: unit.imageUrl, calendarHref: `/calendar?${new URLSearchParams({ unit: unit.id, month: checkIn.slice(0, 7) })}`, bookHref: `/reservations/new?${query}` }];
-  });
+  let availableUnits: NonNullable<AvailabilityFormState["result"]>["availableUnits"];
+  try {
+    const [units, properties] = await Promise.all([listOrgUnits(membership.organizationId), listProperties(membership.organizationId)]);
+    const candidates = units.filter((unit) => unit.status === "active" && unit.capacity >= guestCount);
+    const propertyById = new Map(properties.map((property) => [property.id, property]));
+    const segmentsByUnit = await getOccupancySegments(membership.organizationId, candidates.map((unit) => unit.id), checkIn, checkOut);
+    availableUnits = candidates.flatMap((unit) => {
+      const segments = segmentsByUnit.get(unit.id) ?? [];
+      const check = checkIntervalAvailability(segments, checkIn, checkOut);
+      const property = propertyById.get(unit.propertyId);
+      const arrivalAt = property ? localDateTimeToUtc(`${checkIn}T${unit.checkInTime}`, property.timezone) : null;
+      if (!check.available || (arrivalAt && findTurnoverArrivalConflict(segments, arrivalAt))) return [];
+      const query = new URLSearchParams({ unit: unit.id, checkIn, checkOut });
+      return [{ id: unit.id, name: properties.length > 1 && property ? `${property.name} · ${unit.name}` : unit.name, capacity: unit.capacity, imageUrl: unit.imageUrl, calendarHref: `/calendar?${new URLSearchParams({ unit: unit.id, month: checkIn.slice(0, 7) })}`, bookHref: `/reservations/new?${query}` }];
+    });
+  } catch (error) {
+    return { error: unexpectedErrorMessage(error, "availability") };
+  }
   return {
     result: {
       checkIn,

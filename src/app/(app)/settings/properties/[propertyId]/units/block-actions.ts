@@ -8,6 +8,7 @@ import {
   removeUnitBlock,
 } from "@/server/inventory/service";
 import { InventoryError } from "@/server/inventory/validation";
+import { unexpectedErrorMessage } from "@/lib/errors";
 
 export interface BlockFormState {
   error?: string;
@@ -43,7 +44,7 @@ export async function addUnitBlockAction(
     if (error instanceof z.ZodError) {
       return { error: error.issues[0]?.message ?? "Check the block details." };
     }
-    throw error;
+    return { error: unexpectedErrorMessage(error, "unit-blocks") };
   }
   revalidatePath(`/settings/properties/${propertyId}/units/${unitId}`);
   revalidatePath("/calendar");

@@ -26,6 +26,7 @@ import { buildDefaultCharges } from "@/lib/charges";
 import { nightsBetween } from "@/lib/dates";
 import { MoneyParseError, pesosToCentavos } from "@/lib/money";
 import type { ChargeLineInput } from "@/server/reservations/validation";
+import { unexpectedErrorMessage } from "@/lib/errors";
 
 export interface ReservationFormState {
   error?: string;
@@ -54,7 +55,7 @@ function toFormError(error: unknown): ReservationFormState {
   if (error instanceof SyntaxError) {
     return { error: "The charge breakdown could not be read. Refresh and try again." };
   }
-  throw error;
+  return { error: unexpectedErrorMessage(error, "reservations") };
 }
 
 function readCharges(formData: FormData): unknown {
@@ -302,7 +303,7 @@ export async function createGuestLinkAction(
     if (error instanceof ReservationError || error instanceof PermissionError) {
       return { error: error.message };
     }
-    throw error;
+    return { error: unexpectedErrorMessage(error, "reservations") };
   }
 }
 
@@ -326,7 +327,7 @@ export async function revokeGuestLinkAction(
     if (error instanceof ReservationError || error instanceof PermissionError) {
       return { error: error.message };
     }
-    throw error;
+    return { error: unexpectedErrorMessage(error, "reservations") };
   }
   revalidatePath(`/reservations/${reservationId}`);
   return {};
