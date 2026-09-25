@@ -4,7 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { requireMembership, requireOwner, type MembershipContext } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { PermissionDenied } from "@/components/app/permission-denied";
-import { listAuditEvents } from "@/server/audit/service";
+import { getAuditLogPage, listAuditEvents } from "@/server/audit/service";
 import * as inventory from "@/server/inventory/service";
 import { listExpenses } from "@/server/expenses/service";
 import { getReport } from "@/server/reports/service";
@@ -46,7 +46,7 @@ vi.mock("@/lib/db", () => ({
     select: vi.fn(),
   },
 }));
-vi.mock("@/server/audit/service", () => ({ listAuditEvents: vi.fn() }));
+vi.mock("@/server/audit/service", () => ({ getAuditLogPage: vi.fn(), listAuditEvents: vi.fn() }));
 vi.mock("@/server/inventory/amenities", () => ({
   listAmenities: vi.fn(async () => []), listPropertyAmenities: vi.fn(async () => []), listUnitAmenities: vi.fn(async () => []),
 }));
@@ -97,6 +97,7 @@ beforeEach(() => {
 const protectedReads = [
   db.query.organizations.findFirst,
   db.select,
+  getAuditLogPage,
   listAuditEvents,
   inventory.listProperties,
   inventory.listPropertyUnits,
@@ -149,6 +150,7 @@ describe("independent owner page boundaries", () => {
     vi.mocked(db.select).mockReturnValue({
       from: () => ({ innerJoin: () => ({ where: async () => [] }) }),
     } as unknown as ReturnType<typeof db.select>);
+    vi.mocked(getAuditLogPage).mockResolvedValue({ events: [], page: 1, pageSize: 25, total: 0 });
     vi.mocked(listAuditEvents).mockResolvedValue([]);
     vi.mocked(inventory.listProperties).mockResolvedValue([]);
     vi.mocked(inventory.listPropertyUnits).mockResolvedValue([]);

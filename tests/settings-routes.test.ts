@@ -4,7 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { requireOwner, type MembershipContext } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { PermissionDenied } from "@/components/app/permission-denied";
-import { listAuditEvents } from "@/server/audit/service";
+import { getAuditLogPage, listAuditEvents } from "@/server/audit/service";
 import * as inventory from "@/server/inventory/service";
 import { InventoryError } from "@/server/inventory/validation";
 import SettingsPage from "@/app/(app)/settings/page";
@@ -42,7 +42,7 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("@/lib/auth/session", () => ({ requireOwner: vi.fn() }));
 vi.mock("@/lib/db", () => ({ db: { query: { organizations: { findFirst: vi.fn() } }, select: vi.fn() } }));
-vi.mock("@/server/audit/service", () => ({ listAuditEvents: vi.fn() }));
+vi.mock("@/server/audit/service", () => ({ getAuditLogPage: vi.fn(), listAuditEvents: vi.fn() }));
 vi.mock("@/server/inventory/service", () => ({
   listProperties: vi.fn(), listPropertyUnits: vi.fn(), getPropertyOrThrow: vi.fn(),
   getUnitOrThrow: vi.fn(), listUnitBlocks: vi.fn(),
@@ -95,14 +95,14 @@ const unitPages = [
   { name: "checklist edit", render: () => EditChecklistPage(unitParams()), firstRead: inventory.getPropertyOrThrow },
 ];
 const newPages = [
-  { name: "audit logs", render: () => AuditLogsPage(), firstRead: listAuditEvents },
+  { name: "audit logs", render: () => AuditLogsPage(), firstRead: getAuditLogPage },
   { name: "organization edit", render: () => EditOrganizationPage(), firstRead: db.query.organizations.findFirst },
   { name: "payment instructions edit", render: () => EditPaymentInstructionsPage(), firstRead: db.query.organizations.findFirst },
   { name: "staff create", render: () => NewStaffPage(), firstRead: undefined },
   { name: "property create", render: () => NewPropertyPage(), firstRead: undefined },
   ...propertyPages, ...unitPages,
 ];
-const reads = [db.query.organizations.findFirst, db.select, listAuditEvents, ...Object.values(inventory)];
+const reads = [db.query.organizations.findFirst, db.select, getAuditLogPage, listAuditEvents, ...Object.values(inventory)];
 
 beforeAll(() => vi.stubGlobal("React", React));
 afterAll(() => vi.unstubAllGlobals());
@@ -123,7 +123,7 @@ beforeEach(() => {
   vi.mocked(inventory.getPropertyOrThrow).mockResolvedValue(property);
   vi.mocked(inventory.getUnitOrThrow).mockResolvedValue(unit);
   vi.mocked(inventory.listUnitBlocks).mockResolvedValue([]);
-  vi.mocked(listAuditEvents).mockResolvedValue([]);
+  vi.mocked(getAuditLogPage).mockResolvedValue({ events: [], page: 1, pageSize: 25, total: 0 });
 });
 
 describe("dedicated owner route boundaries", () => {
@@ -216,7 +216,7 @@ describe("read-only summaries and reusable tables", () => {
   });
 
   it("renders audit activity, target, details and actor context", async () => {
-    vi.mocked(listAuditEvents).mockResolvedValue([
+    vi.mocked(getAuditLogPage).mockResolvedValue({ events: [
       {
         id: "audit-a", action: "guest_link.created", entity: "access_token", entityId: "token-a",
         metadata: { reservationId: "reservation-a" }, actorUserId: "owner-a", actorName: "Owner Example",
@@ -232,9 +232,9 @@ describe("read-only summaries and reusable tables", () => {
         metadata: { reservationId: "reservation-a" }, actorUserId: null, actorName: null,
         createdAt: new Date("2026-09-01T00:00:00Z"),
       },
-    ]);
+    ], page: 1, pageSize: 25, total: 3 });
     const html = renderToStaticMarkup(await AuditLogsPage());
-    expect(listAuditEvents).toHaveBeenCalledExactlyOnceWith(owner.organizationId, 50);
+    expect(getAuditLogPage).toHaveBeenCalledExactlyOnceWith(owner.organizationId, { action: undefined, actor: undefined, startDate: undefined, endDate: undefined, page: 1 });
     for (const label of [
       "Time", "Activity", "Target", "Actor", "Guest link created", "Owner Example",
       "Property deleted", "Beach House", "2 units archived", "Suite A, Suite B", "System", "Guest portal",
