@@ -45,7 +45,7 @@ Demo credentials (from the seed, clearly fake):
 | `npm run lint` / `typecheck` / `test` | Quality gates |
 | `npm run test:integration` | Real PostgreSQL acceptance tests (dedicated `stayops_test` database) |
 | `npm run db:up` / `db:down` | Start/stop PostgreSQL |
-| `npm run db:generate` / `db:migrate` | Drizzle migration workflow |
+| `npm run db:generate` / `db:migrate` | Drizzle migration workflow (see *Database schema changes* in `CLAUDE.md`) |
 | `npm run db:seed` | Idempotent fake demo data |
 | `npm run db:reset-demo` | Delete and recreate only the shared demo workspace |
 
