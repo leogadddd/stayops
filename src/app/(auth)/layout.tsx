@@ -21,8 +21,8 @@ export default function AuthLayout({
             A calmer way to run your staycation.
           </p>
           <p className="mt-6 text-sm leading-relaxed text-paper/70">
-            Bookings, payments, turnovers and expenses for small stay operators
-            — from the first inquiry to the final checkout.
+            Every booking, payment, turnover and expense in one place, from the
+            first inquiry to the final checkout.
           </p>
         </div>
         <p className="relative z-10 text-xs uppercase tracking-[0.2em] text-paper/50">
