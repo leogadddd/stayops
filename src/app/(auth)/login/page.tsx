@@ -7,7 +7,8 @@ import { toast } from "sonner";
 import { authClient } from "@/lib/auth/client";
 import { Button } from "@/components/ui/button";
 import { PasswordInput } from "@/components/ui/password-input";
-import { FieldError, Input, Label } from "@/components/ui/input";
+import { CircleAlert } from "lucide-react";
+import { Input, Label } from "@/components/ui/input";
 
 const SESSION_RETRY_MS = 5000;
 
@@ -121,6 +122,7 @@ function LoginContent() {
         className="mt-10 space-y-6 sm:mt-8 sm:space-y-5"
         noValidate={false}
       >
+        {error ? <AuthErrorBanner message={error} /> : null}
         <div>
           <Label htmlFor="email">Email address</Label>
           <Input
@@ -150,8 +152,6 @@ function LoginContent() {
             onChange={(event) => setPassword(event.target.value)}
           />
         </div>
-
-        <FieldError message={error ?? undefined} />
 
         <Button
           type="submit"
@@ -198,9 +198,7 @@ function LoginContent() {
               not add personal, guest, or payment information.
             </p>
             {error && (
-              <p className="mt-4 text-sm text-clay-deep" role="alert">
-                {error}
-              </p>
+              <div className="mt-4"><AuthErrorBanner message={error} /></div>
             )}
             <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <Link
@@ -222,6 +220,18 @@ function LoginContent() {
         </div>
       )}
     </div>
+  );
+}
+
+function AuthErrorBanner({ message }: { message: string }) {
+  return (
+    <p
+      role="alert"
+      className="flex items-start gap-2 rounded-xl border border-clay/25 bg-clay-mist/70 px-4 py-3 text-sm text-clay-deep"
+    >
+      <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+      {message}
+    </p>
   );
 }
 

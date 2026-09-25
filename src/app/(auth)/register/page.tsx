@@ -4,10 +4,11 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { CircleAlert } from "lucide-react";
 import { authClient } from "@/lib/auth/client";
 import { Button } from "@/components/ui/button";
 import { PasswordInput } from "@/components/ui/password-input";
-import { FieldError, Input, Label } from "@/components/ui/input";
+import { Input, Label } from "@/components/ui/input";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -63,6 +64,15 @@ export default function RegisterPage() {
         onSubmit={onSubmit}
         className="mt-10 space-y-6 sm:mt-8 sm:space-y-5"
       >
+        {error ? (
+          <p
+            role="alert"
+            className="flex items-start gap-2 rounded-xl border border-clay/25 bg-clay-mist/70 px-4 py-3 text-sm text-clay-deep"
+          >
+            <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+            {error}
+          </p>
+        ) : null}
         <div>
           <Label htmlFor="name">Your name</Label>
           <Input
@@ -109,8 +119,6 @@ export default function RegisterPage() {
             className="h-12 px-4 text-base sm:h-10 sm:px-3 sm:text-sm"
           />
         </div>
-
-        <FieldError message={error ?? undefined} />
 
         <label className="flex cursor-pointer items-start gap-3 rounded-lg px-1 py-1 text-sm leading-relaxed text-ink/70">
           <input

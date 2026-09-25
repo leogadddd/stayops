@@ -6,9 +6,10 @@ import { ChevronDown, LogOut, UserRound } from "lucide-react";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { signOutAndRedirect } from "@/lib/auth/sign-out";
 
-export function AccountMenu({ userName, userEmail, role }: {
+export function AccountMenu({ userName, userEmail, userImage, role }: {
   userName: string;
   userEmail: string;
+  userImage: string | null;
   role: "owner" | "staff";
 }) {
   const [open, setOpen] = useState(false);
@@ -40,7 +41,9 @@ export function AccountMenu({ userName, userEmail, role }: {
         onClick={() => setOpen((value) => !value)}
         className="flex items-center gap-2.5 rounded-lg p-1.5 text-left hover:bg-pine-mist/70"
       >
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-clay-mist text-sm font-semibold text-clay" aria-hidden>{initial}</span>
+        <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-clay-mist text-sm font-semibold text-clay" aria-hidden>
+          {userImage ? <img src={userImage} alt="" className="h-full w-full object-cover" /> : initial}
+        </span>
         <span className="hidden sm:block">
           <span className="block max-w-36 truncate text-sm font-medium text-pine">{userName}</span>
           <span className="block text-xs text-ink/55">{role === "owner" ? "Owner" : "Staff"}</span>

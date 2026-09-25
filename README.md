@@ -48,6 +48,7 @@ Demo credentials (from the seed, clearly fake):
 | `npm run db:generate` / `db:migrate` | Drizzle migration workflow (see *Database schema changes* in `CLAUDE.md`) |
 | `npm run db:seed` | Idempotent fake demo data |
 | `npm run db:reset-demo` | Delete and recreate only the shared demo workspace |
+| `npm run db:reset` | Interactively confirm, then erase the database, migrate it, and seed demo data |
 
 ## Nightly demo reset
 

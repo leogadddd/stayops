@@ -58,6 +58,7 @@ type SidebarProps = {
   organizationName: string;
   userName: string;
   userEmail: string;
+  userImage?: string | null;
   role: "owner" | "staff";
 };
 
@@ -236,6 +237,7 @@ export function AppHeader({
         <AccountMenu
           userName={props.userName}
           userEmail={props.userEmail}
+          userImage={props.userImage ?? null}
           role={props.role}
         />
       </div>

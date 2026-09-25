@@ -16,6 +16,9 @@ export default async function AppLayout({
     organizationName: membership.organizationName,
     userName: user.name,
     userEmail: user.email,
+    userImage: user.image?.startsWith(`user/${user.id}/`)
+      ? `/api/users/${user.id}/profile-image`
+      : user.image ?? null,
     role: membership.role,
   };
   return (
