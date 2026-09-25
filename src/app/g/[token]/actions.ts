@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { ZodError } from "zod";
 import { submitGuestPaymentProof } from "@/server/payments/service";
 import { PaymentError } from "@/server/payments/validation";
+import { unexpectedErrorMessage } from "@/lib/errors";
 
 export interface GuestProofFormState {
   error?: string;
@@ -33,7 +34,7 @@ export async function submitPaymentProofAction(
       const first = error.issues[0];
       return { error: first ? first.message : "Check the form and try again." };
     }
-    throw error;
+    return { error: unexpectedErrorMessage(error, "guest-payment-proof") };
   }
   revalidatePath(`/g/${token}`);
   return { success: true };

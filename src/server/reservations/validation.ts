@@ -148,11 +148,15 @@ export type CreateHoldInput = z.input<typeof createHoldSchema>;
 export type CreateConfirmedInput = z.input<typeof createConfirmedSchema>;
 
 export const updateReservationSchema = reservationDetailsSchema.extend({
-  guestId: z.string().uuid("Choose a primary guest."),
+  // An existing guest, optionally with edited contact details, or no guestId
+  // and a primaryGuest to create a new guest profile.
+  guestId: z.string().uuid("Choose a primary guest.").optional(),
+  primaryGuest: guestInputSchema.optional(),
   charges: z.array(chargeLineSchema).min(1, "Keep at least one charge.").max(50, "At most 50 charge lines."),
   occupantNames: z.array(z.string().trim().min(2, "Enter each additional guest's full name.").max(120, "Guest names must be 120 characters or fewer.")).max(49).default([]),
 }).refine(rangeRefine, { message: "Check-out must be after check-in.", path: ["checkOut"] })
-  .refine(occupantCountRefine, { message: "List every additional guest, or adjust the guest count.", path: ["occupantNames"] });
+  .refine(occupantCountRefine, { message: "List every additional guest, or adjust the guest count.", path: ["occupantNames"] })
+  .refine((value) => value.guestId || value.primaryGuest, { message: "Choose a primary guest.", path: ["guestId"] });
 export type UpdateReservationInput = z.input<typeof updateReservationSchema>;
 
 export const confirmHoldSchema = z.object({

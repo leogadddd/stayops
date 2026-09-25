@@ -4,33 +4,33 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { requireOwner, type MembershipContext } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { PermissionDenied } from "@/components/app/permission-denied";
-import { listAuditEvents } from "@/server/audit/service";
+import { getAuditLogPage, listAuditEvents } from "@/server/audit/service";
 import * as inventory from "@/server/inventory/service";
 import { InventoryError } from "@/server/inventory/validation";
 import SettingsPage from "@/app/(app)/settings/page";
-import PropertiesPage from "@/app/(app)/settings/properties/page";
-import PropertyDetailPage from "@/app/(app)/settings/properties/[propertyId]/page";
-import UnitDetailPage from "@/app/(app)/settings/properties/[propertyId]/units/[unitId]/page";
+import PropertiesPage from "@/app/(app)/properties/page";
+import PropertyDetailPage from "@/app/(app)/properties/[propertyId]/page";
+import UnitDetailPage from "@/app/(app)/properties/[propertyId]/units/[unitId]/page";
 import AuditLogsPage from "@/app/(app)/audit-logs/page";
 import EditOrganizationPage from "@/app/(app)/settings/organization/edit/page";
 import EditPaymentInstructionsPage from "@/app/(app)/settings/payment-instructions/edit/page";
 import NewStaffPage from "@/app/(app)/settings/staff/new/page";
-import NewPropertyPage from "@/app/(app)/settings/properties/new/page";
-import EditPropertyPage from "@/app/(app)/settings/properties/[propertyId]/edit/page";
-import NewUnitPage from "@/app/(app)/settings/properties/[propertyId]/units/new/page";
-import EditUnitPage from "@/app/(app)/settings/properties/[propertyId]/units/[unitId]/edit/page";
-import NewUnitBlockPage from "@/app/(app)/settings/properties/[propertyId]/units/[unitId]/blocks/new/page";
-import EditChecklistPage from "@/app/(app)/settings/properties/[propertyId]/units/[unitId]/checklist/edit/page";
+import NewPropertyPage from "@/app/(app)/properties/new/page";
+import EditPropertyPage from "@/app/(app)/properties/[propertyId]/edit/page";
+import NewUnitPage from "@/app/(app)/properties/[propertyId]/units/new/page";
+import EditUnitPage from "@/app/(app)/properties/[propertyId]/units/[unitId]/edit/page";
+import NewUnitBlockPage from "@/app/(app)/properties/[propertyId]/units/[unitId]/blocks/new/page";
+import EditChecklistPage from "@/app/(app)/properties/[propertyId]/units/[unitId]/checklist/edit/page";
 import { OrgNameForm } from "@/app/(app)/settings/org-name-form";
 import { PaymentInstructionsForm } from "@/app/(app)/settings/payment-instructions-form";
 import { InviteStaffForm } from "@/app/(app)/settings/staff-forms";
-import { PropertyForm } from "@/app/(app)/settings/properties/property-form";
-import { UnitCreateForm } from "@/app/(app)/settings/properties/unit-create-form";
-import { UnitEditForm } from "@/app/(app)/settings/properties/[propertyId]/units/unit-edit-form";
-import { BlockForms } from "@/app/(app)/settings/properties/[propertyId]/units/block-forms";
-import { ChecklistTemplateEditor } from "@/app/(app)/settings/properties/[propertyId]/units/checklist-template-editor";
+import { PropertyForm } from "@/app/(app)/properties/property-form";
+import { UnitCreateForm } from "@/app/(app)/properties/unit-create-form";
+import { UnitEditForm } from "@/app/(app)/properties/[propertyId]/units/unit-edit-form";
+import { BlockForms } from "@/app/(app)/properties/[propertyId]/units/block-forms";
+import { ChecklistTemplateEditor } from "@/app/(app)/properties/[propertyId]/units/checklist-template-editor";
 
-const navigation = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
+const navigation = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn(), redirect: vi.fn() }));
 vi.mock("react", async (importOriginal) => ({
   ...await importOriginal<typeof import("react")>(),
   useActionState: vi.fn(),
@@ -38,24 +38,28 @@ vi.mock("react", async (importOriginal) => ({
 }));
 vi.mock("next/navigation", () => ({
   useRouter: () => navigation,
+  redirect: navigation.redirect,
   notFound: () => { throw new Error("Not found"); },
 }));
 vi.mock("@/lib/auth/session", () => ({ requireOwner: vi.fn() }));
 vi.mock("@/lib/db", () => ({ db: { query: { organizations: { findFirst: vi.fn() } }, select: vi.fn() } }));
-vi.mock("@/server/audit/service", () => ({ listAuditEvents: vi.fn() }));
+vi.mock("@/server/audit/service", () => ({ getAuditLogPage: vi.fn(), listAuditEvents: vi.fn() }));
 vi.mock("@/server/inventory/service", () => ({
   listProperties: vi.fn(), listPropertyUnits: vi.fn(), getPropertyOrThrow: vi.fn(),
   getUnitOrThrow: vi.fn(), listUnitBlocks: vi.fn(),
 }));
-vi.mock("@/app/(app)/settings/actions", () => ({
-  renameOrganization: vi.fn(), savePaymentInstructions: vi.fn(), inviteStaffAction: vi.fn(), removeStaffAction: vi.fn(),
+vi.mock("@/server/inventory/amenities", () => ({
+  listAmenities: vi.fn(async () => []), listPropertyAmenities: vi.fn(async () => []), listUnitAmenities: vi.fn(async () => []),
 }));
-vi.mock("@/app/(app)/settings/properties/actions", () => ({
+vi.mock("@/app/(app)/settings/actions", () => ({
+  renameOrganization: vi.fn(), saveOrganizationProfile: vi.fn(), savePaymentInstructions: vi.fn(), inviteStaffAction: vi.fn(), removeStaffAction: vi.fn(),
+}));
+vi.mock("@/app/(app)/properties/actions", () => ({
   createPropertyAction: vi.fn(), updatePropertyAction: vi.fn(), createUnitAction: vi.fn(),
   updateUnitAction: vi.fn(), updateChecklistTemplateAction: vi.fn(),
   deletePropertyAction: vi.fn(), deleteUnitAction: vi.fn(),
 }));
-vi.mock("@/app/(app)/settings/properties/[propertyId]/units/block-actions", () => ({
+vi.mock("@/app/(app)/properties/[propertyId]/units/block-actions", () => ({
   addUnitBlockAction: vi.fn(), removeUnitBlockAction: vi.fn(),
 }));
 
@@ -77,7 +81,7 @@ const unit = {
   createdAt: new Date("2026-09-01T00:00:00Z"), updatedAt: new Date("2026-09-01T00:00:00Z"),
   deletedAt: null,
 };
-const propertyHref = `/settings/properties/${property.id}`;
+const propertyHref = `/properties/${property.id}`;
 const unitHref = `${propertyHref}/units/${unit.id}`;
 const propertyParams = () => ({ params: Promise.resolve({ propertyId: property.id }) });
 const unitParams = () => ({ params: Promise.resolve({ propertyId: property.id, unitId: unit.id }) });
@@ -92,14 +96,14 @@ const unitPages = [
   { name: "checklist edit", render: () => EditChecklistPage(unitParams()), firstRead: inventory.getPropertyOrThrow },
 ];
 const newPages = [
-  { name: "audit logs", render: () => AuditLogsPage(), firstRead: listAuditEvents },
-  { name: "organization edit", render: () => EditOrganizationPage(), firstRead: db.query.organizations.findFirst },
+  { name: "audit logs", render: () => AuditLogsPage(), firstRead: getAuditLogPage },
+  { name: "organization edit", render: () => EditOrganizationPage(), firstRead: db.query.organizations.findFirst, hasPageHeading: false },
   { name: "payment instructions edit", render: () => EditPaymentInstructionsPage(), firstRead: db.query.organizations.findFirst },
   { name: "staff create", render: () => NewStaffPage(), firstRead: undefined },
   { name: "property create", render: () => NewPropertyPage(), firstRead: undefined },
   ...propertyPages, ...unitPages,
 ];
-const reads = [db.query.organizations.findFirst, db.select, listAuditEvents, ...Object.values(inventory)];
+const reads = [db.query.organizations.findFirst, db.select, getAuditLogPage, listAuditEvents, ...Object.values(inventory)];
 
 beforeAll(() => vi.stubGlobal("React", React));
 afterAll(() => vi.unstubAllGlobals());
@@ -108,7 +112,9 @@ beforeEach(() => {
   vi.mocked(React.useActionState).mockReturnValue([{}, vi.fn(), false]);
   vi.mocked(requireOwner).mockResolvedValue(owner);
   vi.mocked(db.query.organizations.findFirst).mockResolvedValue({
-    id: owner.organizationId, name: owner.organizationName, slug: owner.organizationSlug,
+    id: owner.organizationId, name: owner.organizationName, displayName: null, slug: owner.organizationSlug, defaultTimezone: "Asia/Manila",
+    contactEmail: null, contactPhone: null, logoUrl: null, addressLine1: null, addressLine2: null,
+    city: null, municipality: null, province: null, region: null, country: "Philippines", businessAddress: null, legalName: null, taxId: null,
     paymentInstructions: "Contact the owner for payment details", createdAt: new Date("2026-09-01T00:00:00Z"),
     updatedAt: new Date("2026-09-01T00:00:00Z"),
   });
@@ -120,7 +126,7 @@ beforeEach(() => {
   vi.mocked(inventory.getPropertyOrThrow).mockResolvedValue(property);
   vi.mocked(inventory.getUnitOrThrow).mockResolvedValue(unit);
   vi.mocked(inventory.listUnitBlocks).mockResolvedValue([]);
-  vi.mocked(listAuditEvents).mockResolvedValue([]);
+  vi.mocked(getAuditLogPage).mockResolvedValue({ events: [], page: 1, pageSize: 25, total: 0 });
 });
 
 describe("dedicated owner route boundaries", () => {
@@ -132,7 +138,9 @@ describe("dedicated owner route boundaries", () => {
     for (const read of reads) expect(read).not.toHaveBeenCalled();
   });
 
-  it.each(newPages)("renders $name after its own owner check", async ({ render, firstRead }) => {
+  it.each(newPages)("renders $name after its own owner check", async (page) => {
+    const { render, firstRead } = page;
+    const hasPageHeading = !("hasPageHeading" in page) || page.hasPageHeading !== false;
     const tree = await render();
     expect(tree.type).not.toBe(PermissionDenied);
     expect(requireOwner).toHaveBeenCalledOnce();
@@ -142,7 +150,9 @@ describe("dedicated owner route boundaries", () => {
       expect(ownerCheckOrder).toBeDefined();
       expect(vi.mocked(firstRead).mock.invocationCallOrder[0]).toBeGreaterThan(ownerCheckOrder ?? Infinity);
     }
-    expect(renderToStaticMarkup(tree)).toContain("<h1");
+    const html = renderToStaticMarkup(tree);
+    if (hasPageHeading) expect(html).toContain("<h1");
+    else expect(html).not.toContain("<h1");
   });
 
   it.each([...propertyPages, ...unitPages])("scopes $name property reads to the trusted tenant", async ({ render }) => {
@@ -175,20 +185,16 @@ describe("dedicated owner route boundaries", () => {
 });
 
 describe("read-only summaries and reusable tables", () => {
-  it("keeps settings forms and the audit query off the settings overview", async () => {
-    const html = renderToStaticMarkup(await SettingsPage());
-    expect(html).not.toContain("<form");
-    expect(html).toContain('data-slot="table"');
-    expect(html).toContain("Contact the owner for payment details");
-    for (const href of ["/settings/organization/edit", "/settings/payment-instructions/edit", "/settings/staff/new", "/audit-logs"]) expect(html).toContain(`href="${href}"`);
+  it("redirects the settings entry point to General", async () => {
+    await SettingsPage();
+    expect(navigation.redirect).toHaveBeenCalledWith("/settings/general");
     expect(listAuditEvents).not.toHaveBeenCalled();
-    expect(html).toContain("Remove Team member");
   });
 
   it("lists properties in a shared table and links to a separate create route", async () => {
     const html = renderToStaticMarkup(await PropertiesPage());
     expect(html).toContain('data-slot="table"');
-    expect(html).toContain('href="/settings/properties/new"');
+    expect(html).toContain('href="/properties/new"');
     expect(html).toContain(`href="${propertyHref}"`);
     expect(html).not.toContain("<form");
   });
@@ -213,7 +219,7 @@ describe("read-only summaries and reusable tables", () => {
   });
 
   it("renders audit activity, target, details and actor context", async () => {
-    vi.mocked(listAuditEvents).mockResolvedValue([
+    vi.mocked(getAuditLogPage).mockResolvedValue({ events: [
       {
         id: "audit-a", action: "guest_link.created", entity: "access_token", entityId: "token-a",
         metadata: { reservationId: "reservation-a" }, actorUserId: "owner-a", actorName: "Owner Example",
@@ -229,9 +235,9 @@ describe("read-only summaries and reusable tables", () => {
         metadata: { reservationId: "reservation-a" }, actorUserId: null, actorName: null,
         createdAt: new Date("2026-09-01T00:00:00Z"),
       },
-    ]);
+    ], page: 1, pageSize: 25, total: 3 });
     const html = renderToStaticMarkup(await AuditLogsPage());
-    expect(listAuditEvents).toHaveBeenCalledExactlyOnceWith(owner.organizationId, 50);
+    expect(getAuditLogPage).toHaveBeenCalledExactlyOnceWith(owner.organizationId, { action: undefined, actor: undefined, startDate: undefined, endDate: undefined, page: 1 });
     for (const label of [
       "Time", "Activity", "Target", "Actor", "Guest link created", "Owner Example",
       "Property deleted", "Beach House", "2 units archived", "Suite A, Suite B", "System", "Guest portal",
@@ -242,10 +248,10 @@ describe("read-only summaries and reusable tables", () => {
 });
 
 const editors = [
-  { name: "organization", render: () => React.createElement(OrgNameForm, { defaultName: owner.organizationName }), destination: "/settings" },
-  { name: "payment instructions", render: () => React.createElement(PaymentInstructionsForm, { defaultValue: "" }), destination: "/settings" },
+  { name: "organization", render: () => React.createElement(OrgNameForm, { defaultName: owner.organizationName }), destination: undefined },
+  { name: "payment instructions", render: () => React.createElement(PaymentInstructionsForm, { defaultValue: "" }), destination: undefined },
   { name: "staff", render: () => React.createElement(InviteStaffForm), destination: "/settings" },
-  { name: "new property", render: () => React.createElement(PropertyForm), destination: "/settings/properties" },
+  { name: "new property", render: () => React.createElement(PropertyForm), destination: "/properties" },
   { name: "edit property", render: () => React.createElement(PropertyForm, { propertyId: property.id }), destination: propertyHref },
   { name: "new unit", render: () => React.createElement(UnitCreateForm, { propertyId: property.id }), destination: propertyHref },
   { name: "edit unit", render: () => React.createElement(UnitEditForm, { propertyId: property.id, unitId: unit.id, values: { name: unit.name, capacity: 2, bedrooms: 1, bathrooms: 1, nightlyRate: "1250.50", cleaningFee: "300", securityDeposit: "", checkInTime: "15:00", checkOutTime: "11:00", status: "active" } }), destination: unitHref },
@@ -258,11 +264,12 @@ function flushNavigationEffects() {
 }
 
 describe("editor save navigation", () => {
-  it.each(editors)("navigates after a successful $name save", ({ render, destination }) => {
+  it.each(editors)("handles a successful $name save", ({ render, destination }) => {
     vi.mocked(React.useActionState).mockReturnValue([{ success: true }, vi.fn(), false]);
     renderToStaticMarkup(render());
     flushNavigationEffects();
-    expect(navigation.push).toHaveBeenCalledExactlyOnceWith(destination);
+    if (destination) expect(navigation.push).toHaveBeenCalledExactlyOnceWith(destination);
+    else expect(navigation.push).not.toHaveBeenCalled();
     expect(navigation.refresh).toHaveBeenCalledOnce();
   });
 

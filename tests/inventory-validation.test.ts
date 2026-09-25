@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { isValidMonth, monthNightRange, shiftMonth } from "@/lib/dates";
+import { imageUploadFromDataUrl } from "@/server/inventory/image-upload";
 import {
   isValidHmTime,
   isValidTimeZone,
@@ -8,6 +9,15 @@ import {
   unitBlockInputSchema,
   unitInputSchema,
 } from "@/server/inventory/validation";
+
+describe("imageUploadFromDataUrl", () => {
+  it("converts a validated logo data URL to bytes for object storage", () => {
+    expect(imageUploadFromDataUrl("data:image/png;base64,AQID")).toEqual({
+      contentType: "image/png",
+      body: Buffer.from([1, 2, 3]),
+    });
+  });
+});
 
 describe("propertyInputSchema", () => {
   const valid = {

@@ -12,6 +12,7 @@ import {
   type UnitBlockInput,
   type UnitInput,
 } from "./validation";
+import { replacePropertyAmenities, replaceUnitAmenities } from "./amenities";
 
 async function recordAudit(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], input: {
   organizationId: string;
@@ -89,6 +90,8 @@ export async function createProperty(input: {
   organizationId: string;
   actorUserId: string;
   data: PropertyInput;
+  /** Replaces the property's amenities when provided. */
+  amenityIds?: string[];
 }) {
   const data = propertyInputSchema.parse(input.data);
   return db.transaction(async (tx) => {
@@ -109,13 +112,14 @@ export async function createProperty(input: {
     if (!property) {
       throw new InventoryError("Failed to create the property.");
     }
+    if (input.amenityIds) await replacePropertyAmenities(tx, input.organizationId, property.id, input.amenityIds);
     await recordAudit(tx, {
       organizationId: input.organizationId,
       actorUserId: input.actorUserId,
       entity: "property",
       entityId: property.id,
       action: "property.created",
-      metadata: { name: property.name, turnoverDurationMinutes: property.turnoverDurationMinutes },
+      metadata: { name: property.name, turnoverDurationMinutes: property.turnoverDurationMinutes, amenityCount: input.amenityIds?.length },
     });
     return property;
   });
@@ -126,6 +130,8 @@ export async function updateProperty(input: {
   actorUserId: string;
   propertyId: string;
   data: PropertyInput;
+  /** Replaces the property's amenities when provided. */
+  amenityIds?: string[];
 }) {
   const data = propertyInputSchema.parse(input.data);
   await getPropertyOrThrow(input.organizationId, input.propertyId);
@@ -156,8 +162,9 @@ export async function updateProperty(input: {
       entity: "property",
       entityId: input.propertyId,
       action: "property.updated",
-      metadata: { name: data.name, turnoverDurationMinutes: data.turnoverDurationMinutes },
+      metadata: { name: data.name, turnoverDurationMinutes: data.turnoverDurationMinutes, amenityCount: input.amenityIds?.length },
     });
+    if (input.amenityIds) await replacePropertyAmenities(tx, input.organizationId, input.propertyId, input.amenityIds);
   });
 }
 
@@ -166,6 +173,8 @@ export async function createUnit(input: {
   actorUserId: string;
   propertyId: string;
   data: UnitInput;
+  /** Replaces the unit's amenities when provided. */
+  amenityIds?: string[];
 }) {
   const data = unitInputSchema.parse(input.data);
   return db.transaction(async (tx) => {
@@ -194,6 +203,7 @@ export async function createUnit(input: {
     if (!unit) {
       throw new InventoryError("Failed to create the unit.");
     }
+    if (input.amenityIds) await replaceUnitAmenities(tx, input.organizationId, unit.id, input.amenityIds);
     await recordAudit(tx, {
       organizationId: input.organizationId,
       actorUserId: input.actorUserId,
@@ -229,6 +239,8 @@ export async function updateUnit(input: {
   actorUserId: string;
   unitId: string;
   data: UnitInput;
+  /** Replaces the unit's amenities when provided. */
+  amenityIds?: string[];
 }) {
   const data = unitInputSchema.parse(input.data);
   const existing = await getUnitOrThrow(input.organizationId, input.unitId);
@@ -259,8 +271,9 @@ export async function updateUnit(input: {
       entity: "unit",
       entityId: input.unitId,
       action: "unit.updated",
-      metadata: { name: data.name },
+      metadata: { name: data.name, amenityCount: input.amenityIds?.length },
     });
+    if (input.amenityIds) await replaceUnitAmenities(tx, input.organizationId, input.unitId, input.amenityIds);
   });
 }
 

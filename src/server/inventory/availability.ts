@@ -39,6 +39,8 @@ export type OccupancySegment =
       status: "hold" | "confirmed" | "checked_in" | "checked_out";
       guestName: string;
       expiresAt: Date | null;
+      guestCount?: number;
+      actualCheckoutAt?: Date | null;
     };
 
 export type NightStatus =
@@ -116,6 +118,8 @@ export async function getOccupancySegments(
       status: reservations.status,
       guestName: guests.name,
       expiresAt: reservations.expiresAt,
+      guestCount: reservations.guestCount,
+      actualCheckoutAt: reservations.actualCheckoutAt,
     })
     .from(reservations)
     .innerJoin(
@@ -194,6 +198,8 @@ export async function getOccupancySegments(
       status,
       guestName: row.guestName,
       expiresAt: row.expiresAt,
+      guestCount: row.guestCount,
+      actualCheckoutAt: row.actualCheckoutAt,
     });
   }
   for (const row of turnoverRows) {

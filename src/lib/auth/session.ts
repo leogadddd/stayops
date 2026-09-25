@@ -20,7 +20,16 @@ export type Session = NonNullable<
  * session between users or requests.
  */
 export const getSession = cache(async (): Promise<Session | null> => {
-  return auth.api.getSession({ headers: await headers() });
+  const requestHeaders = await headers();
+  try {
+    return await auth.api.getSession({ headers: requestHeaders });
+  } catch (error) {
+    // A failed lookup (e.g. the database is unreachable) must not crash the
+    // app. The login page explains what happened and retries until the
+    // session comes back.
+    console.error("Failed to get session", error);
+  }
+  redirect("/login?session=unavailable");
 });
 
 export const requireUser = cache(async (): Promise<Session["user"]> => {

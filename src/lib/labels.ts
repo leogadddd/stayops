@@ -81,6 +81,8 @@ export const DAMAGE_STATUS_LABELS: Record<DamageStatus, string> = {
 export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "organization.created": "Organization created",
   "organization.renamed": "Organization renamed",
+  "organization.profile_updated": "Organization profile updated",
+  "organization.region_updated": "Organization region updated",
   "organization.payment_instructions_updated": "Guest payment instructions updated",
   "organization.staff_invited": "Staff member added",
   "organization.staff_removed": "Staff member removed",
@@ -94,7 +96,9 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "unit.checklist_updated": "Turnover checklist updated",
   "unit_block.created": "Unit blocked",
   "unit_block.removed": "Unit block removed",
+  "amenity.created": "Amenity added",
   "guest.created": "Guest added",
+  "guest.updated": "Guest details updated",
   "reservation.created": "Reservation or hold created",
   "reservation.confirmed": "Hold confirmed",
   "reservation.cancelled": "Reservation cancelled",

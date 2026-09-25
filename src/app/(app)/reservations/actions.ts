@@ -26,6 +26,7 @@ import { buildDefaultCharges } from "@/lib/charges";
 import { nightsBetween } from "@/lib/dates";
 import { MoneyParseError, pesosToCentavos } from "@/lib/money";
 import type { ChargeLineInput } from "@/server/reservations/validation";
+import { unexpectedErrorMessage } from "@/lib/errors";
 
 export interface ReservationFormState {
   error?: string;
@@ -54,7 +55,7 @@ function toFormError(error: unknown): ReservationFormState {
   if (error instanceof SyntaxError) {
     return { error: "The charge breakdown could not be read. Refresh and try again." };
   }
-  throw error;
+  return { error: unexpectedErrorMessage(error, "reservations") };
 }
 
 function readCharges(formData: FormData): unknown {
@@ -222,7 +223,10 @@ export async function updateReservationAction(reservationId: string, _prev: Rese
   assertOwner(membership);
   try {
     await updateReservation({ organizationId: membership.organizationId, actorUserId: membership.userId, reservationId, data: {
-      checkIn: readString(formData, "checkIn"), checkOut: readString(formData, "checkOut"), guestCount: Number(readString(formData, "guestCount")), guestId: readString(formData, "guestId"),
+      checkIn: readString(formData, "checkIn"), checkOut: readString(formData, "checkOut"), guestCount: Number(readString(formData, "guestCount")),
+      // "new" creates a guest profile from the contact fields below.
+      guestId: readString(formData, "guestId") === "new" ? undefined : readString(formData, "guestId") || undefined,
+      primaryGuest: readString(formData, "guestName") ? { name: readString(formData, "guestName"), email: readString(formData, "guestEmail") || undefined, phone: readString(formData, "guestPhone") || undefined } : undefined,
       unitId: readString(formData, "unitId"), occupantNames: formData.getAll("occupantName").map((value) => String(value).trim()),
       charges: formData.getAll("chargeType").map((type, index) => ({ type: String(type) as ChargeLineInput["type"], description: String(formData.getAll("chargeDescription")[index] ?? "").trim(), quantity: Number(formData.getAll("chargeQuantity")[index] ?? 0), unitAmountCents: pesosToCentavos(String(formData.getAll("chargeAmountPesos")[index] ?? "")) })),
     } });
@@ -242,7 +246,7 @@ export async function checkInAction(
       organizationId: membership.organizationId,
       actorUserId: membership.userId,
       reservationId,
-      data: { note: readString(formData, "note"), actualCheckoutAt: readString(formData, "actualCheckoutAt") || undefined },
+      data: { note: readString(formData, "note") },
     });
   } catch (error) {
     return toFormError(error);
@@ -263,7 +267,8 @@ export async function checkOutAction(
       organizationId: membership.organizationId,
       actorUserId: membership.userId,
       reservationId,
-      data: { note: readString(formData, "note") },
+      // Blank means "now"; the turnover starts at this actual departure time.
+      data: { note: readString(formData, "note"), actualCheckoutAt: readString(formData, "actualCheckoutAt") || undefined },
     });
   } catch (error) {
     return toFormError(error);
@@ -302,7 +307,7 @@ export async function createGuestLinkAction(
     if (error instanceof ReservationError || error instanceof PermissionError) {
       return { error: error.message };
     }
-    throw error;
+    return { error: unexpectedErrorMessage(error, "reservations") };
   }
 }
 
@@ -326,7 +331,7 @@ export async function revokeGuestLinkAction(
     if (error instanceof ReservationError || error instanceof PermissionError) {
       return { error: error.message };
     }
-    throw error;
+    return { error: unexpectedErrorMessage(error, "reservations") };
   }
   revalidatePath(`/reservations/${reservationId}`);
   return {};

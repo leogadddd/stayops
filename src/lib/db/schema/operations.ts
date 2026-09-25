@@ -3,6 +3,7 @@ import {
   boolean,
   check,
   foreignKey,
+  index,
   integer,
   jsonb,
   pgEnum,
@@ -90,6 +91,7 @@ export const turnoverBlocks = pgTable(
   },
   (table) => [
     unique("turnover_blocks_reservation_unique").on(table.reservationId),
+    index("turnover_blocks_unit_time_idx").on(table.unitId, table.startsAt, table.endsAt),
     foreignKey({ columns: [table.organizationId, table.unitId], foreignColumns: [units.organizationId, units.id] }).onDelete("cascade"),
     foreignKey({ columns: [table.organizationId, table.reservationId], foreignColumns: [reservations.organizationId, reservations.id] }).onDelete("cascade"),
     foreignKey({ columns: [table.organizationId, table.taskId], foreignColumns: [tasks.organizationId, tasks.id] }).onDelete("cascade"),

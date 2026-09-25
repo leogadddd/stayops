@@ -9,6 +9,7 @@ import {
   numeric,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -175,5 +176,90 @@ export const unitBlocks = pgTable(
       "unit_blocks_range_check",
       sql`${table.endDate} > ${table.startDate}`,
     ),
+  ],
+);
+
+export const AMENITY_SCOPES = ["property", "unit"] as const;
+export type AmenityScope = (typeof AMENITY_SCOPES)[number];
+export const amenityScope = pgEnum("amenity_scope", AMENITY_SCOPES);
+
+/**
+ * An organization's amenity catalog. Property amenities describe the building
+ * (pool, parking); unit amenities describe what's inside a unit (towels,
+ * kitchen tools). Defaults are seeded per organization; owners add their own.
+ */
+export const amenities = pgTable(
+  "amenities",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    scope: amenityScope("scope").notNull(),
+    name: text("name").notNull(),
+    // Icon key understood by the amenity picker; null for custom amenities.
+    icon: text("icon"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("amenities_organization_id_unique").on(table.organizationId, table.id),
+    uniqueIndex("amenities_org_scope_name_unique").on(table.organizationId, table.scope, sql`lower(${table.name})`),
+    check("amenities_name_length", sql`char_length(trim(${table.name})) BETWEEN 2 AND 60`),
+  ],
+);
+
+export type Amenity = typeof amenities.$inferSelect;
+
+export const propertyAmenities = pgTable(
+  "property_amenities",
+  {
+    organizationId: uuid("organization_id").notNull(),
+    propertyId: uuid("property_id").notNull(),
+    amenityId: uuid("amenity_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.propertyId, table.amenityId] }),
+    index("property_amenities_amenity_idx").on(table.amenityId),
+    foreignKey({
+      name: "property_amenities_property_fk",
+      columns: [table.organizationId, table.propertyId],
+      foreignColumns: [properties.organizationId, properties.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "property_amenities_amenity_fk",
+      columns: [table.organizationId, table.amenityId],
+      foreignColumns: [amenities.organizationId, amenities.id],
+    }).onDelete("cascade"),
+  ],
+);
+
+export const unitAmenities = pgTable(
+  "unit_amenities",
+  {
+    organizationId: uuid("organization_id").notNull(),
+    unitId: uuid("unit_id").notNull(),
+    amenityId: uuid("amenity_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.unitId, table.amenityId] }),
+    index("unit_amenities_amenity_idx").on(table.amenityId),
+    foreignKey({
+      name: "unit_amenities_unit_fk",
+      columns: [table.organizationId, table.unitId],
+      foreignColumns: [units.organizationId, units.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "unit_amenities_amenity_fk",
+      columns: [table.organizationId, table.amenityId],
+      foreignColumns: [amenities.organizationId, amenities.id],
+    }).onDelete("cascade"),
   ],
 );

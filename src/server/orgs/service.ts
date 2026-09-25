@@ -3,6 +3,9 @@ import "server-only";
 import { and, eq, ne } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { auditEvents, memberships, organizations, user } from "@/lib/db/schema";
+import { seedDefaultAmenities } from "@/server/inventory/amenities";
+import { isSupportedTimeZone } from "@/lib/timezones";
+import { isValidPhilippineAddress } from "@/lib/philippine-locations";
 
 export const ORG_NAME_MAX = 80;
 export const ORG_SLUG_MAX = 60;
@@ -41,6 +44,54 @@ export function validateOrgName(name: string): string {
     );
   }
   return trimmed;
+}
+
+function optionalText(value: string, max: number, field: string): string | null {
+  const trimmed = value.trim();
+  if (trimmed.length > max) {
+    throw new OrgError(`${field} must be ${max} characters or fewer.`);
+  }
+  return trimmed || null;
+}
+
+function validateTimeZone(value: string): string {
+  const timezone = value.trim();
+  if (!isSupportedTimeZone(timezone)) {
+    throw new OrgError("Choose a timezone from the supported list.", "defaultTimezone");
+  }
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: timezone });
+  } catch {
+    throw new OrgError("Use a valid IANA timezone like Asia/Manila.", "defaultTimezone");
+  }
+  return timezone;
+}
+
+export interface OrganizationProfileInput {
+  name: string;
+  displayName: string;
+  logoUrl?: string | null;
+  contactEmail: string;
+  contactPhone: string;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  municipality: string;
+  province: string;
+  region: string;
+  country: string;
+  legalName: string;
+  taxId: string;
+}
+
+/** The stored object key (or legacy data URL) currently used for the logo. */
+export async function getOrganizationLogoUrl(organizationId: string): Promise<string | null> {
+  const organization = await db.query.organizations.findFirst({
+    columns: { logoUrl: true },
+    where: eq(organizations.id, organizationId),
+  });
+  if (!organization) throw new OrgError("Organization not found.");
+  return organization.logoUrl;
 }
 
 export async function createOrganization(input: {
@@ -85,6 +136,7 @@ export async function createOrganization(input: {
     if (!org) {
       throw new OrgError("Failed to create the organization.");
     }
+    await seedDefaultAmenities(tx, org.id);
 
     await tx.insert(memberships).values({
       organizationId: org.id,
@@ -158,6 +210,87 @@ export async function updateOrganizationName(input: {
       entityId: input.organizationId,
       action: "organization.renamed",
       metadata: { name },
+    });
+  });
+}
+
+export async function updateOrganizationProfile(input: {
+  organizationId: string;
+  actorUserId: string;
+  data: OrganizationProfileInput;
+}): Promise<void> {
+  const name = validateOrgName(input.data.name);
+  const displayName = optionalText(input.data.displayName, 80, "Display name");
+  const contactEmail = optionalText(input.data.contactEmail, 254, "Contact email");
+  if (contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
+    throw new OrgError("Enter a valid contact email.", "contactEmail");
+  }
+  const contactPhone = optionalText(input.data.contactPhone, 40, "Contact phone");
+  const addressLine1 = optionalText(input.data.addressLine1, 160, "Address line 1");
+  const addressLine2 = optionalText(input.data.addressLine2, 160, "Address line 2");
+  const region = optionalText(input.data.region, 120, "Region");
+  const province = optionalText(input.data.province, 120, "Province");
+  const city = optionalText(input.data.city, 120, "City");
+  const municipality = optionalText(input.data.municipality, 120, "Municipality");
+  if (input.data.country !== "Philippines") throw new OrgError("Country is currently fixed to the Philippines.", "country");
+  if (!isValidPhilippineAddress({ region: region ?? "", province: province ?? "", city: city ?? "", municipality: municipality ?? "" })) throw new OrgError("Choose a valid Philippine region, province, and either a city or municipality.", "city");
+  const legalName = optionalText(input.data.legalName, 120, "Legal business name");
+  const taxId = optionalText(input.data.taxId, 80, "Tax ID");
+
+  await db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(organizations)
+      .set({
+        name,
+        displayName,
+        ...(input.data.logoUrl !== undefined ? { logoUrl: input.data.logoUrl } : {}),
+        contactEmail,
+        contactPhone,
+        addressLine1,
+        addressLine2,
+        city,
+        municipality,
+        province,
+        region,
+        country: "Philippines",
+        legalName,
+        taxId,
+        updatedAt: new Date(),
+      })
+      .where(eq(organizations.id, input.organizationId))
+      .returning({ id: organizations.id });
+    if (!updated) throw new OrgError("Organization not found.");
+    await tx.insert(auditEvents).values({
+      organizationId: input.organizationId,
+      actorUserId: input.actorUserId,
+      entity: "organization",
+      entityId: input.organizationId,
+      action: "organization.profile_updated",
+      metadata: { name, displayName },
+    });
+  });
+}
+
+export async function updateOrganizationRegion(input: {
+  organizationId: string;
+  actorUserId: string;
+  defaultTimezone: string;
+}): Promise<void> {
+  const defaultTimezone = validateTimeZone(input.defaultTimezone);
+  await db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(organizations)
+      .set({ defaultTimezone, updatedAt: new Date() })
+      .where(eq(organizations.id, input.organizationId))
+      .returning({ id: organizations.id });
+    if (!updated) throw new OrgError("Organization not found.");
+    await tx.insert(auditEvents).values({
+      organizationId: input.organizationId,
+      actorUserId: input.actorUserId,
+      entity: "organization",
+      entityId: input.organizationId,
+      action: "organization.region_updated",
+      metadata: { defaultTimezone },
     });
   });
 }

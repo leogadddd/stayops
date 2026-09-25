@@ -1,12 +1,11 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Save } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { FieldError, Label, Textarea } from "@/components/ui/input";
+import { Label, Textarea } from "@/components/ui/input";
 import { savePaymentInstructions, type OrgFormState } from "./actions";
 import { useActionFeedback } from "@/hooks/use-action-feedback";
+import { SettingsSaveBar } from "./settings-save-bar";
 
 export function PaymentInstructionsForm({
   defaultValue,
@@ -19,15 +18,16 @@ export function PaymentInstructionsForm({
   );
   useActionFeedback(state, { success: "Payment instructions updated." });
   const router = useRouter();
+  const [dirty, setDirty] = useState(false);
   useEffect(() => {
     if (state.success) {
-      router.push("/settings");
       router.refresh();
     }
   }, [state.success, router]);
+  const saveBarVisible = dirty || pending || Boolean(state.error);
 
   return (
-    <form action={formAction}>
+    <form action={formAction} onChange={(event) => setDirty(String(new FormData(event.currentTarget).get("paymentInstructions") ?? "") !== defaultValue)} onSubmit={() => setDirty(false)} className={saveBarVisible ? "pb-24" : undefined}>
       <Label htmlFor="paymentInstructions">
         Payment instructions shown to guests
       </Label>
@@ -44,16 +44,7 @@ export function PaymentInstructionsForm({
         Guests see this on their private booking page — include account names
         and numbers for GCash, Maya or bank transfer.
       </p>
-      <FieldError message={state.error} />
-      {state.success ? (
-        <p className="mt-1.5 text-sm text-pine" role="status">
-          Saved.
-        </p>
-      ) : null}
-      <Button type="submit" disabled={pending} className="mt-3">
-        <Save className="h-4 w-4" aria-hidden />
-        {pending ? "Saving…" : "Save instructions"}
-      </Button>
+      <SettingsSaveBar visible={saveBarVisible} pending={pending} error={state.error} label="Save instructions" />
     </form>
   );
 }

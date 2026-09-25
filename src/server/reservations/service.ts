@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, ilike, isNull, or } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   accessTokens,
@@ -123,6 +123,10 @@ export interface ReservationListFilters {
   query?: string;
   status?: ReservationStatus;
   unitId?: string;
+  /** "checkin" (latest stay first, the default) or "booked" (newest booking first). */
+  sort?: "checkin" | "booked";
+  /** Adds bookingTotalCents (charges excluding the deposit). Owner views only. */
+  includeTotals?: boolean;
 }
 
 export async function listReservations(
@@ -147,6 +151,14 @@ export async function listReservations(
     conditions.push(eq(reservations.unitId, filters.unitId));
   }
 
+  // Correlated so each row carries its own charge total without a GROUP BY.
+  const bookingTotalCents = sql<number>`coalesce((
+    select sum(${reservationCharges.amountCents}) from ${reservationCharges}
+    where ${reservationCharges.reservationId} = ${reservations.id}
+      and ${reservationCharges.organizationId} = ${reservations.organizationId}
+      and ${reservationCharges.type} <> 'security_deposit'
+  ), 0)`.mapWith(Number);
+
   return db
     .select({
       id: reservations.id,
@@ -160,6 +172,8 @@ export async function listReservations(
       guestName: guests.name,
       unitId: units.id,
       unitName: units.name,
+      propertyName: properties.name,
+      ...(filters.includeTotals ? { bookingTotalCents } : {}),
     })
     .from(reservations)
     .innerJoin(
@@ -176,8 +190,19 @@ export async function listReservations(
         eq(reservations.organizationId, units.organizationId),
       ),
     )
+    .leftJoin(
+      properties,
+      and(
+        eq(units.propertyId, properties.id),
+        eq(units.organizationId, properties.organizationId),
+      ),
+    )
     .where(and(...conditions))
-    .orderBy(desc(reservations.checkInDate));
+    .orderBy(
+      ...(filters.sort === "booked"
+        ? [desc(reservations.createdAt)]
+        : [desc(reservations.checkInDate), desc(reservations.createdAt)]),
+    );
 }
 
 export async function getReservationDetail(
@@ -837,6 +862,37 @@ export async function cancelReservation(input: {
   });
 }
 
+/**
+ * The primary guest for an edited reservation: an existing guest, whose
+ * contact details are updated when they changed (guest profiles are shared by
+ * all of that guest's reservations), or a newly created guest.
+ */
+async function resolvePrimaryGuest(
+  tx: Tx,
+  organizationId: string,
+  actorUserId: string,
+  guestId: string | undefined,
+  details: GuestInput | undefined,
+): Promise<{ id: string }> {
+  const contact = details ? { name: details.name, email: details.email || null, phone: details.phone || null } : null;
+  if (!guestId) {
+    const [created] = await tx.insert(guests).values({ organizationId, ...contact! }).returning({ id: guests.id, name: guests.name });
+    if (!created) throw new ReservationError("Failed to create the guest.");
+    await recordAudit(tx, { organizationId, actorUserId, entity: "guest", entityId: created.id, action: "guest.created", metadata: { name: created.name } });
+    return created;
+  }
+  const [existing] = await tx.select().from(guests).where(and(eq(guests.id, guestId), eq(guests.organizationId, organizationId))).limit(1);
+  if (!existing) throw new ReservationError("Primary guest not found.", "guestId");
+  if (contact) {
+    const changed = (Object.keys(contact) as (keyof typeof contact)[]).filter((key) => contact[key] !== existing[key]);
+    if (changed.length) {
+      await tx.update(guests).set({ ...contact, updatedAt: new Date() }).where(eq(guests.id, existing.id));
+      await recordAudit(tx, { organizationId, actorUserId, entity: "guest", entityId: existing.id, action: "guest.updated", metadata: { fields: changed } });
+    }
+  }
+  return existing;
+}
+
 /** Edit only a future hold or confirmed booking; financial snapshots remain immutable. */
 export async function updateReservation(input: {
   organizationId: string;
@@ -853,8 +909,7 @@ export async function updateReservation(input: {
     }
     const [unit] = await tx.select().from(units).where(and(eq(units.id, data.unitId), eq(units.organizationId, input.organizationId), isNull(units.deletedAt))).limit(1);
     if (!unit || data.guestCount > unit.capacity) throw new ReservationError(`This unit sleeps ${unit?.capacity ?? 0}; the guest count is too high.`, "guestCount");
-    const [guest] = await tx.select({ id: guests.id }).from(guests).where(and(eq(guests.id, data.guestId), eq(guests.organizationId, input.organizationId))).limit(1);
-    if (!guest) throw new ReservationError("Primary guest not found.", "guestId");
+    const guest = await resolvePrimaryGuest(tx, input.organizationId, input.actorUserId, data.guestId, data.primaryGuest);
     const segments = (await getOccupancySegments(input.organizationId, [unit.id], data.checkIn, data.checkOut)).get(unit.id) ?? [];
     const availability = checkIntervalAvailability(segments.filter((segment) => segment.kind !== "reservation" || segment.id !== reservation.id), data.checkIn, data.checkOut);
     if (!availability.available) throw new ReservationError(`Those dates conflict with ${availability.conflict.reason}.`, "checkIn");

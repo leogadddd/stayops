@@ -71,8 +71,8 @@ function fixture(status: Status = "confirmed") {
 }
 function ledgerFixture() {
   return {
-    balances: { bookingTotalCents: 0, paidBookingCents: 0, refundedBookingCents: 0, bookingBalanceCents: 0, depositTotalCents: 123456, paidDepositCents: 0, depositHeldCents: 0 },
-    payments: [], refunds: [], deductions: [],
+    balances: { bookingTotalCents: 50000, paidBookingCents: 50000, refundedBookingCents: 0, bookingBalanceCents: 0, depositTotalCents: 123456, paidDepositCents: 123456, depositHeldCents: 123456 },
+    payments: [{ id: "payment-a", method: "gcash", allocation: "booking", amountCents: 50000, reference: null, receivedAt: new Date("2026-08-01") }], refunds: [], deductions: [],
     proofs: [{ id: "proof-a", organizationId: "org-a", reservationId: "reservation-a", status: "unverified", reference: "Test reference", note: "Please verify", createdAt: new Date("2026-08-01") }],
   } as unknown as Awaited<ReturnType<typeof getReservationLedger>>;
 }
@@ -137,7 +137,7 @@ describe("dedicated reservation action pages", () => {
     expect(requireMembership).toHaveBeenCalledOnce();
     expect(getReservationLedger).not.toHaveBeenCalled();
     const client = nodes(tree).find((node) => node.type === form);
-    expect(client?.props).toEqual(form === DamageReportForm ? { unitId: "unit-a", reservationId: "reservation-a", returnHref: "/reservations/reservation-a" } : form === CheckOutForm ? expect.objectContaining({ reservationId: "reservation-a", defaultActualCheckoutAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/) }) : { reservationId: "reservation-a" });
+    expect(client?.props).toEqual(form === DamageReportForm ? { unitId: "unit-a", reservationId: "reservation-a", returnHref: "/reservations/reservation-a" } : form === CheckOutForm ? { reservationId: "reservation-a", timeZone: "Asia/Manila" } : { reservationId: "reservation-a" });
     expect(serialize(tree)).not.toMatch(/123456|Private deposit|amountCents|ledger/);
   });
 
@@ -153,6 +153,45 @@ describe("dedicated reservation action pages", () => {
     const tree = await page({ params });
     expect(nodes(tree).some((node) => node.type === form)).toBe(false);
     expect(tree.props.unavailable).toBeTruthy();
+  });
+
+  it("offers a refund only once money was received, and only from where it went", async () => {
+    vi.mocked(requireOwner).mockResolvedValue(owner);
+    const unpaid = ledgerFixture();
+    unpaid.balances = { ...unpaid.balances, paidBookingCents: 0, paidDepositCents: 0, depositHeldCents: 0 };
+    vi.mocked(getReservationLedger).mockResolvedValue(unpaid);
+    const blocked = await NewRefundPage({ params });
+    expect(nodes(blocked).some((node) => node.type === RecordRefundForm)).toBe(false);
+    expect(blocked.props.unavailable).toMatch(/no payment/i);
+
+    const depositOnly = ledgerFixture();
+    depositOnly.balances = { ...depositOnly.balances, paidBookingCents: 0 };
+    vi.mocked(getReservationLedger).mockResolvedValue(depositOnly);
+    const form = nodes(await NewRefundPage({ params })).find((node) => node.type === RecordRefundForm);
+    expect(form?.props).toMatchObject({ canRefundBooking: false, canRefundDeposit: true });
+  });
+
+  it("offers a deposit deduction only once a deposit is held", async () => {
+    vi.mocked(requireOwner).mockResolvedValue(owner);
+    const noDeposit = ledgerFixture();
+    noDeposit.balances = { ...noDeposit.balances, paidDepositCents: 0, depositHeldCents: 0 };
+    vi.mocked(getReservationLedger).mockResolvedValue(noDeposit);
+    const tree = await NewDeductionPage({ params });
+    expect(nodes(tree).some((node) => node.type === AddDeductionForm)).toBe(false);
+    expect(tree.props.unavailable).toMatch(/no deposit/i);
+  });
+
+  it("disables refund and deduction on the reservation until money is received", async () => {
+    vi.mocked(requireMembership).mockResolvedValue(owner);
+    const unpaid = ledgerFixture();
+    unpaid.balances = { ...unpaid.balances, paidBookingCents: 0, paidDepositCents: 0, depositHeldCents: 0 };
+    vi.mocked(getReservationLedger).mockResolvedValue(unpaid);
+    const html = serialize(await ReservationDetailPage({ params }));
+    expect(html).toContain("/reservations/reservation-a/payments/new");
+    expect(html).not.toContain("/reservations/reservation-a/refunds/new");
+    expect(html).not.toContain("/reservations/reservation-a/deductions/new");
+    expect(html).toContain("No payment recorded yet");
+    expect(html).toContain("No deposit collected yet");
   });
 
   it("maps a missing or foreign reservation to not-found", async () => {
@@ -209,13 +248,28 @@ describe("read-only reservation detail and shared tables", () => {
     for (const path of ["payments/new", "refunds/new", "deductions/new", "cancel"]) expect(serialize(tree)).toContain(`/reservations/reservation-a/${path}`);
   });
 
+  it.each([
+    ["owner", "confirmed", true],
+    ["owner", "checked_in", false],
+    ["owner", "checked_out", false],
+    ["owner", "cancelled", false],
+    ["staff", "confirmed", false],
+  ] as const)("shows Edit to %s for a %s reservation: %s", async (role, status, visible) => {
+    if (role === "owner") vi.mocked(requireMembership).mockResolvedValue(owner);
+    vi.mocked(getReservationDetail).mockResolvedValue(fixture(status));
+    const html = serialize(await ReservationDetailPage({ params }));
+    expect(html.includes("/reservations/reservation-a/edit")).toBe(visible);
+  });
+
   it("uses the shared Table for the reservations list", async () => {
     vi.mocked(listOrgUnits).mockResolvedValue([]);
-    vi.mocked(listReservations).mockResolvedValue([{ ...fixture().reservation, guestName: "Test guest", unitName: "Test unit" }] as Awaited<ReturnType<typeof listReservations>>);
+    vi.mocked(listReservations).mockResolvedValue([{ ...fixture().reservation, guestName: "Test guest", unitName: "Test unit", propertyName: "Test property", createdAt: new Date("2026-08-01T02:00:00Z") }] as Awaited<ReturnType<typeof listReservations>>);
     const tree = await ReservationsPage({ searchParams: Promise.resolve({}) });
     expect(nodes(tree).some((node) => node.type === Table)).toBe(true);
     const html = renderToStaticMarkup(tree);
-    for (const heading of ["Guest", "Unit", "Dates", "Status", "Actions"]) expect(html).toContain(`>${heading}</th>`);
+    for (const heading of ["Ref", "Guest", "Unit", "Check-in", "Check-out", "Nights", "Guests", "Booked", "Status", "Actions"]) expect(html).toContain(`>${heading}</th>`);
+    // Staff never see money columns.
+    expect(html).not.toContain(">Total</th>");
     expect(html).toContain('href="/reservations/reservation-a"');
   });
 

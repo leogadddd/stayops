@@ -1,7 +1,7 @@
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { calendarEventsForUnit, layoutMonthEvents, monthGridRange, type CalendarInterval } from "@/lib/calendar";
+import { calendarEventsForUnit, layoutMonthBars, layoutMonthEvents, MIN_BAR_WIDTH, monthGridRange, type BarInterval, type CalendarInterval } from "@/lib/calendar";
 import { listNights } from "@/lib/dates";
 import { getOccupancySegments, listCalendarActivity, type OccupancySegment } from "@/server/inventory/availability";
 import { listOrgUnits, listProperties } from "@/server/inventory/service";
@@ -164,6 +164,77 @@ describe("layoutMonthEvents", () => {
   });
 });
 
+const stayBar = (id: string, startDate: string, endDate: string, startTime = "14:00", endTime = "10:00"): BarInterval =>
+  ({ id, startDate, endDate, timed: true, startTime, endTime });
+
+describe("layoutMonthBars", () => {
+  it("places stay edges at the check-in and check-out times", () => {
+    // Sep 2026 grid starts Sun Aug 30; Tue Sep 1 is column 2.
+    const [week] = layoutMonthBars("2026-09", [stayBar("s", "2026-09-01", "2026-09-03", "12:00", "06:00")]);
+    expect(week!.bars[0]).toMatchObject({ start: 2.5, end: 4.25, lane: 0, continuesBefore: false, continuesAfter: false });
+  });
+
+  it("puts a 10:00 checkout and 14:00 check-in on the same day in one lane", () => {
+    const [week] = layoutMonthBars("2026-09", [
+      stayBar("first", "2026-09-01", "2026-09-03"),
+      stayBar("second", "2026-09-03", "2026-09-04"),
+    ]);
+    expect(week!.laneCount).toBe(1);
+  });
+
+  it("stacks stays whose times overlap on changeover day", () => {
+    const [week] = layoutMonthBars("2026-09", [
+      stayBar("late-out", "2026-09-01", "2026-09-03", "14:00", "16:00"),
+      stayBar("next", "2026-09-03", "2026-09-04"),
+    ]);
+    expect(week!.bars.find((bar) => bar.event.id === "next")!.lane).toBe(1);
+  });
+
+  it("uses an actual checkout on another date as the bar's end", () => {
+    const [week] = layoutMonthBars("2026-09", [stayBar("early", "2026-09-01", "2026-09-02", "14:00", "18:00")]);
+    expect(week!.bars[0]!.end).toBeCloseTo(3.75);
+  });
+
+  it("keeps a same-day early departure visible", () => {
+    const [week] = layoutMonthBars("2026-09", [stayBar("s", "2026-09-01", "2026-09-01", "14:00", "13:00")]);
+    expect(week!.bars[0]!.end - week!.bars[0]!.start).toBeGreaterThan(0);
+  });
+
+  it("keeps whole-day blocks on day edges", () => {
+    const [week] = layoutMonthBars("2026-09", [{ id: "block", startDate: "2026-09-04", endDate: "2026-09-06" }]);
+    expect(week!.bars[0]).toMatchObject({ start: 5, end: 7 });
+  });
+
+  it("widens short pieces so every bar can carry a name", () => {
+    // Checks in Sat Sep 5 at 20:00, out Mon Sep 7 at 09:00: a 0.17-day tail in week one.
+    const weeks = layoutMonthBars("2026-09", [stayBar("late", "2026-09-05", "2026-09-07", "20:00", "09:00")]);
+    const tail = weeks[0]!.bars[0]!;
+    expect(tail.end).toBe(7);
+    expect(tail.end - tail.start).toBeCloseTo(MIN_BAR_WIDTH);
+    expect(tail.continuesAfter).toBe(true);
+    // Its piece in the next week starts at the Sunday edge and grows rightward.
+    const early = layoutMonthBars("2026-09", [stayBar("early", "2026-09-05", "2026-09-06", "14:00", "03:00")])[1]!.bars[0]!;
+    expect(early).toMatchObject({ start: 0, continuesBefore: true });
+    expect(early.end).toBeCloseTo(MIN_BAR_WIDTH);
+  });
+
+  it("packs lanes with the widened extent so short bars never overlap", () => {
+    const [week] = layoutMonthBars("2026-09", [
+      stayBar("blip", "2026-09-01", "2026-09-01", "10:00", "11:00"),
+      stayBar("next", "2026-09-01", "2026-09-02", "12:00", "11:00"),
+    ]);
+    const [blip, next] = ["blip", "next"].map((id) => week!.bars.find((bar) => bar.event.id === id)!);
+    expect(blip!.end - blip!.start).toBeCloseTo(MIN_BAR_WIDTH);
+    expect(next!.lane).not.toBe(blip!.lane);
+  });
+
+  it("splits a stay across weeks", () => {
+    const weeks = layoutMonthBars("2026-09", [stayBar("s", "2026-09-04", "2026-09-07", "12:00", "12:00")]);
+    expect(weeks[0]!.bars[0]).toMatchObject({ start: 5.5, end: 7, continuesAfter: true });
+    expect(weeks[1]!.bars[0]).toMatchObject({ start: 0, end: 1.5, continuesBefore: true, continuesAfter: false });
+  });
+});
+
 function elements(node: React.ReactNode): React.ReactElement<Record<string, unknown>>[] {
   if (Array.isArray(node)) return node.flatMap(elements);
   if (!React.isValidElement<Record<string, unknown>>(node)) return [];
@@ -190,8 +261,8 @@ describe("calendar page data boundaries", () => {
       { id: "property-b", name: "LA", timezone: "America/Los_Angeles", checkInTime: "14:00", checkOutTime: "10:00" },
     ] as Awaited<ReturnType<typeof listProperties>>);
     vi.mocked(listOrgUnits).mockResolvedValue([
-      { id: "unit-a", propertyId: "property-a", name: "Apartment 01", status: "active", defaultNightlyRateCents: 987654, cleaningFeeCents: 456789 },
-      { id: "unit-b", propertyId: "property-b", name: "Apartment 02", status: "maintenance", defaultNightlyRateCents: 987654, cleaningFeeCents: 456789 },
+      { id: "unit-a", propertyId: "property-a", name: "Apartment 01", status: "active", checkInTime: "15:00", checkOutTime: "11:00", defaultNightlyRateCents: 987654, cleaningFeeCents: 456789 },
+      { id: "unit-b", propertyId: "property-b", name: "Apartment 02", status: "maintenance", checkInTime: "14:00", checkOutTime: "10:00", defaultNightlyRateCents: 987654, cleaningFeeCents: 456789 },
     ] as Awaited<ReturnType<typeof listOrgUnits>>);
     vi.mocked(getOccupancySegments).mockResolvedValue(new Map());
     vi.mocked(listCalendarActivity).mockResolvedValue([
@@ -255,6 +326,22 @@ describe("calendar page data boundaries", () => {
     expect(html).not.toContain('href="/settings/');
     expect(html).toContain('href="/reservations/reservation-1"');
     expect(html).toContain("Repairs");
+  });
+
+  it("ends a stay at its actual checkout and exposes both times in the quick view", async () => {
+    vi.mocked(getOccupancySegments).mockResolvedValue(new Map([["unit-a", [
+      // Checked out Sep 3 at 09:30 Manila (01:30 UTC), expected 11:00.
+      { ...reservation("2026-09-01", "2026-09-03", "checked_out"), guestCount: 2, actualCheckoutAt: new Date("2026-09-03T01:30:00Z") },
+      { ...reservation("2026-09-05", "2026-09-07", "confirmed", "reservation-2"), guestCount: 1, actualCheckoutAt: null },
+    ]]]));
+    const tree = await CalendarPage({ searchParams: Promise.resolve({ unit: "unit-a" }) });
+    const [early, upcoming] = propsFor(tree, MonthCalendar).events;
+    expect(early).toMatchObject({ timed: true, startTime: "15:00", endDate: "2026-09-03", endTime: "09:30" });
+    expect(early!.quickView.checkOut).toMatchObject({ time: "9:30 AM", actual: true, expected: "Sep 3, 11:00 AM" });
+    expect(early!.quickView.facts).toContainEqual({ label: "Guests", value: "2" });
+    expect(early!.quickView.href).toBe("/reservations/reservation-1");
+    expect(upcoming).toMatchObject({ endDate: "2026-09-07", endTime: "11:00", timeLabel: "3PM → 11AM" });
+    expect(upcoming!.quickView.checkOut).toMatchObject({ actual: false });
   });
 
   it("does not turn an inactive unit status into a calendar event", async () => {

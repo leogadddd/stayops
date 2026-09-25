@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { ZodError } from "zod";
 import { requireMembership, assertOwner, PermissionError } from "@/lib/auth/session";
 import { createExpense, ExpenseError } from "@/server/expenses/service";
+import { unexpectedErrorMessage } from "@/lib/errors";
 
 export interface ExpenseFormState {
   error?: string;
@@ -25,7 +26,7 @@ function toFormError(error: unknown): ExpenseFormState {
     const first = error.issues[0];
     return { error: first ? first.message : "Check the form and try again." };
   }
-  throw error;
+  return { error: unexpectedErrorMessage(error, "expenses") };
 }
 
 export async function createExpenseAction(

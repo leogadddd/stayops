@@ -10,6 +10,7 @@ import {
   recordRefund,
 } from "@/server/payments/service";
 import { PaymentError } from "@/server/payments/validation";
+import { unexpectedErrorMessage } from "@/lib/errors";
 
 export interface PaymentFormState {
   error?: string;
@@ -31,7 +32,7 @@ function toFormError(error: unknown): PaymentFormState {
     const first = error.issues[0];
     return { error: first ? first.message : "Check the form and try again." };
   }
-  throw error;
+  return { error: unexpectedErrorMessage(error, "payments") };
 }
 
 export async function recordPaymentAction(
