@@ -312,7 +312,7 @@ export default async function DashboardPage() {
           action={
             isOwner ? (
               <Link
-                href="/settings/properties/new"
+                href="/properties/new"
                 className={buttonClassName("clay", "md")}
               >
                 Add a property

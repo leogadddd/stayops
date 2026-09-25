@@ -42,11 +42,11 @@ export default async function UnitDetailPage({ params }: { params: Promise<{ pro
     listUnitAmenities(membership.organizationId, unit.id),
   ]);
   const checklist = normalizeChecklistTemplate(unit.checklistTemplate);
-  const unitHref = `/settings/properties/${property.id}/units/${unit.id}`;
+  const unitHref = `/properties/${property.id}/units/${unit.id}`;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <PageHeading title={unit.name} description={`${property.name} · ${formatPHP(unit.defaultNightlyRateCents)} per night`} backHref={`/settings/properties/${property.id}`} backLabel={property.name}>
+      <PageHeading title={unit.name} description={`${property.name} · ${formatPHP(unit.defaultNightlyRateCents)} per night`} backHref={`/properties/${property.id}`} backLabel={property.name}>
         <Link href={`${unitHref}/edit`} className={buttonClassName("outline")}>Edit unit</Link>
       </PageHeading>
 

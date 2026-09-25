@@ -17,10 +17,10 @@ import {
   createPropertyAction, createUnitAction, updatePropertyAction,
   updateUnitAction, updateChecklistTemplateAction, deletePropertyAction,
   deleteUnitAction,
-} from "@/app/(app)/settings/properties/actions";
+} from "@/app/(app)/properties/actions";
 import {
   addUnitBlockAction, removeUnitBlockAction,
-} from "@/app/(app)/settings/properties/[propertyId]/units/block-actions";
+} from "@/app/(app)/properties/[propertyId]/units/block-actions";
 import { createExpenseAction } from "@/app/(app)/expenses/actions";
 import { createReservationAction } from "@/app/(app)/reservations/actions";
 import { createHold, createConfirmed } from "@/server/reservations/service";

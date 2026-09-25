@@ -18,7 +18,7 @@ export default async function NewPropertyPage() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHeading title="Add property" description="Set up a property, then add its bookable units." backHref="/settings/properties" backLabel="All properties" />
+      <PageHeading title="Add property" description="Set up a property, then add its bookable units." backHref="/properties" backLabel="All properties" />
       <PropertyForm defaultTimezone={organization?.defaultTimezone ?? "Asia/Manila"} amenityOptions={await listAmenities(membership.organizationId, "property")} />
     </div>
   );

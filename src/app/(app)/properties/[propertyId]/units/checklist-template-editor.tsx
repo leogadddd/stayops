@@ -34,7 +34,7 @@ export function ChecklistTemplateEditor({
   const router = useRouter();
   useEffect(() => {
     if (state.success) {
-      router.push(`/settings/properties/${propertyId}/units/${unitId}`);
+      router.push(`/properties/${propertyId}/units/${unitId}`);
       router.refresh();
     }
   }, [state.success, propertyId, unitId, router]);

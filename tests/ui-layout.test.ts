@@ -31,7 +31,7 @@ describe("branded app shell", () => {
 
   it("keeps audit logs under settings rather than sidebar navigation", () => {
     const markup = renderToStaticMarkup(h(AppSidebar, identity));
-    for (const href of ["/dashboard", "/calendar", "/reservations", "/settings/properties", "/guests", "/tasks", "/reports", "/expenses", "/settings"]) {
+    for (const href of ["/dashboard", "/calendar", "/reservations", "/properties", "/guests", "/tasks", "/reports", "/expenses", "/settings"]) {
       expect(markup).toContain(`href="${href}"`);
     }
     expect(markup).not.toContain('href="/audit-logs"');
@@ -47,10 +47,10 @@ describe("branded app shell", () => {
   });
 
   it("selects only properties while editing a nested unit", () => {
-    vi.mocked(usePathname).mockReturnValue("/settings/properties/property-a/units/unit-a/edit");
+    vi.mocked(usePathname).mockReturnValue("/properties/property-a/units/unit-a/edit");
     const markup = renderToStaticMarkup(h(AppSidebar, identity));
     expect(markup.match(/aria-current="page"/g)).toHaveLength(1);
-    const propertiesLink = markup.match(/<a\b[^>]*>/g)?.find((tag) => tag.includes('href="/settings/properties"'));
+    const propertiesLink = markup.match(/<a\b[^>]*>/g)?.find((tag) => tag.includes('href="/properties"'));
     expect(propertiesLink).toContain('aria-current="page"');
   });
 

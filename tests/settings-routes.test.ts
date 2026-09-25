@@ -8,27 +8,27 @@ import { getAuditLogPage, listAuditEvents } from "@/server/audit/service";
 import * as inventory from "@/server/inventory/service";
 import { InventoryError } from "@/server/inventory/validation";
 import SettingsPage from "@/app/(app)/settings/page";
-import PropertiesPage from "@/app/(app)/settings/properties/page";
-import PropertyDetailPage from "@/app/(app)/settings/properties/[propertyId]/page";
-import UnitDetailPage from "@/app/(app)/settings/properties/[propertyId]/units/[unitId]/page";
+import PropertiesPage from "@/app/(app)/properties/page";
+import PropertyDetailPage from "@/app/(app)/properties/[propertyId]/page";
+import UnitDetailPage from "@/app/(app)/properties/[propertyId]/units/[unitId]/page";
 import AuditLogsPage from "@/app/(app)/audit-logs/page";
 import EditOrganizationPage from "@/app/(app)/settings/organization/edit/page";
 import EditPaymentInstructionsPage from "@/app/(app)/settings/payment-instructions/edit/page";
 import NewStaffPage from "@/app/(app)/settings/staff/new/page";
-import NewPropertyPage from "@/app/(app)/settings/properties/new/page";
-import EditPropertyPage from "@/app/(app)/settings/properties/[propertyId]/edit/page";
-import NewUnitPage from "@/app/(app)/settings/properties/[propertyId]/units/new/page";
-import EditUnitPage from "@/app/(app)/settings/properties/[propertyId]/units/[unitId]/edit/page";
-import NewUnitBlockPage from "@/app/(app)/settings/properties/[propertyId]/units/[unitId]/blocks/new/page";
-import EditChecklistPage from "@/app/(app)/settings/properties/[propertyId]/units/[unitId]/checklist/edit/page";
+import NewPropertyPage from "@/app/(app)/properties/new/page";
+import EditPropertyPage from "@/app/(app)/properties/[propertyId]/edit/page";
+import NewUnitPage from "@/app/(app)/properties/[propertyId]/units/new/page";
+import EditUnitPage from "@/app/(app)/properties/[propertyId]/units/[unitId]/edit/page";
+import NewUnitBlockPage from "@/app/(app)/properties/[propertyId]/units/[unitId]/blocks/new/page";
+import EditChecklistPage from "@/app/(app)/properties/[propertyId]/units/[unitId]/checklist/edit/page";
 import { OrgNameForm } from "@/app/(app)/settings/org-name-form";
 import { PaymentInstructionsForm } from "@/app/(app)/settings/payment-instructions-form";
 import { InviteStaffForm } from "@/app/(app)/settings/staff-forms";
-import { PropertyForm } from "@/app/(app)/settings/properties/property-form";
-import { UnitCreateForm } from "@/app/(app)/settings/properties/unit-create-form";
-import { UnitEditForm } from "@/app/(app)/settings/properties/[propertyId]/units/unit-edit-form";
-import { BlockForms } from "@/app/(app)/settings/properties/[propertyId]/units/block-forms";
-import { ChecklistTemplateEditor } from "@/app/(app)/settings/properties/[propertyId]/units/checklist-template-editor";
+import { PropertyForm } from "@/app/(app)/properties/property-form";
+import { UnitCreateForm } from "@/app/(app)/properties/unit-create-form";
+import { UnitEditForm } from "@/app/(app)/properties/[propertyId]/units/unit-edit-form";
+import { BlockForms } from "@/app/(app)/properties/[propertyId]/units/block-forms";
+import { ChecklistTemplateEditor } from "@/app/(app)/properties/[propertyId]/units/checklist-template-editor";
 
 const navigation = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn(), redirect: vi.fn() }));
 vi.mock("react", async (importOriginal) => ({
@@ -54,12 +54,12 @@ vi.mock("@/server/inventory/amenities", () => ({
 vi.mock("@/app/(app)/settings/actions", () => ({
   renameOrganization: vi.fn(), saveOrganizationProfile: vi.fn(), savePaymentInstructions: vi.fn(), inviteStaffAction: vi.fn(), removeStaffAction: vi.fn(),
 }));
-vi.mock("@/app/(app)/settings/properties/actions", () => ({
+vi.mock("@/app/(app)/properties/actions", () => ({
   createPropertyAction: vi.fn(), updatePropertyAction: vi.fn(), createUnitAction: vi.fn(),
   updateUnitAction: vi.fn(), updateChecklistTemplateAction: vi.fn(),
   deletePropertyAction: vi.fn(), deleteUnitAction: vi.fn(),
 }));
-vi.mock("@/app/(app)/settings/properties/[propertyId]/units/block-actions", () => ({
+vi.mock("@/app/(app)/properties/[propertyId]/units/block-actions", () => ({
   addUnitBlockAction: vi.fn(), removeUnitBlockAction: vi.fn(),
 }));
 
@@ -81,7 +81,7 @@ const unit = {
   createdAt: new Date("2026-09-01T00:00:00Z"), updatedAt: new Date("2026-09-01T00:00:00Z"),
   deletedAt: null,
 };
-const propertyHref = `/settings/properties/${property.id}`;
+const propertyHref = `/properties/${property.id}`;
 const unitHref = `${propertyHref}/units/${unit.id}`;
 const propertyParams = () => ({ params: Promise.resolve({ propertyId: property.id }) });
 const unitParams = () => ({ params: Promise.resolve({ propertyId: property.id, unitId: unit.id }) });
@@ -194,7 +194,7 @@ describe("read-only summaries and reusable tables", () => {
   it("lists properties in a shared table and links to a separate create route", async () => {
     const html = renderToStaticMarkup(await PropertiesPage());
     expect(html).toContain('data-slot="table"');
-    expect(html).toContain('href="/settings/properties/new"');
+    expect(html).toContain('href="/properties/new"');
     expect(html).toContain(`href="${propertyHref}"`);
     expect(html).not.toContain("<form");
   });
@@ -251,7 +251,7 @@ const editors = [
   { name: "organization", render: () => React.createElement(OrgNameForm, { defaultName: owner.organizationName }), destination: "/settings" },
   { name: "payment instructions", render: () => React.createElement(PaymentInstructionsForm, { defaultValue: "" }), destination: "/settings" },
   { name: "staff", render: () => React.createElement(InviteStaffForm), destination: "/settings" },
-  { name: "new property", render: () => React.createElement(PropertyForm), destination: "/settings/properties" },
+  { name: "new property", render: () => React.createElement(PropertyForm), destination: "/properties" },
   { name: "edit property", render: () => React.createElement(PropertyForm, { propertyId: property.id }), destination: propertyHref },
   { name: "new unit", render: () => React.createElement(UnitCreateForm, { propertyId: property.id }), destination: propertyHref },
   { name: "edit unit", render: () => React.createElement(UnitEditForm, { propertyId: property.id, unitId: unit.id, values: { name: unit.name, capacity: 2, bedrooms: 1, bathrooms: 1, nightlyRate: "1250.50", cleaningFee: "300", securityDeposit: "", checkInTime: "15:00", checkOutTime: "11:00", status: "active" } }), destination: unitHref },

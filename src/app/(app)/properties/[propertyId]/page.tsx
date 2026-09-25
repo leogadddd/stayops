@@ -36,11 +36,11 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
     listPropertyUnits(membership.organizationId, property.id),
     listPropertyAmenities(membership.organizationId, property.id),
   ]);
-  const propertyHref = `/settings/properties/${property.id}`;
+  const propertyHref = `/properties/${property.id}`;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <PageHeading title={property.name} description="Property details and bookable units." backHref="/settings/properties" backLabel="All properties">
+      <PageHeading title={property.name} description="Property details and bookable units." backHref="/properties" backLabel="All properties">
         <Link href={`${propertyHref}/edit`} className={buttonClassName("outline")}>Edit property</Link>
       </PageHeading>
 

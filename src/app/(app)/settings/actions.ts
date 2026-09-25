@@ -102,7 +102,7 @@ export async function saveOrganizationRegion(
     return toFormError(error);
   }
   revalidatePath("/settings/region");
-  revalidatePath("/settings/properties/new");
+  revalidatePath("/properties/new");
   revalidatePath("/audit-logs");
   return { success: true };
 }

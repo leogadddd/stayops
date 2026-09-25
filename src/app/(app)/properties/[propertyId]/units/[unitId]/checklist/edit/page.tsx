@@ -29,7 +29,7 @@ export default async function EditChecklistPage({ params }: { params: Promise<{ 
 
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHeading title="Edit turnover checklist" description={`${unit.name} · Changes apply to future turnovers. Tasks already in progress keep their existing checklist.`} backHref={`/settings/properties/${property.id}/units/${unit.id}`} backLabel={unit.name} />
+      <PageHeading title="Edit turnover checklist" description={`${unit.name} · Changes apply to future turnovers. Tasks already in progress keep their existing checklist.`} backHref={`/properties/${property.id}/units/${unit.id}`} backLabel={unit.name} />
       <Card className="bg-[#FFFDFA]"><CardBody><ChecklistTemplateEditor propertyId={property.id} unitId={unit.id} items={normalizeChecklistTemplate(unit.checklistTemplate)} /></CardBody></Card>
     </div>
   );

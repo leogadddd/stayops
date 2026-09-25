@@ -28,7 +28,7 @@ export default async function NewUnitBlockPage({ params }: { params: Promise<{ p
 
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHeading title="Add out-of-service block" description={`${property.name} · ${unit.name}. Block nights for repairs or preparation.`} backHref={`/settings/properties/${property.id}/units/${unit.id}`} backLabel={unit.name} />
+      <PageHeading title="Add out-of-service block" description={`${property.name} · ${unit.name}. Block nights for repairs or preparation.`} backHref={`/properties/${property.id}/units/${unit.id}`} backLabel={unit.name} />
       <Card className="bg-[#FFFDFA]"><CardBody><BlockForms propertyId={property.id} unitId={unit.id} /></CardBody></Card>
     </div>
   );

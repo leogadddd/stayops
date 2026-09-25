@@ -80,7 +80,7 @@ export default async function AvailabilityPage({ searchParams }: { searchParams:
         <EmptyState
           title="No units to check"
           description={membership.role === "owner" ? "Add a property and unit before checking stay dates." : "Ask the owner to add a property and unit."}
-          action={membership.role === "owner" ? <Link href="/settings/properties" className={buttonClassName("clay", "md")}>Manage properties</Link> : undefined}
+          action={membership.role === "owner" ? <Link href="/properties" className={buttonClassName("clay", "md")}>Manage properties</Link> : undefined}
         />
       )}
     </div>

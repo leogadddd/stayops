@@ -21,7 +21,7 @@ export function UnitCreateForm({ propertyId, defaults, amenityOptions }: {
   const router = useRouter();
   useEffect(() => {
     if (state.success) {
-      router.push(`/settings/properties/${propertyId}`);
+      router.push(`/properties/${propertyId}`);
       router.refresh();
     }
   }, [state.success, propertyId, router]);
@@ -35,7 +35,7 @@ export function UnitCreateForm({ propertyId, defaults, amenityOptions }: {
         }}
         error={state.error}
         pending={pending}
-        cancelHref={`/settings/properties/${propertyId}`}
+        cancelHref={`/properties/${propertyId}`}
         submitLabel="Add unit"
         pendingLabel="Adding…"
         editing={false}

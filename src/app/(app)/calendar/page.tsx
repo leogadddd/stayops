@@ -82,7 +82,7 @@ export default async function CalendarPage({
           action={
             membership.role === "owner" ? (
               <Link
-                href="/settings/properties"
+                href="/properties"
                 className={buttonClassName("clay", "md")}
               >
                 Add your first property
@@ -195,7 +195,7 @@ export default async function CalendarPage({
     const href = event.reservationId
       ? `/reservations/${event.reservationId}`
       : membership.role === "owner"
-        ? `/settings/properties/${unit.propertyId}/units/${unit.id}`
+        ? `/properties/${unit.propertyId}/units/${unit.id}`
         : undefined;
     const title =
       event.kind === "block" ? (event.description ?? event.title) : event.title;
@@ -392,7 +392,7 @@ export default async function CalendarPage({
               action={
                 membership.role === "owner" ? (
                   <Link
-                    href="/settings/properties"
+                    href="/properties"
                     className={buttonClassName("outline", "md")}
                   >
                     Manage properties

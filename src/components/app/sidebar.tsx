@@ -37,7 +37,7 @@ const NAV_ITEMS = [
     ownerOnly: false,
   },
   {
-    href: "/settings/properties",
+    href: "/properties",
     label: "Properties",
     icon: Building2,
     ownerOnly: true,
@@ -74,7 +74,7 @@ function Navigation({
           const active =
             href === "/settings"
               ? pathname.startsWith("/settings") &&
-                !pathname.startsWith("/settings/properties")
+                !pathname.startsWith("/properties")
               : pathname === href || pathname.startsWith(`${href}/`);
           return (
             <Link

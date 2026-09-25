@@ -84,7 +84,7 @@ export async function createPropertyAction(
   } catch (error) {
     return toFormError(error);
   }
-  revalidatePath("/settings/properties");
+  revalidatePath("/properties");
   revalidatePath("/calendar");
   return { success: true };
 }
@@ -116,7 +116,7 @@ export async function updatePropertyAction(
   } catch (error) {
     return toFormError(error);
   }
-  revalidatePath("/settings/properties");
+  revalidatePath("/properties");
   revalidatePath("/calendar");
   return { success: true };
 }
@@ -136,7 +136,7 @@ export async function deletePropertyAction(
     return toFormError(error);
   }
   revalidatePath("/dashboard");
-  revalidatePath("/settings/properties");
+  revalidatePath("/properties");
   revalidatePath("/calendar");
   revalidatePath("/calendar/availability");
   return { success: true };
@@ -182,7 +182,7 @@ export async function createUnitAction(
   } catch (error) {
     return toFormError(error);
   }
-  revalidatePath(`/settings/properties/${propertyId}`);
+  revalidatePath(`/properties/${propertyId}`);
   revalidatePath("/calendar");
   return { success: true };
 }
@@ -206,8 +206,8 @@ export async function updateUnitAction(
   } catch (error) {
     return toFormError(error);
   }
-  revalidatePath(`/settings/properties/${propertyId}`);
-  revalidatePath(`/settings/properties/${propertyId}/units/${unitId}`);
+  revalidatePath(`/properties/${propertyId}`);
+  revalidatePath(`/properties/${propertyId}/units/${unitId}`);
   revalidatePath("/calendar");
   return { success: true };
 }
@@ -228,8 +228,8 @@ export async function deleteUnitAction(
     return toFormError(error);
   }
   revalidatePath("/dashboard");
-  revalidatePath(`/settings/properties/${propertyId}`);
-  revalidatePath("/settings/properties");
+  revalidatePath(`/properties/${propertyId}`);
+  revalidatePath("/properties");
   revalidatePath("/calendar");
   revalidatePath("/calendar/availability");
   return { success: true };
@@ -259,7 +259,7 @@ export async function updateChecklistTemplateAction(
   } catch (error) {
     return toFormError(error);
   }
-  revalidatePath(`/settings/properties/${propertyId}/units/${unitId}`);
+  revalidatePath(`/properties/${propertyId}/units/${unitId}`);
   revalidatePath("/tasks");
   return { success: true };
 }

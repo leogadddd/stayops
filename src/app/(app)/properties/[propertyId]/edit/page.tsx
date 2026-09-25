@@ -30,7 +30,7 @@ export default async function EditPropertyPage({ params }: { params: Promise<{ p
 
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHeading title="Edit property" description={property.name} backHref={`/settings/properties/${property.id}`} backLabel={property.name} />
+      <PageHeading title="Edit property" description={property.name} backHref={`/properties/${property.id}`} backLabel={property.name} />
       <PropertyForm propertyId={property.id} amenityOptions={amenityOptions} selectedAmenityIds={selected.map((amenity) => amenity.id)} initialValues={{ name: property.name, address: property.address ?? "", timezone: property.timezone, checkInTime: property.checkInTime, checkOutTime: property.checkOutTime, turnoverDurationMinutes: property.turnoverDurationMinutes, houseRules: property.houseRules ?? "", imageUrl: property.imageUrl }} />
     </div>
   );

@@ -46,7 +46,7 @@ export async function addUnitBlockAction(
     }
     return { error: unexpectedErrorMessage(error, "unit-blocks") };
   }
-  revalidatePath(`/settings/properties/${propertyId}/units/${unitId}`);
+  revalidatePath(`/properties/${propertyId}/units/${unitId}`);
   revalidatePath("/calendar");
   return { success: true };
 }
@@ -63,6 +63,6 @@ export async function removeUnitBlockAction(
     actorUserId: membership.userId,
     blockId,
   });
-  revalidatePath(`/settings/properties/${propertyId}/units/${unitId}`);
+  revalidatePath(`/properties/${propertyId}/units/${unitId}`);
   revalidatePath("/calendar");
 }

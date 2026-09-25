@@ -1,7 +1,7 @@
 import { Ban, CalendarClock, Check, Clock, Globe, MapPin, Sparkles, Wallet } from "lucide-react";
 import { formatPHP } from "@/lib/money";
 import type { NightStatus, OccupancySegment } from "@/server/inventory/availability";
-import { amenityIcon } from "../../../settings/properties/amenity-icons";
+import { amenityIcon } from "../../../properties/amenity-icons";
 import { timeLabel } from "../stay-display";
 import type { PlannerDay, PlannerNeighbor } from "./stay-planner";
 

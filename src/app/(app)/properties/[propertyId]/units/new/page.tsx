@@ -25,7 +25,7 @@ export default async function NewUnitPage({ params }: { params: Promise<{ proper
 
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHeading title="Add unit" description={`Create an independently bookable space in ${property.name}.`} backHref={`/settings/properties/${property.id}`} backLabel={property.name} />
+      <PageHeading title="Add unit" description={`Create an independently bookable space in ${property.name}.`} backHref={`/properties/${property.id}`} backLabel={property.name} />
       <UnitCreateForm propertyId={property.id} defaults={{ checkInTime: property.checkInTime, checkOutTime: property.checkOutTime }} amenityOptions={await listAmenities(membership.organizationId, "unit")} />
     </div>
   );

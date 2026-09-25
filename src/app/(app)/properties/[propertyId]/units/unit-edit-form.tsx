@@ -28,7 +28,7 @@ export function UnitEditForm({
   );
   useActionFeedback(state, { success: "Unit updated." });
   const router = useRouter();
-  const unitHref = `/settings/properties/${propertyId}/units/${unitId}`;
+  const unitHref = `/properties/${propertyId}/units/${unitId}`;
   useEffect(() => {
     if (state.success) {
       router.push(unitHref);

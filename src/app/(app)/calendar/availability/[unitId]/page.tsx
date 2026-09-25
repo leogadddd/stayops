@@ -75,7 +75,7 @@ export default async function StayShowcasePage({ params, searchParams }: {
   const segments = segmentsByUnit.get(unit.id) ?? [];
   const segmentHref = (segment: { kind: "reservation" | "block"; id: string }) => segment.kind === "reservation"
     ? `/reservations/${segment.id}`
-    : membership.role === "owner" ? `/settings/properties/${property.id}/units/${unit.id}` : undefined;
+    : membership.role === "owner" ? `/properties/${property.id}/units/${unit.id}` : undefined;
   const neighbors = search ? findNeighbors(segments, search.checkIn, search.checkOut, segmentHref) : { previous: null, next: null };
   const rules = houseRuleLines(property.houseRules);
   const amenityCount = unitAmenities.length + propertyAmenities.length;

@@ -64,12 +64,12 @@ export function PropertyForm({
   const router = useRouter();
   useEffect(() => {
     if (state.success) {
-      router.push(propertyId ? `/settings/properties/${propertyId}` : "/settings/properties");
+      router.push(propertyId ? `/properties/${propertyId}` : "/properties");
       router.refresh();
     }
   }, [state.success, propertyId, router]);
 
-  const cancelHref = propertyId ? `/settings/properties/${propertyId}` : "/settings/properties";
+  const cancelHref = propertyId ? `/properties/${propertyId}` : "/properties";
 
   return (
     <form action={formAction} className="space-y-6">
