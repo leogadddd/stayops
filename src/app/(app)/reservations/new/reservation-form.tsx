@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, Bath, BedDouble, CalendarCheck, Check, CircleAlert, CircleCheck, Clock, LoaderCircle, Minus, Pencil, Plus, RotateCcw, ShieldCheck, Trash2, UserPlus, UserRound, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Banknote, Bath, BedDouble, CalendarCheck, Check, CircleAlert, CircleCheck, Clock, Landmark, LoaderCircle, Minus, Pencil, Plus, Receipt, RotateCcw, ShieldCheck, Smartphone, Sparkles, Tag, Trash2, UserPlus, UserRound, Users, X } from "lucide-react";
 import type { ChargeType } from "@/lib/db/schema";
 import { CHARGE_TYPES } from "@/lib/db/schema";
 import { PAYMENT_ALLOCATION_LABELS, PAYMENT_METHOD_LABELS } from "@/lib/labels";
@@ -23,6 +23,8 @@ import {
 import { cn } from "@/lib/utils";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { FieldError, Input, Label, Select } from "@/components/ui/input";
+import { SelectMenu, type SelectMenuOption } from "@/components/ui/select-menu";
+import { ChoiceCards, type ChoiceCardOption } from "@/components/ui/choice-cards";
 import { createReservationAction, updateReservationAction, type ReservationFormState } from "../actions";
 import { checkStayAvailabilityAction, type StayAvailability } from "./actions";
 import { useActionFeedback } from "@/hooks/use-action-feedback";
@@ -30,6 +32,7 @@ import { dayLabel, plural, timeLabel, UnitPhoto } from "../../calendar/availabil
 import { ReservationSummary } from "./reservation-summary";
 import { StayRangeCalendar } from "./stay-range-calendar";
 import { DateInput } from "@/components/ui/date-input";
+import { TimeInput } from "@/components/ui/time-input";
 
 export interface UnitOption {
   id: string;
@@ -103,6 +106,37 @@ const HOLD_OPTIONS = [
   { value: "1440", label: "24 hours" },
 ];
 const PAYMENT_METHODS = ["gcash", "maya", "bank_transfer", "cash"] as const;
+type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+type PaymentAllocation = "booking" | "security_deposit";
+
+const CHARGE_TYPE_OPTIONS: SelectMenuOption<ChargeType>[] = CHARGE_TYPES.map((type) => ({
+  value: type,
+  label: CHARGE_TYPE_LABELS[type],
+  icon: { accommodation: BedDouble, cleaning: Sparkles, fee: Receipt, discount: Tag, security_deposit: ShieldCheck }[type],
+  description: {
+    accommodation: "Nightly rate for the stay",
+    cleaning: "One-off turnover cleaning",
+    fee: "Anything else: extra bed, late checkout…",
+    discount: "Negative amount off the booking",
+    security_deposit: "Held and returned after checkout",
+  }[type],
+}));
+
+const PAYMENT_METHOD_OPTIONS: ChoiceCardOption<PaymentMethod>[] = PAYMENT_METHODS.map((method) => ({
+  value: method,
+  label: PAYMENT_METHOD_LABELS[method],
+  icon: { gcash: Smartphone, maya: Smartphone, bank_transfer: Landmark, cash: Banknote }[method],
+}));
+
+/** The description a charge type gets when picked; blank means "write your own". */
+function autoDescription(type: ChargeType, nights: number | null) {
+  switch (type) {
+    case "accommodation": return nights ? `Accommodation (${plural(nights, "night")})` : "Accommodation";
+    case "cleaning": return "Cleaning fee";
+    case "security_deposit": return "Refundable security deposit";
+    default: return "";
+  }
+}
 
 /** What editing an existing reservation starts from. */
 export interface ReservationEdit {
@@ -171,7 +205,9 @@ export function ReservationForm({
   // Charges: null = follow the unit/date defaults; any edit forks into a manual set.
   const [customCharges, setCustomCharges] = useState<ChargeDraft[] | null>(() => (edit ? toDraft(edit.charges) : null));
   const [noPayment, setNoPayment] = useState(false);
-  const [payment, setPayment] = useState({ amount: "", allocation: "booking" as "booking" | "security_deposit", method: "gcash" as (typeof PAYMENT_METHODS)[number], reference: "", receivedAt: "" });
+  const [payment, setPayment] = useState({ amount: "", allocation: "booking" as PaymentAllocation, method: "gcash" as PaymentMethod, reference: "", receivedAt: "" });
+  // Checked: recorded as received now. Unchecked: the owner enters when.
+  const [receivedNow, setReceivedNow] = useState(true);
   // Review
   const [submitMode, setSubmitMode] = useState<"hold" | "confirmed">(isOwner ? "confirmed" : "hold");
   const [holdMinutes, setHoldMinutes] = useState("1440");
@@ -260,7 +296,8 @@ export function ReservationForm({
       : submittableLines.length === 0 ? "Add at least one charge with a description, quantity and amount."
         : parsed.some((entry) => entry.line === null) ? "Fix the highlighted charge lines. Amounts look like 5500 or 5,500.50."
           : !edit && payment.amount.trim() && paymentCents === null ? "Enter the payment like 3000 or 3,000.50."
-            : null,
+            : !edit && paymentCents && !receivedNow && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(payment.receivedAt) ? "Enter the date and time the payment was received."
+              : null,
     review: null,
   };
   const steps: StepId[] = isOwner ? ["stay", "guests", "charges", "review"] : ["stay", "guests", "review"];
@@ -290,6 +327,11 @@ export function ReservationForm({
   }
   function updateCharge(key: string, patch: Partial<ChargeDraft>) {
     setCustomCharges((current) => (current ?? defaultCharges).map((draft) => draft.key === key ? { ...draft, ...patch } : draft));
+  }
+  // Switching type fills in its description, unless the owner wrote their own.
+  function changeChargeType(draft: ChargeDraft, type: ChargeType) {
+    const untouched = !draft.description.trim() || draft.description === autoDescription(draft.type, nights);
+    updateCharge(draft.key, { type, ...(untouched ? { description: autoDescription(type, nights) } : {}) });
   }
 
   function submitEdit() {
@@ -349,7 +391,7 @@ export function ReservationForm({
       data.set("paymentAllocation", payment.allocation);
       data.set("paymentMethod", payment.method);
       data.set("paymentReference", payment.reference.trim());
-      data.set("paymentReceivedAt", payment.receivedAt);
+      data.set("paymentReceivedAt", receivedNow ? "" : payment.receivedAt);
     }
     startTransition(() => formAction(data));
   }
@@ -519,7 +561,7 @@ export function ReservationForm({
                     const subtotal = line && Number.isInteger(quantity) && quantity >= 1 ? line.quantity * line.unitAmountCents : null;
                     return (
                       <li key={draft.key} className={cn("grid grid-cols-2 items-end gap-3 rounded-xl border p-3 sm:grid-cols-[10rem_minmax(0,1fr)_5rem_8rem_6rem_2rem]", line ? "border-pine/10" : "border-clay/40 bg-clay-mist/30")}>
-                        <div><Label>Type</Label><Select value={draft.type} onChange={(event) => updateCharge(draft.key, { type: event.target.value as ChargeType })}>{CHARGE_TYPES.map((type) => <option key={type} value={type}>{CHARGE_TYPE_LABELS[type]}</option>)}</Select></div>
+                        <div><Label htmlFor={`charge-type-${draft.key}`}>Type</Label><SelectMenu id={`charge-type-${draft.key}`} value={draft.type} options={CHARGE_TYPE_OPTIONS} onChange={(type) => changeChargeType(draft, type)} /></div>
                         <div className="col-span-2 sm:col-span-1"><Label>Description</Label><Input value={draft.description} onChange={(event) => updateCharge(draft.key, { description: event.target.value })} placeholder={draft.type === "accommodation" ? "Accommodation (3 nights)" : "Describe the charge"} /></div>
                         <div><Label>Qty</Label><Input value={draft.quantity} inputMode="numeric" onChange={(event) => updateCharge(draft.key, { quantity: event.target.value })} /></div>
                         <div><Label>{draft.type === "discount" ? "Amount (₱, negative)" : "Amount (₱)"}</Label><Input value={draft.amountInput} inputMode="decimal" placeholder="5500" onChange={(event) => updateCharge(draft.key, { amountInput: event.target.value })} /></div>
@@ -554,33 +596,63 @@ export function ReservationForm({
                 {noPayment ? (
                   <p className="mt-3 rounded-xl bg-linen px-4 py-3 text-sm text-ink/70">The booking total of <strong>{formatPHP(totals.bookingTotalCents)}</strong> stays due from the guest. Record payments from the reservation once they arrive.</p>
                 ) : (
-                  <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    <div><Label htmlFor="payment-amount">Amount received (₱)</Label><Input id="payment-amount" value={payment.amount} onChange={(event) => setPayment({ ...payment, amount: event.target.value })} inputMode="decimal" placeholder="e.g. 3,000" /></div>
-                    <div><Label htmlFor="payment-allocation">Towards</Label><Select id="payment-allocation" value={payment.allocation} onChange={(event) => setPayment({ ...payment, allocation: event.target.value as "booking" | "security_deposit" })}>{(["booking", "security_deposit"] as const).map((allocation) => <option key={allocation} value={allocation}>{PAYMENT_ALLOCATION_LABELS[allocation]}</option>)}</Select></div>
-                    <div><Label htmlFor="payment-method">Method</Label><Select id="payment-method" value={payment.method} onChange={(event) => setPayment({ ...payment, method: event.target.value as (typeof PAYMENT_METHODS)[number] })}>{PAYMENT_METHODS.map((method) => <option key={method} value={method}>{PAYMENT_METHOD_LABELS[method]}</option>)}</Select></div>
-                    <div><Label htmlFor="payment-reference">Reference (optional)</Label><Input id="payment-reference" value={payment.reference} onChange={(event) => setPayment({ ...payment, reference: event.target.value })} maxLength={120} placeholder="GCash reference or sender" /></div>
+                  <div className="mt-5 space-y-5">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div><Label htmlFor="payment-amount">Amount received (₱)</Label><Input id="payment-amount" value={payment.amount} onChange={(event) => setPayment({ ...payment, amount: event.target.value })} inputMode="decimal" placeholder="e.g. 3,000" /></div>
+                      <div><Label htmlFor="payment-reference">Reference (optional)</Label><Input id="payment-reference" value={payment.reference} onChange={(event) => setPayment({ ...payment, reference: event.target.value })} maxLength={120} placeholder="GCash reference or sender" /></div>
+                    </div>
                     <div>
-                      <Label htmlFor="payment-received-at">Received (optional)</Label>
-                      {/* Date and time kept together as YYYY-MM-DDTHH:mm; blank means "now". */}
-                      <div className="grid grid-cols-[minmax(0,1fr)_7rem] gap-2">
-                        <DateInput
-                          id="payment-received-at"
-                          value={payment.receivedAt.slice(0, 10)}
-                          today={today}
-                          max={today}
-                          clearable
-                          placeholder="Now"
-                          onChange={(date) => setPayment({ ...payment, receivedAt: date ? `${date}T${payment.receivedAt.slice(11, 16) || "12:00"}` : "" })}
+                      <p id="payment-allocation" className="mb-1.5 text-sm font-medium text-ink">Towards</p>
+                      <ChoiceCards
+                        aria-labelledby="payment-allocation"
+                        value={payment.allocation}
+                        onChange={(allocation) => setPayment({ ...payment, allocation })}
+                        options={[
+                          { value: "booking", label: PAYMENT_ALLOCATION_LABELS.booking, icon: Receipt, description: `Counts toward the ${formatPHP(totals.bookingTotalCents)} booking total` },
+                          {
+                            value: "security_deposit",
+                            label: PAYMENT_ALLOCATION_LABELS.security_deposit,
+                            icon: ShieldCheck,
+                            description: totals.depositTotalCents ? `Refundable ${formatPHP(totals.depositTotalCents)}, returned after checkout` : "Add a security deposit charge first",
+                            disabled: !totals.depositTotalCents && payment.allocation !== "security_deposit",
+                          },
+                        ]}
+                      />
+                    </div>
+                    <div>
+                      <p id="payment-method" className="mb-1.5 text-sm font-medium text-ink">Method</p>
+                      <ChoiceCards aria-labelledby="payment-method" columns={4} value={payment.method} onChange={(method) => setPayment({ ...payment, method })} options={PAYMENT_METHOD_OPTIONS} />
+                    </div>
+                    <div>
+                      <label className="flex items-start gap-2 text-sm text-ink">
+                        <input
+                          type="checkbox"
+                          className="mt-0.5 accent-pine"
+                          checked={receivedNow}
+                          onChange={(event) => {
+                            setReceivedNow(event.target.checked);
+                            if (!event.target.checked && !payment.receivedAt) setPayment({ ...payment, receivedAt: `${today}T12:00` });
+                          }}
                         />
-                        <Input
-                          type="time"
-                          aria-label="Time received"
-                          value={payment.receivedAt.slice(11, 16)}
-                          disabled={!payment.receivedAt}
-                          onChange={(event) => setPayment({ ...payment, receivedAt: `${payment.receivedAt.slice(0, 10)}T${event.target.value}` })}
-                        />
-                      </div>
-                      <p className="mt-1 text-xs text-ink/50">Blank records it now, in the property timezone.</p>
+                        <span>Received just now<span className="block text-xs text-ink/50">Uncheck to enter when it arrived, in the property timezone.</span></span>
+                      </label>
+                      {!receivedNow ? (
+                        // Date and time kept together as YYYY-MM-DDTHH:mm.
+                        <div className="mt-3 grid max-w-md grid-cols-[minmax(0,1fr)_7rem] gap-2">
+                          <DateInput
+                            aria-label="Date received"
+                            value={payment.receivedAt.slice(0, 10)}
+                            today={today}
+                            max={today}
+                            onChange={(date) => setPayment({ ...payment, receivedAt: `${date}T${payment.receivedAt.slice(11, 16) || "12:00"}` })}
+                          />
+                          <TimeInput
+                            aria-label="Time received"
+                            value={payment.receivedAt.slice(11, 16)}
+                            onChange={(time) => setPayment({ ...payment, receivedAt: `${payment.receivedAt.slice(0, 10)}T${time}` })}
+                          />
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 )}

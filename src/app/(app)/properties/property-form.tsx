@@ -4,6 +4,7 @@ import { useActionState, useCallback, useRef, useState } from "react";
 import { Building2, Clock, LogIn, LogOut, MapPin } from "lucide-react";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { TimezonePicker } from "@/components/ui/timezone-picker";
+import { TimeInput } from "@/components/ui/time-input";
 import { useActionFeedback } from "@/hooks/use-action-feedback";
 import { useSaveAndReturn } from "@/hooks/use-save-and-return";
 import {
@@ -141,11 +142,11 @@ export function PropertyForm({
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <Label htmlFor="checkInTime">Check-in from</Label>
-              <Input id="checkInTime" name="checkInTime" type="time" defaultValue={values.checkInTime} required />
+              <TimeInput id="checkInTime" name="checkInTime" defaultValue={values.checkInTime} onChange={() => read()} required />
             </div>
             <div>
               <Label htmlFor="checkOutTime">Check-out by</Label>
-              <Input id="checkOutTime" name="checkOutTime" type="time" defaultValue={values.checkOutTime} required />
+              <TimeInput id="checkOutTime" name="checkOutTime" defaultValue={values.checkOutTime} onChange={() => read()} required />
             </div>
             <div>
               <Label htmlFor="turnoverHours">Turnover time</Label>

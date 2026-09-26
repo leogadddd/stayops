@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Input, Label } from "@/components/ui/input";
+import { TimeInput } from "@/components/ui/time-input";
 import { WEEKDAYS, type Weekday } from "@/lib/rates";
 import { fromMinutes, stayLengthHours, toMinutes } from "@/lib/stay-times";
 import { cn } from "@/lib/utils";
@@ -32,14 +33,13 @@ export function StayTimesFields({ defaultCheckIn, defaultCheckOut }: { defaultCh
       <div className="grid gap-4 sm:grid-cols-3">
         <div>
           <Label htmlFor="unit-check-in">Check-in from</Label>
-          <Input
+          <TimeInput
             id="unit-check-in"
             name="checkInTime"
-            type="time"
             value={checkIn}
-            onChange={(event) => {
-              setCheckIn(event.target.value);
-              applyLength(hoursInput, event.target.value);
+            onChange={(time) => {
+              setCheckIn(time);
+              applyLength(hoursInput, time);
             }}
             required
           />
@@ -62,14 +62,13 @@ export function StayTimesFields({ defaultCheckIn, defaultCheckOut }: { defaultCh
         </div>
         <div>
           <Label htmlFor="unit-check-out">Check-out by</Label>
-          <Input
+          <TimeInput
             id="unit-check-out"
             name="checkOutTime"
-            type="time"
             value={checkOut}
-            onChange={(event) => {
-              setCheckOut(event.target.value);
-              const length = stayLengthHours(checkIn, event.target.value);
+            onChange={(time) => {
+              setCheckOut(time);
+              const length = stayLengthHours(checkIn, time);
               if (length !== null) setHoursInput(String(length));
             }}
             required
