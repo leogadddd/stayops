@@ -246,7 +246,17 @@ export default async function UnitDetailPage({ params }: { params: Promise<{ pro
                           {range} · {nights} night{nights === 1 ? "" : "s"}
                         </span>
                       </span>
-                      <RemoveBlockButton propertyId={property.id} unitId={unit.id} blockId={block.id} label={range} />
+                      <div className="flex shrink-0 items-center gap-1">
+                        <Link
+                          href={`${unitHref}/blocks/${block.id}/edit`}
+                          className={buttonClassName("ghost", "sm")}
+                          aria-label={`Edit block ${range}`}
+                        >
+                          <Pencil className="h-3.5 w-3.5" aria-hidden />
+                          Edit
+                        </Link>
+                        <RemoveBlockButton propertyId={property.id} unitId={unit.id} blockId={block.id} label={range} />
+                      </div>
                     </li>
                   );
                 })}

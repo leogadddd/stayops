@@ -29,6 +29,7 @@ import { useActionFeedback } from "@/hooks/use-action-feedback";
 import { dayLabel, plural, timeLabel, UnitPhoto } from "../../calendar/availability/stay-display";
 import { ReservationSummary } from "./reservation-summary";
 import { StayRangeCalendar } from "./stay-range-calendar";
+import { DateInput } from "@/components/ui/date-input";
 
 export interface UnitOption {
   id: string;
@@ -415,12 +416,12 @@ export function ReservationForm({
               <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,13rem)]">
                 <div className="min-w-0">
                   <Label htmlFor="checkIn">Check-in</Label>
-                  <Input id="checkIn" type="date" value={checkIn} onChange={(event) => { setCheckIn(event.target.value); if (event.target.value && checkOut <= event.target.value) setCheckOut(addDaysLocal(event.target.value, 1)); }} className="h-12 rounded-xl" />
+                  <DateInput id="checkIn" value={checkIn} today={today} size="lg" onChange={(next) => { setCheckIn(next); if (next && checkOut <= next) setCheckOut(addDaysLocal(next, 1)); }} />
                   {selectedUnit ? <p className="mt-1 text-xs text-ink/50">From {timeLabel(selectedUnit.checkInTime)}</p> : null}
                 </div>
                 <div className="min-w-0">
                   <Label htmlFor="checkOut">Check-out</Label>
-                  <Input id="checkOut" type="date" value={checkOut} min={checkIn ? addDaysLocal(checkIn, 1) : undefined} onChange={(event) => setCheckOut(event.target.value)} className="h-12 rounded-xl" />
+                  <DateInput id="checkOut" value={checkOut} today={today} size="lg" min={checkIn ? addDaysLocal(checkIn, 1) : undefined} onChange={setCheckOut} />
                   {selectedUnit ? <p className="mt-1 text-xs text-ink/50">By {timeLabel(selectedUnit.checkOutTime)} · the check-out day is free for the next guest</p> : null}
                 </div>
                 <div className="min-w-0">
@@ -558,7 +559,29 @@ export function ReservationForm({
                     <div><Label htmlFor="payment-allocation">Towards</Label><Select id="payment-allocation" value={payment.allocation} onChange={(event) => setPayment({ ...payment, allocation: event.target.value as "booking" | "security_deposit" })}>{(["booking", "security_deposit"] as const).map((allocation) => <option key={allocation} value={allocation}>{PAYMENT_ALLOCATION_LABELS[allocation]}</option>)}</Select></div>
                     <div><Label htmlFor="payment-method">Method</Label><Select id="payment-method" value={payment.method} onChange={(event) => setPayment({ ...payment, method: event.target.value as (typeof PAYMENT_METHODS)[number] })}>{PAYMENT_METHODS.map((method) => <option key={method} value={method}>{PAYMENT_METHOD_LABELS[method]}</option>)}</Select></div>
                     <div><Label htmlFor="payment-reference">Reference (optional)</Label><Input id="payment-reference" value={payment.reference} onChange={(event) => setPayment({ ...payment, reference: event.target.value })} maxLength={120} placeholder="GCash reference or sender" /></div>
-                    <div><Label htmlFor="payment-received-at">Received (optional)</Label><Input id="payment-received-at" type="datetime-local" value={payment.receivedAt} onChange={(event) => setPayment({ ...payment, receivedAt: event.target.value })} /><p className="mt-1 text-xs text-ink/50">Blank records it now, in the property timezone.</p></div>
+                    <div>
+                      <Label htmlFor="payment-received-at">Received (optional)</Label>
+                      {/* Date and time kept together as YYYY-MM-DDTHH:mm; blank means "now". */}
+                      <div className="grid grid-cols-[minmax(0,1fr)_7rem] gap-2">
+                        <DateInput
+                          id="payment-received-at"
+                          value={payment.receivedAt.slice(0, 10)}
+                          today={today}
+                          max={today}
+                          clearable
+                          placeholder="Now"
+                          onChange={(date) => setPayment({ ...payment, receivedAt: date ? `${date}T${payment.receivedAt.slice(11, 16) || "12:00"}` : "" })}
+                        />
+                        <Input
+                          type="time"
+                          aria-label="Time received"
+                          value={payment.receivedAt.slice(11, 16)}
+                          disabled={!payment.receivedAt}
+                          onChange={(event) => setPayment({ ...payment, receivedAt: `${payment.receivedAt.slice(0, 10)}T${event.target.value}` })}
+                        />
+                      </div>
+                      <p className="mt-1 text-xs text-ink/50">Blank records it now, in the property timezone.</p>
+                    </div>
                   </div>
                 )}
               </div>

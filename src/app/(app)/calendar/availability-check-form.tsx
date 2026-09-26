@@ -1,8 +1,9 @@
 "use client";
 
+import { DateInput } from "@/components/ui/date-input";
 import { useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, Minus, Plus, Search, Users } from "lucide-react";
+import { Minus, Plus, Search, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FieldError, Label } from "@/components/ui/input";
 import { addDaysLocal, nightsBetween } from "@/lib/dates";
@@ -104,12 +105,7 @@ export function AvailabilityCheckForm({ today, defaults, error, children }: {
 }
 
 function DateField({ id, name, value, min, onChange }: { id: string; name: string; value: string; min: string; onChange: (value: string) => void }) {
-  return (
-    <div className="relative">
-      <CalendarDays className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-pine/50" aria-hidden />
-      <input id={id} name={name} type="date" value={value} min={min} onChange={(event) => onChange(event.target.value)} required className="h-12 w-full min-w-0 rounded-xl border border-pine/20 bg-white pl-10 pr-3 text-sm text-ink focus:border-pine focus:outline-none focus:ring-2 focus:ring-sage" />
-    </div>
-  );
+  return <DateInput id={id} name={name} value={value} min={min} onChange={onChange} required size="lg" />;
 }
 
 function ResultsSkeleton() {

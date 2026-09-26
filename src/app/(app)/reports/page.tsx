@@ -1,9 +1,10 @@
+import { DateInput } from "@/components/ui/date-input";
 import type { Metadata } from "next";
 import { PermissionDenied } from "@/components/app/permission-denied";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Input, Label, Select } from "@/components/ui/input";
+import { Label, Select } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { requireOwner } from "@/lib/auth/session";
 import { addDaysLocal, monthNightRange, todayInTimeZone } from "@/lib/dates";
@@ -166,23 +167,11 @@ export default async function ReportsPage({
         </div>
         <div>
           <Label htmlFor="filter-from">From</Label>
-          <Input
-            id="filter-from"
-            name="from"
-            type="date"
-            defaultValue={from}
-            className="w-40"
-          />
+          <DateInput id="filter-from" name="from" defaultValue={from} className="w-56" />
         </div>
         <div>
           <Label htmlFor="filter-to">To (exclusive)</Label>
-          <Input
-            id="filter-to"
-            name="to"
-            type="date"
-            defaultValue={to}
-            className="w-40"
-          />
+          <DateInput id="filter-to" name="to" defaultValue={to} className="w-56" />
         </div>
         <button
           type="submit"

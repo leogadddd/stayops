@@ -1,7 +1,8 @@
 "use client";
 
 import { useId, useState, useSyncExternalStore } from "react";
-import { CalendarDays, Clock, TriangleAlert } from "lucide-react";
+import { Clock, TriangleAlert } from "lucide-react";
+import { DateInput } from "@/components/ui/date-input";
 import { cn } from "@/lib/utils";
 
 /** Local date ("YYYY-MM-DD") and time ("HH:mm") of an instant in a time zone. */
@@ -95,10 +96,7 @@ export function DateTimeInput({ name, label, timeZone, nowLabel = "Right now", h
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="min-w-0">
               <label htmlFor={`${id}-date`} className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink/50">Date</label>
-              <div className="relative">
-                <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-pine/45" aria-hidden />
-                <input id={`${id}-date`} type="date" required value={date} max={allowFuture ? undefined : now?.date} onChange={(event) => setDate(event.target.value)} className="h-11 w-full min-w-0 rounded-lg border border-pine/20 bg-white pl-9 pr-3 text-sm text-ink focus:border-pine focus:outline-none focus:ring-2 focus:ring-sage" />
-              </div>
+              <DateInput id={`${id}-date`} value={date} today={now?.date} max={allowFuture ? undefined : now?.date} onChange={setDate} />
             </div>
             <div className="min-w-0">
               <label htmlFor={`${id}-time`} className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink/50">Time</label>

@@ -25,6 +25,7 @@ import EditUnitPage from "@/app/(app)/properties/[propertyId]/units/[unitId]/edi
 import NewUnitBlockPage from "@/app/(app)/properties/[propertyId]/units/[unitId]/blocks/new/page";
 import EditChecklistPage from "@/app/(app)/properties/[propertyId]/units/[unitId]/checklist/edit/page";
 import UnitStatusPage from "@/app/(app)/properties/[propertyId]/units/[unitId]/status/page";
+import EditUnitBlockPage from "@/app/(app)/properties/[propertyId]/units/[unitId]/blocks/[blockId]/edit/page";
 import { OrgNameForm } from "@/app/(app)/settings/org-name-form";
 import { PaymentInstructionsForm } from "@/app/(app)/settings/payment-instructions-form";
 import { InviteStaffForm } from "@/app/(app)/settings/staff-forms";
@@ -50,7 +51,7 @@ vi.mock("@/lib/db", () => ({ db: { query: { organizations: { findFirst: vi.fn() 
 vi.mock("@/server/audit/service", () => ({ getAuditLogPage: vi.fn(), listAuditEvents: vi.fn() }));
 vi.mock("@/server/inventory/service", () => ({
   listProperties: vi.fn(), listPropertyUnits: vi.fn(), listOrgUnits: vi.fn(), getPropertyOrThrow: vi.fn(),
-  getUnitOrThrow: vi.fn(), listUnitBlocks: vi.fn(),
+  getUnitOrThrow: vi.fn(), listUnitBlocks: vi.fn(), getUnitBlockOrThrow: vi.fn(),
 }));
 vi.mock("@/server/inventory/availability", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/server/inventory/availability")>(),
@@ -68,7 +69,7 @@ vi.mock("@/app/(app)/properties/actions", () => ({
   deletePropertyAction: vi.fn(), deleteUnitAction: vi.fn(),
 }));
 vi.mock("@/app/(app)/properties/[propertyId]/units/block-actions", () => ({
-  addUnitBlockAction: vi.fn(), removeUnitBlockAction: vi.fn(),
+  addUnitBlockAction: vi.fn(), updateUnitBlockAction: vi.fn(), removeUnitBlockAction: vi.fn(),
 }));
 
 const owner: MembershipContext = {
@@ -104,6 +105,7 @@ const unitPages = [
   { name: "block create", render: () => NewUnitBlockPage(unitParams()), firstRead: inventory.getPropertyOrThrow },
   { name: "checklist edit", render: () => EditChecklistPage(unitParams()), firstRead: inventory.getPropertyOrThrow },
   { name: "unit status", render: () => UnitStatusPage(unitParams()), firstRead: inventory.getPropertyOrThrow },
+  { name: "block edit", render: () => EditUnitBlockPage({ params: Promise.resolve({ propertyId: property.id, unitId: unit.id, blockId: "block-a" }) }), firstRead: inventory.getPropertyOrThrow },
 ];
 const newPages = [
   { name: "audit logs", render: () => AuditLogsPage(), firstRead: getAuditLogPage },
@@ -137,6 +139,10 @@ beforeEach(() => {
   vi.mocked(inventory.getPropertyOrThrow).mockResolvedValue(property);
   vi.mocked(inventory.getUnitOrThrow).mockResolvedValue(unit);
   vi.mocked(inventory.listUnitBlocks).mockResolvedValue([]);
+  vi.mocked(inventory.getUnitBlockOrThrow).mockResolvedValue({
+    id: "block-a", organizationId: owner.organizationId, unitId: "unit-a", startDate: "2026-10-05", endDate: "2026-10-07",
+    reason: "AC repair", createdBy: "owner-a", createdAt: new Date("2026-09-01T00:00:00Z"),
+  } as Awaited<ReturnType<typeof inventory.getUnitBlockOrThrow>>);
   vi.mocked(getAuditLogPage).mockResolvedValue({ events: [], page: 1, pageSize: 25, total: 0 });
 });
 

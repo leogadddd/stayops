@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { normalizeChecklistTemplate } from "@/lib/turnover";
-import { getPropertyOrThrow, getUnitOrThrow } from "@/server/inventory/service";
+import { getPropertyOrThrow, getUnitBlockOrThrow, getUnitOrThrow } from "@/server/inventory/service";
 import { InventoryError } from "@/server/inventory/validation";
 import { BlockForms } from "../block-forms";
 import { ChecklistTemplateEditor } from "../checklist-template-editor";
@@ -64,6 +64,34 @@ export async function checklistPanel(organizationId: string, propertyId: string,
         propertyId={property.id}
         unitId={unit.id}
         items={normalizeChecklistTemplate(unit.checklistTemplate)}
+      />
+    ),
+  };
+}
+
+export async function editBlockPanel(
+  organizationId: string,
+  propertyId: string,
+  unitId: string,
+  blockId: string,
+): Promise<UnitActionPanel> {
+  const { property, unit, back } = await loadUnit(organizationId, propertyId, unitId);
+  let block;
+  try {
+    block = await getUnitBlockOrThrow(organizationId, unit.id, blockId);
+  } catch (error) {
+    if (error instanceof InventoryError) notFound();
+    throw error;
+  }
+  return {
+    ...back,
+    title: "Edit blocked dates",
+    description: `${unit.name} · Change the dates or reason. The nights you free up become bookable again.`,
+    form: (
+      <BlockForms
+        propertyId={property.id}
+        unitId={unit.id}
+        block={{ id: block.id, startDate: block.startDate, endDate: block.endDate, reason: block.reason }}
       />
     ),
   };

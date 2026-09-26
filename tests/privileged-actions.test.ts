@@ -19,7 +19,7 @@ import {
   deleteUnitAction, updateUnitStatusAction, updateHouseRulesAction,
 } from "@/app/(app)/properties/actions";
 import {
-  addUnitBlockAction, removeUnitBlockAction,
+  addUnitBlockAction, removeUnitBlockAction, updateUnitBlockAction,
 } from "@/app/(app)/properties/[propertyId]/units/block-actions";
 import { createExpenseAction } from "@/app/(app)/expenses/actions";
 import { createReservationAction } from "@/app/(app)/reservations/actions";
@@ -48,7 +48,7 @@ vi.mock("@/server/expenses/service", () => ({
 vi.mock("@/server/inventory/service", () => ({
   createProperty: vi.fn(), updateProperty: vi.fn(),
   createUnit: vi.fn(), updateUnit: vi.fn(), deleteProperty: vi.fn(), deleteUnit: vi.fn(),
-  addUnitBlock: vi.fn(), removeUnitBlock: vi.fn(), getUnitOrThrow: vi.fn(), getPropertyOrThrow: vi.fn(),
+  addUnitBlock: vi.fn(), updateUnitBlock: vi.fn(), removeUnitBlock: vi.fn(), getUnitOrThrow: vi.fn(), getPropertyOrThrow: vi.fn(),
 }));
 vi.mock("@/server/reservations/service", () => ({ createHold: vi.fn(), createConfirmed: vi.fn() }));
 vi.mock("@/server/reservations/guest-link", () => ({ createGuestLink: vi.fn(), revokeGuestLink: vi.fn() }));
@@ -118,6 +118,7 @@ const actions = [
   },
   { name: "update checklist template", invoke: (form: FormData) => updateChecklistTemplateAction("property-a", "unit-a", {}, form), write: updateChecklistTemplate, target: { unitId: "unit-a" } },
   { name: "add unit block", invoke: (form: FormData) => addUnitBlockAction("property-a", "unit-a", {}, form), write: inventory.addUnitBlock, target: { unitId: "unit-a" } },
+  { name: "update unit block", invoke: (form: FormData) => updateUnitBlockAction("property-a", "unit-a", "block-a", {}, form), write: inventory.updateUnitBlock, target: { unitId: "unit-a", blockId: "block-a" } },
   { name: "remove unit block", invoke: () => removeUnitBlockAction("property-a", "unit-a", "block-a"), write: inventory.removeUnitBlock, target: { blockId: "block-a" } },
 ];
 
