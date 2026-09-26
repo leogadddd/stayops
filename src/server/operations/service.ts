@@ -1,4 +1,5 @@
 import "server-only";
+import type { RoleKey } from "@/lib/permissions";
 
 import { and, asc, count, desc, eq, gte, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -551,7 +552,7 @@ export async function updateTaskNotes(input: {
 export async function markTaskReady(input: {
   organizationId: string;
   actorUserId: string;
-  actorRole: "owner" | "staff";
+  actorRole: RoleKey;
   taskId: string;
   data: unknown;
 }) {

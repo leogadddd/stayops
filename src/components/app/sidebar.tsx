@@ -18,6 +18,7 @@ import {
   LayoutDashboard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { RoleKey } from "@/lib/permissions";
 import { Logo } from "@/components/logo";
 import { AccountMenu } from "@/components/app/account-menu";
 import { LiveClock } from "@/components/app/live-clock";
@@ -60,7 +61,7 @@ type SidebarProps = {
   userName: string;
   userEmail: string;
   userImage?: string | null;
-  role: "owner" | "staff";
+  role: RoleKey;
   organizationId?: string;
   organizationImage?: string | null;
   organizations?: OrganizationOption[];

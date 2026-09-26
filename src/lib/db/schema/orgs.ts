@@ -1,4 +1,5 @@
 import {
+  index,
   pgEnum,
   pgTable,
   text,
@@ -9,6 +10,29 @@ import {
 import { user } from "./auth";
 
 export const membershipRole = pgEnum("membership_role", ["owner", "staff"]);
+export const invitationStatus = pgEnum("organization_invitation_status", ["pending", "accepted", "revoked", "expired"]);
+export const joinRequestStatus = pgEnum("organization_join_request_status", ["pending", "approved", "rejected", "cancelled"]);
+
+/** Stable keys used in API contracts. Labels and permissions live in tables. */
+export const roleKey = pgEnum("organization_role_key", ["owner", "admin", "operations_manager", "staff"]);
+
+/** Global, seeded roles. They are intentionally not organization-editable yet. */
+export const roles = pgTable("roles", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  key: roleKey("key").notNull().unique(),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** One row per granted capability: the persisted permission matrix. */
+export const rolePermissions = pgTable("role_permissions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  roleId: uuid("role_id").notNull().references(() => roles.id, { onDelete: "cascade" }),
+  permission: text("permission").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [uniqueIndex("role_permissions_role_permission_unique").on(table.roleId, table.permission)]);
 
 export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -55,6 +79,9 @@ export const memberships = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    roleId: uuid("role_id").notNull().references(() => roles.id, { onDelete: "restrict" }),
+    // Kept during the migration window for backwards-compatible deployed
+    // clients. New code reads roleId through the roles table.
     role: membershipRole("role").notNull().default("owner"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -70,3 +97,43 @@ export const memberships = pgTable(
     ),
   ],
 );
+
+/** An owner-issued, email-bound invitation. Only its digest is persisted. */
+export const organizationInvitations = pgTable("organization_invitations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  email: text("email").notNull(),
+  roleId: uuid("role_id").notNull().references(() => roles.id, { onDelete: "restrict" }),
+  codeHash: text("code_hash").notNull().unique(),
+  status: invitationStatus("status").notNull().default("pending"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  invitedByUserId: text("invited_by_user_id").notNull().references(() => user.id, { onDelete: "restrict" }),
+  acceptedByUserId: text("accepted_by_user_id").references(() => user.id, { onDelete: "set null" }),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [index("organization_invitations_email_status_idx").on(table.email, table.status)]);
+
+/** Shareable organization codes create owner-approved join requests. */
+export const organizationJoinCodes = pgTable("organization_join_codes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  codeHash: text("code_hash").notNull().unique(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  createdByUserId: text("created_by_user_id").notNull().references(() => user.id, { onDelete: "restrict" }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const organizationJoinRequests = pgTable("organization_join_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  requestedRoleId: uuid("requested_role_id").notNull().references(() => roles.id, { onDelete: "restrict" }),
+  status: joinRequestStatus("status").notNull().default("pending"),
+  reviewedByUserId: text("reviewed_by_user_id").references(() => user.id, { onDelete: "set null" }),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [uniqueIndex("organization_join_requests_org_user_unique").on(table.organizationId, table.userId), index("organization_join_requests_org_status_idx").on(table.organizationId, table.status)]);

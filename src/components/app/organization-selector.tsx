@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation";
 import { Check, ChevronsUpDown, LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import type { RoleKey } from "@/lib/permissions";
 import { selectActiveOrganization } from "@/app/(app)/organization-actions";
 
 export type OrganizationOption = {
   id: string;
   name: string;
-  role: "owner" | "staff";
+  role: RoleKey;
 };
 
 /** The organization logo, or its initial on brand pine. */
@@ -29,7 +30,7 @@ function OrganizationMark({ name, imageSrc, size = "md", dark = false }: { name:
   );
 }
 
-const ROLE_LABELS = { owner: "Owner", staff: "Staff" } as const;
+const ROLE_LABELS: Record<RoleKey, string> = { owner: "Owner", admin: "Admin", operations_manager: "Operations Manager", staff: "Staff" };
 
 export function OrganizationSelector({
   organizations,

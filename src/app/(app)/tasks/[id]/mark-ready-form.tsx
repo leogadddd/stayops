@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { FieldError, Label, Textarea } from "@/components/ui/input";
 import { markTaskReadyAction, type TaskFormState } from "../actions";
 import { useActionFeedback } from "@/hooks/use-action-feedback";
+import type { RoleKey } from "@/lib/permissions";
 
 export function MarkReadyForm({
   taskId,
@@ -19,7 +20,7 @@ export function MarkReadyForm({
   taskId: string;
   canMarkReady: boolean;
   openDamageCount: number;
-  actorRole: "owner" | "staff";
+  actorRole: RoleKey;
 }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState<TaskFormState, FormData>(

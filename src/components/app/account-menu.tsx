@@ -5,12 +5,13 @@ import Link from "next/link";
 import { ChevronDown, LogOut, UserRound } from "lucide-react";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { signOutAndRedirect } from "@/lib/auth/sign-out";
+import type { RoleKey } from "@/lib/permissions";
 
 export function AccountMenu({ userName, userEmail, userImage, role }: {
   userName: string;
   userEmail: string;
   userImage: string | null;
-  role: "owner" | "staff";
+  role: RoleKey;
 }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -46,7 +47,7 @@ export function AccountMenu({ userName, userEmail, userImage, role }: {
         </span>
         <span className="hidden sm:block">
           <span className="block max-w-36 truncate text-sm font-medium text-pine">{userName}</span>
-          <span className="block text-xs text-ink/55">{role === "owner" ? "Owner" : "Staff"}</span>
+          <span className="block text-xs text-ink/55">{{ owner: "Owner", admin: "Admin", operations_manager: "Operations Manager", staff: "Staff" }[role]}</span>
         </span>
         <ChevronDown className={`hidden h-4 w-4 text-ink/45 transition-transform sm:block ${open ? "rotate-180" : ""}`} aria-hidden />
       </button>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
-import { auditEvents } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { auditEvents, memberships } from "@/lib/db/schema";
+import { and, eq } from "drizzle-orm";
 import {
   createHold,
   getReservationDetail,
@@ -13,7 +13,7 @@ import { InventoryError } from "@/server/inventory/validation";
 import { recordPayment } from "@/server/payments/service";
 import { PaymentError } from "@/server/payments/validation";
 import { listAuditEvents } from "@/server/audit/service";
-import { inviteStaff, removeStaff, OrgError } from "@/server/orgs/service";
+import { acceptInvitation, inviteStaff, removeStaff, OrgError } from "@/server/orgs/service";
 import {
   createActiveUnit,
   createTestOrg,
@@ -88,22 +88,23 @@ describe("organization isolation", () => {
     const b = await createTestOrg("staff-b");
     const staff = await createTestUser("staff");
     const invite = { organizationId: a.org.id, actorUserId: a.owner.id, email: staff.email };
-    const member = await inviteStaff(invite);
-    expect(member.role).toBe("staff");
+    const invitation = await inviteStaff(invite);
+    expect(invitation.role).toBe("staff");
+    await acceptInvitation({ code: invitation.code, userId: staff.id, email: staff.email });
+    const [member] = await db.select({ id: memberships.id }).from(memberships).where(and(eq(memberships.organizationId, a.org.id), eq(memberships.userId, staff.id)));
+    expect(member).toBeTruthy();
     await expect(inviteStaff(invite)).rejects.toBeInstanceOf(OrgError);
-    await expect(inviteStaff({ ...invite, email: "unregistered@example.com" }))
-      .rejects.toBeInstanceOf(OrgError);
     await expect(removeStaff({
-      organizationId: b.org.id, actorUserId: b.owner.id, membershipId: member.membershipId,
+      organizationId: b.org.id, actorUserId: b.owner.id, membershipId: member!.id,
     })).rejects.toBeInstanceOf(OrgError);
     await removeStaff({
-      organizationId: a.org.id, actorUserId: a.owner.id, membershipId: member.membershipId,
+      organizationId: a.org.id, actorUserId: a.owner.id, membershipId: member!.id,
     });
     const events = await listAuditEvents(a.org.id);
     expect(events.map((event) => event.action)).toContain("organization.staff_invited");
     expect(events.map((event) => event.action)).toContain("organization.staff_removed");
     await expect(removeStaff({
-      organizationId: a.org.id, actorUserId: a.owner.id, membershipId: member.membershipId,
+      organizationId: a.org.id, actorUserId: a.owner.id, membershipId: member!.id,
     })).rejects.toBeInstanceOf(OrgError);
   });
 });

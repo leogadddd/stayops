@@ -6,7 +6,9 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { memberships, organizations } from "@/lib/db/schema";
+import { roles } from "@/lib/db/schema";
 import { desc, eq } from "drizzle-orm";
+import { hasRolePermission, type Permission, type RoleKey } from "@/lib/permissions";
 
 export const ACTIVE_ORGANIZATION_COOKIE = "stayops_active_organization_id";
 
@@ -46,7 +48,7 @@ export interface MembershipContext {
   organizationId: string;
   organizationName: string;
   organizationSlug: string;
-  role: "owner" | "staff";
+  role: RoleKey;
   userId: string;
 }
 
@@ -103,6 +105,13 @@ export function assertOwner(membership: MembershipContext): void {
   }
 }
 
+/** Use this for new capability checks; owner-only legacy flows stay explicit. */
+export function assertPermission(membership: MembershipContext, permission: Permission): void {
+  if (!hasRolePermission(membership.role, permission)) {
+    throw new PermissionError("You do not have permission to do that.");
+  }
+}
+
 /** Request-scoped, so the layout and `requireMembership` share one query. */
 export const listMemberships = cache(async (userId: string) => {
   return db
@@ -110,10 +119,11 @@ export const listMemberships = cache(async (userId: string) => {
       organizationId: organizations.id,
       organizationName: organizations.name,
       organizationSlug: organizations.slug,
-      role: memberships.role,
+      role: roles.key,
     })
     .from(memberships)
     .innerJoin(organizations, eq(memberships.organizationId, organizations.id))
+    .innerJoin(roles, eq(memberships.roleId, roles.id))
     .where(eq(memberships.userId, userId))
     .orderBy(desc(memberships.createdAt));
 });

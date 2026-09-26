@@ -4,8 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { SETTINGS_NAVIGATION } from "./settings-registry";
+import type { RoleKey } from "@/lib/permissions";
 
-export function SettingsNavigation({ role }: { role: "owner" | "staff" }) {
+export function SettingsNavigation({ role }: { role: RoleKey }) {
   const pathname = usePathname();
   return (
     <nav aria-label="Settings navigation" className="flex gap-1 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible">

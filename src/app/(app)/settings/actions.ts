@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { requireMembership, assertOwner, PermissionError } from "@/lib/auth/session";
 import {
   inviteStaff,
+  createOrganizationJoinCode,
   OrgError,
+  reviewOrganizationJoinRequest,
   removeStaff,
   updateOrganizationProfile,
   updateOrganizationRegion,
@@ -20,6 +22,9 @@ import { createObjectStorageFromEnvironment, StorageError } from "@/server/stora
 export interface OrgFormState {
   error?: string;
   success?: boolean;
+  invitationCode?: string;
+  invitationExpiresAt?: string;
+  joinCode?: string;
 }
 
 function toFormError(error: unknown): OrgFormState {
@@ -155,16 +160,41 @@ export async function inviteStaffAction(
   const membership = await requireMembership();
   assertOwner(membership);
   try {
-    await inviteStaff({
+    const invitation = await inviteStaff({
       organizationId: membership.organizationId,
       actorUserId: membership.userId,
       email: String(formData.get("email") ?? ""),
+      role: (String(formData.get("role") ?? "staff") || "staff") as "admin" | "operations_manager" | "staff",
     });
+    revalidatePath("/settings");
+    return { success: true, invitationCode: invitation.code, invitationExpiresAt: invitation.expiresAt.toISOString() };
   } catch (error) {
     return toFormError(error);
   }
-  revalidatePath("/settings");
-  return { success: true };
+}
+
+/** Returns a shareable code once; it is never stored in plaintext. */
+export async function createOrganizationJoinCodeAction(): Promise<OrgFormState> {
+  const membership = await requireMembership();
+  assertOwner(membership);
+  try {
+    const joinCode = await createOrganizationJoinCode({ organizationId: membership.organizationId, actorUserId: membership.userId });
+    return { success: true, joinCode: joinCode.code };
+  } catch (error) {
+    return toFormError(error);
+  }
+}
+
+export async function reviewOrganizationJoinRequestAction(requestId: string, approve: boolean): Promise<OrgFormState> {
+  const membership = await requireMembership();
+  assertOwner(membership);
+  try {
+    await reviewOrganizationJoinRequest({ organizationId: membership.organizationId, actorUserId: membership.userId, requestId, approve });
+    revalidatePath("/settings");
+    return { success: true };
+  } catch (error) {
+    return toFormError(error);
+  }
 }
 
 export async function removeStaffAction(membershipId: string): Promise<void> {
