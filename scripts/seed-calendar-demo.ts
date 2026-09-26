@@ -6,11 +6,8 @@ import {
   auditEvents,
   guests,
   memberships,
-  paymentEntries,
   properties,
   reservations,
-  taskItems,
-  tasks,
   unitBlocks,
   units,
   user,
@@ -18,7 +15,8 @@ import {
 import { addDaysLocal, nightsBetween, utcToLocalDateTimeParts } from "@/lib/dates";
 import { addUnitBlock, createProperty, createUnit } from "@/server/inventory/service";
 import { createConfirmed, createGuest, createHold, isLiveHold } from "@/server/reservations/service";
-import { checkIn, checkOut, markTaskReady, setTaskItemCompleted } from "@/server/operations/service";
+import { checkIn, checkOut } from "@/server/operations/service";
+import { assertSafeDatabase, finishTurnover, removeReservations } from "./lib/sample-data";
 
 /**
  * Calendar demo data for marketing screenshots: one property with one unit
@@ -70,15 +68,6 @@ const STAYS: DemoStay[] = [
 
 // Nights of Sep 15 and 16 (end date is exclusive).
 const BLOCK = { startDate: "2026-09-15", endDate: "2026-09-17", reason: "Aircon maintenance" };
-
-function assertSafeDatabase() {
-  const url = new URL(process.env.DATABASE_URL ?? "");
-  const local = ["localhost", "127.0.0.1", "::1"].includes(url.hostname);
-  console.log(`Database: ${url.hostname}:${url.port || 5432}${url.pathname}`);
-  if (!local && !process.argv.includes("--allow-remote")) {
-    throw new Error("Refusing to write to a non-local database. Pass --allow-remote if you really mean it.");
-  }
-}
 
 async function resolveOwner() {
   const [row] = await db
@@ -196,39 +185,6 @@ async function seed() {
     }
     console.log(`  ${stay.guest.name.padEnd(17)} ${stay.checkIn} → ${stay.checkOut}  ${reservation.status}`);
   }
-}
-
-/** Ticks every checklist item and marks the turnover ready, like a finished cleaning. */
-async function finishTurnover(ctx: { organizationId: string; actorUserId: string }, reservationId: string) {
-  const openTasks = await db
-    .select({ id: tasks.id })
-    .from(tasks)
-    .where(and(eq(tasks.organizationId, ctx.organizationId), eq(tasks.reservationId, reservationId), eq(tasks.status, "open")));
-  for (const task of openTasks) {
-    const items = await db
-      .select({ id: taskItems.id })
-      .from(taskItems)
-      .where(and(eq(taskItems.taskId, task.id), isNull(taskItems.completedAt)));
-    for (const item of items) {
-      await setTaskItemCompleted({ ...ctx, taskId: task.id, itemId: item.id, completed: true });
-    }
-    await markTaskReady({ ...ctx, actorRole: "owner", taskId: task.id, data: {} });
-  }
-}
-
-/** Hard-deletes reservations and their audit trail; payments, tasks and turnover blocks cascade. */
-async function removeReservations(reservationIds: string[]) {
-  if (!reservationIds.length) return;
-  const related = await db
-    .select({ paymentId: paymentEntries.id })
-    .from(paymentEntries)
-    .where(inArray(paymentEntries.reservationId, reservationIds));
-  const taskIds = (await db.select({ id: tasks.id }).from(tasks).where(inArray(tasks.reservationId, reservationIds))).map((row) => row.id);
-  const ids = [...reservationIds, ...related.map((row) => row.paymentId), ...taskIds];
-  await db.transaction(async (tx) => {
-    await tx.delete(auditEvents).where(inArray(auditEvents.entityId, ids));
-    await tx.delete(reservations).where(inArray(reservations.id, reservationIds));
-  });
 }
 
 async function clean() {

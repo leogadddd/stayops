@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -18,6 +18,7 @@ export function TableActionsMenu({
   deleteSuccessMessage,
   destructiveActionLabel,
   onDelete,
+  links = [],
 }: {
   label: string;
   viewHref: string;
@@ -28,6 +29,8 @@ export function TableActionsMenu({
   /** Use for safe domain alternatives such as cancelling rather than deleting. */
   destructiveActionLabel?: string;
   onDelete?: () => Promise<DeleteResult>;
+  /** Extra actions listed after View, e.g. "Add unit". */
+  links?: { href: string; label: string; icon?: ReactNode }[];
 }) {
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -91,6 +94,12 @@ export function TableActionsMenu({
       <Link href={viewHref} role="menuitem" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-pine hover:bg-pine-mist/70" onClick={() => setOpen(false)}>
         <Eye className="h-4 w-4" aria-hidden />View
       </Link>
+      {links.map((link) => (
+        <Link key={link.href} href={link.href} role="menuitem" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-pine hover:bg-pine-mist/70" onClick={() => setOpen(false)}>
+          {link.icon}
+          {link.label}
+        </Link>
+      ))}
       {editHref ? <Link href={editHref} role="menuitem" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-pine hover:bg-pine-mist/70" onClick={() => setOpen(false)}><Pencil className="h-4 w-4" aria-hidden />Edit</Link> : null}
       {onDelete && deleteLabel && deleteDescription ? (
         <ConfirmationDialog

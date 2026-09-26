@@ -21,6 +21,7 @@
     "db:seed-amenities": "tsx --tsconfig tsconfig.scripts.json scripts/seed-amenities.ts",
     "storage:migrate-photos": "tsx --tsconfig tsconfig.scripts.json scripts/migrate-photos-to-storage.ts",
     "db:seed-calendar-demo": "tsx --tsconfig tsconfig.scripts.json scripts/seed-calendar-demo.ts",
+    "db:seed-reservations": "tsx --tsconfig tsconfig.scripts.json scripts/seed-sample-reservations.ts",
     "db:reset-demo": "tsx --tsconfig tsconfig.scripts.json scripts/reset-demo.ts",
     "db:reset": "tsx --tsconfig tsconfig.scripts.json scripts/reset-db.ts",
     "db:setup": "docker compose up -d && tsx --tsconfig tsconfig.scripts.json scripts/migrate.ts && tsx --tsconfig tsconfig.scripts.json scripts/seed.ts && tsx --tsconfig tsconfig.scripts.json scripts/seed-amenities.ts"
