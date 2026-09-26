@@ -180,6 +180,18 @@
   }
 }
 
+/* Brand panels (auth) stay green in dark mode instead of going near-black;
+   pair with .theme-keep-light. */
+.theme-keep-brand {
+  @variant dark {
+    --color-pine: #182d28;
+    --color-pine-deep: #0f1e1a;
+    --color-pine-soft: #223d36;
+    --color-sage: #cfddd3;
+    --color-sage-deep: #9fb8a9;
+  }
+}
+
 @layer base {
   body {
     @apply bg-paper font-sans text-ink antialiased;

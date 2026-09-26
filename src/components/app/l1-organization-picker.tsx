@@ -4,38 +4,11 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Check, ChevronsUpDown, LoaderCircle, Search } from "lucide-react";
 import { roleLabel } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
-import { searchOrganizationsAction } from "@/app/(app)/organization-actions";
+import { resolveRecentOrganizationsAction, searchOrganizationsAction } from "@/app/(app)/organization-actions";
 import type { OrganizationOption } from "./organization-selector";
+import { readL1Recents, rememberL1Recent, writeL1Recents, type RecentOrganization } from "@/lib/l1-recents";
 
-/** This browser's recent L1 picks, newest first. Never shared or sent anywhere. */
-const RECENT_KEY = "stayops:l1-recent-organizations";
-const RECENT_LIMIT = 6;
-
-interface PickerItem {
-  id: string;
-  name: string;
-}
-
-function readRecents(): PickerItem[] {
-  try {
-    const parsed: unknown = JSON.parse(window.localStorage.getItem(RECENT_KEY) ?? "[]");
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter((item): item is PickerItem => typeof item?.id === "string" && typeof item?.name === "string")
-      .slice(0, RECENT_LIMIT);
-  } catch {
-    return [];
-  }
-}
-
-function rememberRecent(item: PickerItem) {
-  try {
-    const next = [item, ...readRecents().filter((recent) => recent.id !== item.id)].slice(0, RECENT_LIMIT);
-    window.localStorage.setItem(RECENT_KEY, JSON.stringify(next));
-  } catch {
-    // Storage can be blocked (private windows); recents are only a convenience.
-  }
-}
+type PickerItem = RecentOrganization;
 
 function Mark({ name, imageSrc, dark }: { name: string; imageSrc?: string | null; dark?: boolean }) {
   return (
@@ -118,7 +91,18 @@ export function L1OrganizationPicker({
 
   const toggle = () => {
     if (!open) {
-      setRecents(readRecents());
+      const stored = readL1Recents();
+      setRecents(stored);
+      // Drop picks that no longer exist (deleted, or from another database)
+      // and pick up renames.
+      if (stored.length) {
+        resolveRecentOrganizationsAction(stored.map((recent) => recent.id))
+          .then((current) => {
+            writeL1Recents(current);
+            setRecents(current);
+          })
+          .catch(() => {});
+      }
       setQuery("");
       setResults([]);
       setSearching(false);
@@ -127,7 +111,7 @@ export function L1OrganizationPicker({
     setOpen(!open);
   };
   const choose = (item: PickerItem) => {
-    rememberRecent(item);
+    rememberL1Recent(item);
     setOpen(false);
     onSelect(item.id);
   };

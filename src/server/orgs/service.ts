@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, eq, ilike, isNull, ne, or } from "drizzle-orm";
+import { and, asc, eq, ilike, inArray, isNull, ne, or } from "drizzle-orm";
 import { createHash, randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
 import { auditEvents, memberships, organizationInvitations, organizationJoinCodes, organizationJoinRequests, organizations, roles, user } from "@/lib/db/schema";
@@ -129,6 +129,15 @@ export async function searchOrganizations(query: string, limit = 20): Promise<Or
     .where(ilike(organizations.name, pattern))
     .orderBy(asc(organizations.name))
     .limit(limit);
+}
+
+/** The organizations that still exist among `ids`, with their current names. */
+export async function findOrganizationsByIds(ids: string[]): Promise<OrganizationSearchResult[]> {
+  if (!ids.length) return [];
+  return db
+    .select({ id: organizations.id, name: organizations.name })
+    .from(organizations)
+    .where(inArray(organizations.id, ids));
 }
 
 /** The stored object key (or legacy data URL) currently used for the logo. */

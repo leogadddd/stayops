@@ -9,6 +9,7 @@ import { roleLabel, type RoleKey } from "@/lib/permissions";
 import { selectActiveOrganization } from "@/app/(app)/organization-actions";
 import { SearchableSelect } from "@/components/ui/timezone-picker";
 import { L1OrganizationPicker } from "./l1-organization-picker";
+import { clearL1Recents } from "@/lib/l1-recents";
 
 export type OrganizationOption = {
   id: string;
@@ -83,6 +84,12 @@ export function OrganizationSelector({
       (organization) => organization.id === activeOrganizationId,
     ) ?? organizations[0]!;
   const disabled = organizations.length <= 1 || switching;
+
+  // Recents from a revoked L1 grant (or another account on this browser)
+  // must not linger once the user no longer has L1 access.
+  useEffect(() => {
+    if (!l1) clearL1Recents();
+  }, [l1]);
 
   useEffect(() => {
     const closeOnOutside = (event: PointerEvent) => {
