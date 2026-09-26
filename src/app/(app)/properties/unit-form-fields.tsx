@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useCallback, useRef, useState } from "react";
-import { LogIn, LogOut, Users, Wallet } from "lucide-react";
+import { Clock, LogIn, LogOut, Users, Wallet } from "lucide-react";
 import type { UnitStatus } from "@/lib/db/schema";
 import { UNIT_STATUSES } from "@/lib/db/schema";
 import { UNIT_STATUS_DESCRIPTIONS, UNIT_STATUS_LABELS } from "@/lib/labels";
@@ -13,6 +13,9 @@ import { useSaveAndReturn } from "@/hooks/use-save-and-return";
 import type { InventoryFormState } from "./actions";
 import { AmenityPicker, type AmenityOption } from "./amenity-picker";
 import { FormAside, FormLayout, FormSection, PesoInput, PhotoField, useFormValues } from "./form-kit";
+import { DayRatesFields, StayTimesFields } from "./unit-pricing-fields";
+import { stayLengthHours, stayLengthLabel } from "@/lib/stay-times";
+import { dayRateSummary, WEEKDAYS, type DayRates, type Weekday } from "@/lib/rates";
 import { UnitStatusBadge } from "./inventory-display";
 import { timeLabel, UnitPhoto } from "../calendar/availability/stay-display";
 
@@ -25,6 +28,8 @@ export interface UnitFormValues {
   nightlyRate: string;
   cleaningFee: string;
   securityDeposit: string;
+  /** Weekday rates in pesos, only for days that differ. */
+  dayRates?: Partial<Record<Weekday, string>>;
   checkInTime: string;
   checkOutTime: string;
   status: UnitStatus;
@@ -79,9 +84,28 @@ export function UnitForm({
   const bathrooms = live.bathrooms || String(values.bathrooms);
   const rate = pesosLabel(live.nightlyRate ?? values.nightlyRate);
   const cleaning = pesosLabel(live.cleaningFee ?? values.cleaningFee);
+  const checkIn = live.checkInTime || values.checkInTime;
+  const checkOut = live.checkOutTime || values.checkOutTime;
+  const liveDayRates: DayRates = {};
+  for (const { key } of WEEKDAYS) {
+    const typed = live[`dayRate-${key}`];
+    if (!typed?.trim()) continue;
+    try {
+      liveDayRates[key] = pesosToCentavos(typed);
+    } catch (error) {
+      if (!(error instanceof MoneyParseError)) throw error;
+    }
+  }
+  let regularCents = 0;
+  try {
+    regularCents = pesosToCentavos(live.nightlyRate ?? values.nightlyRate ?? "") || 0;
+  } catch (error) {
+    if (!(error instanceof MoneyParseError)) throw error;
+  }
+  const dayRateLines = dayRateSummary(regularCents, liveDayRates, formatPHP);
 
   return (
-    <form ref={formRef} action={formAction} onInput={read} onChange={read}>
+    <form ref={formRef} action={formAction} onInput={read} onChange={read} onClick={read}>
       <FormLayout
         aside={
           <FormAside
@@ -94,9 +118,15 @@ export function UnitForm({
                   {propertyName ? <p className="mt-0.5 truncate text-sm text-ink/55">{propertyName}</p> : null}
                   <dl className="mt-4 space-y-2 text-sm">
                     <PreviewRow icon={Users} label="Sleeps" value={`${capacity} · ${bedrooms} bed · ${bathrooms} bath`} />
-                    <PreviewRow icon={Wallet} label="Per night" value={rate ?? "Not set"} detail={cleaning ? `+ ${cleaning} cleaning` : undefined} />
-                    <PreviewRow icon={LogIn} label="Check-in from" value={timeLabel(live.checkInTime || values.checkInTime)} />
-                    <PreviewRow icon={LogOut} label="Check-out by" value={timeLabel(live.checkOutTime || values.checkOutTime)} />
+                    <PreviewRow
+                      icon={Wallet}
+                      label="Per night"
+                      value={rate ?? "Not set"}
+                      detail={[...dayRateLines, cleaning ? `+ ${cleaning} cleaning` : ""].filter(Boolean).join(" · ") || undefined}
+                    />
+                    <PreviewRow icon={LogIn} label="Check-in from" value={timeLabel(checkIn)} />
+                    <PreviewRow icon={LogOut} label="Check-out by" value={timeLabel(checkOut)} detail="Next day" />
+                    <PreviewRow icon={Clock} label="Stay" value={stayLengthLabel(stayLengthHours(checkIn, checkOut))} />
                   </dl>
                 </div>
               </>
@@ -186,19 +216,13 @@ export function UnitForm({
               <PesoInput id="unit-deposit" name="securityDeposit" defaultValue={values.securityDeposit} placeholder="2,000" />
             </div>
           </div>
+          <div className="mt-4">
+            <DayRatesFields defaults={values.dayRates ?? {}} regularRate={live.nightlyRate ?? values.nightlyRate} />
+          </div>
         </FormSection>
 
-        <FormSection title="Stay times" description="This unit's arrival and departure times. Turnover cleaning starts at check-out.">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="unit-check-in">Check-in from</Label>
-              <Input id="unit-check-in" name="checkInTime" type="time" defaultValue={values.checkInTime} required />
-            </div>
-            <div>
-              <Label htmlFor="unit-check-out">Check-out by</Label>
-              <Input id="unit-check-out" name="checkOutTime" type="time" defaultValue={values.checkOutTime} required />
-            </div>
-          </div>
+        <FormSection title="Stay times" description="Set the check-in time and how long a stay lasts; check-out fills itself in. Turnover cleaning starts at check-out.">
+          <StayTimesFields defaultCheckIn={values.checkInTime} defaultCheckOut={values.checkOutTime} />
         </FormSection>
 
         <FormSection title="Amenities" description="What guests get inside the unit, like towels, toiletries and kitchen tools.">

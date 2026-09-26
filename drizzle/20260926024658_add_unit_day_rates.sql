@@ -1,0 +1,1 @@
+ALTER TABLE "units" ADD COLUMN "day_rates" jsonb DEFAULT '{}'::jsonb NOT NULL;

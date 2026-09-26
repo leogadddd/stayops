@@ -108,6 +108,8 @@ export async function createReservationAction(
       const unit = await getUnitOrThrow(membership.organizationId, details.unitId);
       charges = buildDefaultCharges({
         nightlyRateCents: unit.defaultNightlyRateCents,
+        dayRates: unit.dayRates,
+        checkIn: details.checkIn,
         cleaningFeeCents: unit.cleaningFeeCents,
         securityDepositCents: unit.securityDepositCents,
         nights: nightsBetween(details.checkIn, details.checkOut),

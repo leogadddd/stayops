@@ -159,8 +159,10 @@ export function PesoInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
 }
 
 /**
- * The form's current text values, refreshed on every edit, for the live
- * preview. Read from the DOM so inputs stay uncontrolled.
+ * The form's current text values for the live preview, read from the DOM so
+ * inputs stay uncontrolled. `read` waits a tick, so values that a handler
+ * fills in (like an auto-computed check-out) are already rendered; wire it
+ * to the form's input, change and click events.
  */
 export function useFormValues(formRef: RefObject<HTMLFormElement | null>) {
   const [values, setValues] = useState<Record<string, string>>({});
@@ -173,8 +175,11 @@ export function useFormValues(formRef: RefObject<HTMLFormElement | null>) {
     }
     setValues(next);
   }, [formRef]);
+  const schedule = useCallback(() => {
+    setTimeout(read, 0);
+  }, [read]);
   useEffect(() => {
     read();
   }, [read]);
-  return { values, read };
+  return { values, read: schedule };
 }

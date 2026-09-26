@@ -77,7 +77,7 @@ export function PropertyForm({
   const address = live.address?.trim();
 
   return (
-    <form ref={formRef} action={formAction} onInput={read} onChange={read}>
+    <form ref={formRef} action={formAction} onInput={read} onChange={read} onClick={read}>
       <FormLayout
         aside={
           <FormAside

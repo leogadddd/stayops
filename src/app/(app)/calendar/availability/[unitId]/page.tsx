@@ -1,3 +1,4 @@
+import { accommodationLines } from "@/lib/rates";
 import { photoSrc } from "@/lib/photos";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -71,7 +72,11 @@ export default async function StayShowcasePage({ params, searchParams }: {
   const calendarHref = `/calendar?${new URLSearchParams({ unit: unit.id, ...(search ? { month: search.checkIn.slice(0, 7) } : {}) })}`;
   const showRates = membership.role === "owner";
   const photos = [...new Set([photoSrc("unit", unit), photoSrc("property", property)].filter((src): src is string => Boolean(src)))];
-  const stayCents = search ? unit.defaultNightlyRateCents * search.nights : 0;
+  // One line per rate when weekend (or other day) rates apply to these nights.
+  const stayLines = search
+    ? accommodationLines({ checkIn: search.checkIn, nights: search.nights, baseCents: unit.defaultNightlyRateCents, dayRates: unit.dayRates })
+    : [];
+  const stayCents = stayLines.reduce((sum, line) => sum + line.quantity * line.unitAmountCents, 0);
   const totalCents = stayCents + (unit.cleaningFeeCents ?? 0);
   const segments = segmentsByUnit.get(unit.id) ?? [];
   const segmentHref = (segment: { kind: "reservation" | "block"; id: string }) => segment.kind === "reservation"
@@ -142,7 +147,15 @@ export default async function StayShowcasePage({ params, searchParams }: {
                 </dl>
                 {showRates && unit.defaultNightlyRateCents ? (
                   <dl className="mt-4 space-y-2 text-sm">
-                    <div className="flex justify-between gap-3 text-ink/70"><dt>{formatPHP(unit.defaultNightlyRateCents)} × {plural(search.nights, "night")}</dt><dd>{formatPHP(stayCents)}</dd></div>
+                    {stayLines.map((line) => (
+                      <div key={line.description} className="flex justify-between gap-3 text-ink/70">
+                        <dt>
+                          {formatPHP(line.unitAmountCents)} × {plural(line.quantity, "night")}
+                          {stayLines.length > 1 ? <span className="block text-xs text-ink/45">{line.description.replace(/^Accommodation · | \(.*\)$/g, "")}</span> : null}
+                        </dt>
+                        <dd>{formatPHP(line.quantity * line.unitAmountCents)}</dd>
+                      </div>
+                    ))}
                     {unit.cleaningFeeCents ? <div className="flex justify-between gap-3 text-ink/70"><dt>Cleaning fee</dt><dd>{formatPHP(unit.cleaningFeeCents)}</dd></div> : null}
                     <div className="flex justify-between gap-3 border-t border-pine/10 pt-2 font-medium text-pine"><dt>Estimated total</dt><dd className="font-display text-lg">{formatPHP(totalCents)}</dd></div>
                     {unit.securityDepositCents ? <p className="text-xs text-ink/50">Plus a {formatPHP(unit.securityDepositCents)} refundable security deposit.</p> : null}

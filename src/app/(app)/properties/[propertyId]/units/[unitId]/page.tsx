@@ -25,13 +25,15 @@ import { UNIT_STATUS_DESCRIPTIONS, UNIT_STATUS_LABELS } from "@/lib/labels";
 import { formatPHP } from "@/lib/money";
 import { normalizeChecklistTemplate } from "@/lib/turnover";
 import { summarizeUnitActivity } from "@/lib/unit-activity";
+import { dayRateSummary } from "@/lib/rates";
+import { stayLengthHours, stayLengthLabel } from "@/lib/stay-times";
 import { getOccupancySegments } from "@/server/inventory/availability";
 import { getPropertyOrThrow, getUnitOrThrow, listUnitBlocks } from "@/server/inventory/service";
 import { InventoryError } from "@/server/inventory/validation";
 import { listUnitAmenities } from "@/server/inventory/amenities";
 import { buttonClassName } from "@/components/ui/button";
 import { RemoveBlockButton } from "../block-forms";
-import { AmenityList } from "../../../amenity-icons";
+import { AmenitySummary } from "../../../amenity-summary";
 import {
   Panel,
   SideAction,
@@ -71,6 +73,7 @@ export default async function UnitDetailPage({ params }: { params: Promise<{ pro
   ]);
   const activity = summarizeUnitActivity(segmentsByUnit.get(unit.id) ?? [], today, addDaysLocal(today, OUTLOOK_DAYS));
   const checklist = normalizeChecklistTemplate(unit.checklistTemplate);
+  const dayRates = dayRateSummary(unit.defaultNightlyRateCents, unit.dayRates, formatPHP);
   const unitHref = `/properties/${property.id}/units/${unit.id}`;
   const bookable = unit.status === "active";
   const newReservationHref = `/reservations/new?unit=${unit.id}`;
@@ -143,7 +146,7 @@ export default async function UnitDetailPage({ params }: { params: Promise<{ pro
                 icon={Wallet}
                 label="Nightly rate"
                 value={unit.defaultNightlyRateCents ? formatPHP(unit.defaultNightlyRateCents) : "Not set"}
-                detail={unit.cleaningFeeCents ? `+ ${formatPHP(unit.cleaningFeeCents)} cleaning` : undefined}
+                detail={dayRates.length ? dayRates.join(" · ") : unit.cleaningFeeCents ? `+ ${formatPHP(unit.cleaningFeeCents)} cleaning` : undefined}
               />
               <StatTile
                 icon={Users}
@@ -303,20 +306,22 @@ export default async function UnitDetailPage({ params }: { params: Promise<{ pro
           <Panel title="Details">
             <dl className="space-y-3 text-sm">
               <DetailRow label="Check-in from" value={timeLabel(unit.checkInTime)} />
-              <DetailRow label="Check-out by" value={timeLabel(unit.checkOutTime)} />
+              <DetailRow label="Check-out by" value={`${timeLabel(unit.checkOutTime)}, next day`} />
+              <DetailRow label="Stay length" value={stayLengthLabel(stayLengthHours(unit.checkInTime, unit.checkOutTime))} />
               <DetailRow
-                label="Cleaning fee"
-                value={unit.cleaningFeeCents === null ? "Not set" : formatPHP(unit.cleaningFeeCents)}
+                label="Nightly rate"
+                value={unit.defaultNightlyRateCents ? formatPHP(unit.defaultNightlyRateCents) : "Not set"}
               />
-              <DetailRow
-                label="Refundable deposit"
-                value={unit.securityDepositCents === null ? "Not set" : formatPHP(unit.securityDepositCents)}
-              />
+              {dayRates.map((line) => (
+                <DetailRow key={line} label={line.slice(0, line.lastIndexOf(" "))} value={line.slice(line.lastIndexOf(" ") + 1)} />
+              ))}
+              {/* Optional charges only show when the unit has them. */}
+              {unit.cleaningFeeCents ? <DetailRow label="Cleaning fee" value={formatPHP(unit.cleaningFeeCents)} /> : null}
+              {unit.securityDepositCents ? (
+                <DetailRow label="Refundable deposit" value={formatPHP(unit.securityDepositCents)} />
+              ) : null}
             </dl>
-            <div className="mt-4 border-t border-pine/10 pt-4">
-              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ink/45">Amenities</p>
-              <AmenityList amenities={amenities} emptyLabel="No amenities selected." />
-            </div>
+            <AmenitySummary amenities={amenities} editHref={`${unitHref}/edit`} />
           </Panel>
         </aside>
       </div>

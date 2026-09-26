@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireMembership, assertOwner, PermissionError } from "@/lib/auth/session";
 import { MoneyParseError, pesosToCentavos } from "@/lib/money";
+import { WEEKDAYS, type DayRates } from "@/lib/rates";
 import {
   updateChecklistTemplate,
   OperationsError,
@@ -40,6 +41,16 @@ function readOptionalPesos(formData: FormData, key: string): number | null {
   const raw = readString(formData, key);
   if (raw === "") return null;
   return pesosToCentavos(raw);
+}
+
+/** Weekday rates from `dayRate-<weekday>` inputs; blank days use the nightly rate. */
+function readDayRates(formData: FormData): DayRates {
+  const rates: DayRates = {};
+  for (const { key } of WEEKDAYS) {
+    const cents = readOptionalPesos(formData, `dayRate-${key}`);
+    if (cents !== null) rates[key] = cents;
+  }
+  return rates;
 }
 
 function readTurnoverDuration(formData: FormData): number {
@@ -213,6 +224,7 @@ function unitDataFromForm(formData: FormData) {
     bedrooms: Number(readString(formData, "bedrooms")),
     bathrooms: Number(readString(formData, "bathrooms")),
     defaultNightlyRateCents: readOptionalPesos(formData, "nightlyRate") ?? 0,
+    dayRates: readDayRates(formData),
     cleaningFeeCents: readOptionalPesos(formData, "cleaningFee"),
     securityDepositCents: readOptionalPesos(formData, "securityDeposit"),
     checkInTime: readString(formData, "checkInTime") || "15:00",

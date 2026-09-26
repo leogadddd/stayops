@@ -174,7 +174,7 @@ describe("independent owner page boundaries", () => {
       id: "unit-a", organizationId: owner.organizationId, propertyId: "property-a",
       name: "Test unit", status: "active", capacity: 2, bedrooms: 1, bathrooms: 1,
       imageUrl: null,
-      defaultNightlyRateCents: 100_000, cleaningFeeCents: null,
+      defaultNightlyRateCents: 100_000, dayRates: {}, cleaningFeeCents: null,
       securityDepositCents: null, checkInTime: "15:00", checkOutTime: "11:00", checklistTemplate: [],
       createdAt: new Date("2026-09-01T00:00:00Z"),
       updatedAt: new Date("2026-09-01T00:00:00Z"),
@@ -226,7 +226,7 @@ describe("new reservation financial boundary", () => {
   it("does not send prices or confirmed-booking access to staff", async () => {
     vi.mocked(inventory.listOrgUnits).mockResolvedValue([{
       id: "unit-a", propertyId: "property-a", name: "Test unit", status: "active",
-      capacity: 2, bedrooms: 1, bathrooms: 1, imageUrl: null, defaultNightlyRateCents: 765_432, cleaningFeeCents: 12_345,
+      capacity: 2, bedrooms: 1, bathrooms: 1, imageUrl: null, defaultNightlyRateCents: 765_432, dayRates: {}, cleaningFeeCents: 12_345,
       securityDepositCents: 123_456, checkInTime: "15:00", checkOutTime: "11:00",
     }] as Awaited<ReturnType<typeof inventory.listOrgUnits>>);
     vi.mocked(inventory.listProperties).mockResolvedValue([]);
@@ -237,7 +237,7 @@ describe("new reservation financial boundary", () => {
     expect(form?.props.units).toEqual([{
       id: "unit-a", label: "Test unit", name: "Test unit", propertyName: null, imageUrl: null,
       capacity: 2, bedrooms: 1, bathrooms: 1, checkInTime: "15:00", checkOutTime: "11:00",
-      nightlyRateCents: null, cleaningFeeCents: null, securityDepositCents: null,
+      nightlyRateCents: null, dayRates: null, cleaningFeeCents: null, securityDepositCents: null,
     }]);
   });
 });

@@ -13,6 +13,7 @@ import {
   computeTotals,
   type ChargeLineValues,
 } from "@/lib/charges";
+import type { DayRates } from "@/lib/rates";
 import { addDaysLocal, nightsBetween } from "@/lib/dates";
 import {
   centavosToPesosInput,
@@ -41,6 +42,8 @@ export interface UnitOption {
   checkInTime: string;
   checkOutTime: string;
   nightlyRateCents: number | null;
+  /** Weekday rates that differ from the nightly rate; owners only. */
+  dayRates: DayRates | null;
   cleaningFeeCents: number | null;
   securityDepositCents: number | null;
 }
@@ -225,11 +228,13 @@ export function ReservationForm({
     if (!selectedUnit || selectedUnit.nightlyRateCents === null || !nights) return [];
     return toDraft(buildDefaultCharges({
       nightlyRateCents: selectedUnit.nightlyRateCents,
+      dayRates: selectedUnit.dayRates,
+      checkIn,
       cleaningFeeCents: selectedUnit.cleaningFeeCents,
       securityDepositCents: selectedUnit.securityDepositCents,
       nights,
     }));
-  }, [selectedUnit, nights]);
+  }, [selectedUnit, nights, checkIn]);
   const charges = customCharges ?? defaultCharges;
   const parsed = useMemo(() => charges.map((draft) => ({ draft, line: parseDraft(draft) })), [charges]);
   const submittableLines = parsed.map((entry) => entry.line).filter((line): line is ChargeLineValues => line !== null);

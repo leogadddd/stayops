@@ -20,6 +20,7 @@ export function toUnitOption(
     checkInTime: unit.checkInTime,
     checkOutTime: unit.checkOutTime,
     nightlyRateCents: isOwner ? unit.defaultNightlyRateCents : null,
+    dayRates: isOwner ? unit.dayRates : null,
     cleaningFeeCents: isOwner ? unit.cleaningFeeCents : null,
     securityDepositCents: isOwner ? unit.securityDepositCents : null,
   };

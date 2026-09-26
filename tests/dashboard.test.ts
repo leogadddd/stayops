@@ -55,6 +55,7 @@ const unit = {
   bedrooms: 1,
   bathrooms: 1,
   defaultNightlyRateCents: 550_000,
+  dayRates: {},
   cleaningFeeCents: 50_000,
   securityDepositCents: 200_000,
   checkInTime: "15:00", checkOutTime: "11:00",

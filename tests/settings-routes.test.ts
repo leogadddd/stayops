@@ -83,7 +83,7 @@ const property = {
 };
 const unit = {
   id: "unit-a", organizationId: owner.organizationId, propertyId: property.id, name: "Test unit",
-  status: "active" as const, capacity: 2, bedrooms: 1, bathrooms: 1, defaultNightlyRateCents: 125_050,
+  status: "active" as const, capacity: 2, bedrooms: 1, bathrooms: 1, defaultNightlyRateCents: 125_050, dayRates: {},
   imageUrl: null,
   cleaningFeeCents: 30_000, securityDepositCents: null, checkInTime: "15:00", checkOutTime: "11:00", checklistTemplate: [{ label: "Clean room", required: true }],
   createdAt: new Date("2026-09-01T00:00:00Z"), updatedAt: new Date("2026-09-01T00:00:00Z"),

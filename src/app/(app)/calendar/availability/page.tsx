@@ -1,3 +1,4 @@
+import { accommodationTotal } from "@/lib/rates";
 import { unitOrPropertyPhotoSrc } from "@/lib/photos";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -56,7 +57,9 @@ export default async function AvailabilityPage({ searchParams }: { searchParams:
         bedrooms: unit.bedrooms,
         bathrooms: unit.bathrooms,
         nightlyRateCents: unit.defaultNightlyRateCents,
-        estimatedTotalCents: unit.defaultNightlyRateCents * search.nights + (unit.cleaningFeeCents ?? 0),
+        estimatedTotalCents:
+          accommodationTotal({ checkIn: search.checkIn, nights: search.nights, baseCents: unit.defaultNightlyRateCents, dayRates: unit.dayRates }) +
+          (unit.cleaningFeeCents ?? 0),
       };
     });
     // Closest fit first, so a couple isn't offered the six-bed villa before the studio.

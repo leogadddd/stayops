@@ -101,6 +101,10 @@ export const unitInputSchema = z.object({
     .min(0.5, "Bathrooms must be at least 0.5.")
     .max(20, "Bathrooms must be 20 or fewer."),
   defaultNightlyRateCents: centavosField("Nightly rate"),
+  // Optional so a partial update (e.g. a status change) keeps the stored rates.
+  dayRates: z
+    .partialRecord(z.enum(["0", "1", "2", "3", "4", "5", "6"]), centavosField("Day rate"))
+    .optional(),
   cleaningFeeCents: centavosField("Cleaning fee").nullable(),
   securityDepositCents: centavosField("Security deposit").nullable(),
   checkInTime: z.string().default("15:00").refine(isValidHmTime, { message: "Use a 24-hour arrival time like 15:00." }),

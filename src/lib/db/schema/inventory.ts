@@ -18,6 +18,7 @@ import {
 import { user } from "./auth";
 import { organizations } from "./orgs";
 import { DEFAULT_CHECKLIST, type ChecklistTemplateItem } from "@/lib/turnover";
+import type { DayRates } from "@/lib/rates";
 
 export const UNIT_STATUSES = [
   "renovating",
@@ -100,6 +101,9 @@ export const units = pgTable(
     defaultNightlyRateCents: integer("default_nightly_rate_cents")
       .notNull()
       .default(0),
+    // Nightly rates that differ by weekday ("5": Friday); other nights use
+    // defaultNightlyRateCents. See src/lib/rates.ts.
+    dayRates: jsonb("day_rates").$type<DayRates>().notNull().default({}),
     cleaningFeeCents: integer("cleaning_fee_cents"),
     securityDepositCents: integer("security_deposit_cents"),
     checkInTime: text("check_in_time").notNull().default("15:00"),
