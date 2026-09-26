@@ -113,6 +113,9 @@ export async function saveOrganizationProfile(
   revalidatePath("/settings/organization");
   revalidatePath("/settings/organization/edit");
   revalidatePath("/dashboard");
+  // The app layout owns the header organization selector, so invalidate it
+  // along with the settings pages when its logo may have changed.
+  revalidatePath("/", "layout");
   return { success: true };
 }
 

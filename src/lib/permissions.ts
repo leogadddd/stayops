@@ -60,7 +60,9 @@ export const PERMISSION_AREAS = [
     label: "Guests",
     actions: {
       view: "See the guest list",
-      update: "Share and revoke private guest links",
+      create: "Add guest profiles",
+      update: "Edit guest profiles, and share and revoke private guest links",
+      delete: "Delete guests who have never booked",
     },
   },
   {
@@ -158,6 +160,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, readonly Permission[]> = 
     "reservations.create",
     "stays.update",
     "guests.view",
+    "guests.create",
     "tasks.view",
     "tasks.update",
     "damage.create",

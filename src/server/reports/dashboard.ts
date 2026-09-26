@@ -4,6 +4,7 @@ import { and, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   expenses,
+  bookingPlatforms,
   paymentEntries,
   properties,
   refundEntries,
@@ -17,6 +18,46 @@ import { OCCUPANCY_STATUSES } from "@/lib/reporting";
 
 // Same cash timezone as getReport, so dashboard totals reconcile with reports.
 const CASH_TIMEZONE = "Asia/Manila";
+
+export interface DashboardPlatformBreakdownRow {
+  platformId: string | null;
+  name: string;
+  logoUrl: string | null;
+  color: string | null;
+  reservationCount: number;
+}
+
+/** Reservation sources for stays that begin in the supplied month window. */
+export async function getDashboardPlatformBreakdown(
+  organizationId: string,
+  range: { from: string; to: string },
+): Promise<DashboardPlatformBreakdownRow[]> {
+  const reservationCount = sql<number>`count(*)`.mapWith(Number);
+  return db
+    .select({
+      platformId: bookingPlatforms.id,
+      name: sql<string>`coalesce(${bookingPlatforms.name}, 'Not recorded')`,
+      logoUrl: bookingPlatforms.logoUrl,
+      color: bookingPlatforms.color,
+      reservationCount,
+    })
+    .from(reservations)
+    .leftJoin(
+      bookingPlatforms,
+      and(
+        eq(reservations.platformId, bookingPlatforms.id),
+        eq(reservations.organizationId, bookingPlatforms.organizationId),
+      ),
+    )
+    .where(and(
+      eq(reservations.organizationId, organizationId),
+      inArray(reservations.status, ["confirmed", "checked_in", "checked_out"]),
+      gte(reservations.checkInDate, range.from),
+      lt(reservations.checkInDate, range.to),
+    ))
+    .groupBy(bookingPlatforms.id, bookingPlatforms.name, bookingPlatforms.logoUrl, bookingPlatforms.color)
+    .orderBy(sql`${reservationCount} desc`, sql`coalesce(${bookingPlatforms.name}, 'Not recorded') asc`);
+}
 
 /** Day-by-day cash, spending and occupancy for [from, to), organization-wide. */
 export async function getDashboardSeries(

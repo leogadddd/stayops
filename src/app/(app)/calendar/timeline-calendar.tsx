@@ -7,6 +7,7 @@ import { barStyle, CalendarLegend } from "./calendar-legend";
 import { CalendarSelection } from "./calendar-selection";
 import { EventTrigger, QuickViewProvider } from "./event-quick-view";
 import type { DisplayCalendarEvent } from "./month-calendar";
+import { PlatformLogo } from "@/components/app/platform-badge";
 
 export interface TimelineUnit {
   id: string;
@@ -115,6 +116,8 @@ export function TimelineCalendar({
                               style={style}
                             >
                               {event.kind === "block" ? <Wrench className="h-3.5 w-3.5 shrink-0" aria-hidden /> : null}
+                              {/* Short bars keep their room for the guest's name. */}
+                              {event.platform && end - start >= 3 ? <PlatformLogo platform={event.platform} className="h-3.5 w-3.5 rounded-[3px]" /> : null}
                               <span className="truncate font-semibold">{event.kind === "block" ? event.description ?? event.title : event.title}</span>
                               {event.timeLabel && end - start >= 3 ? <span className="shrink-0 tabular-nums opacity-70">{event.timeLabel}</span> : null}
                             </EventTrigger>

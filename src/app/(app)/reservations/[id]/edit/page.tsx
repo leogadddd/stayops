@@ -6,6 +6,7 @@ import { PermissionDenied } from "@/components/app/permission-denied";
 import { PageHeading } from "@/components/app/page-heading";
 import { getReservationDetail, ReservationError } from "@/server/reservations/service";
 import { listGuests } from "@/server/reservations/service";
+import { listPlatforms } from "@/server/reservations/platforms";
 import { listOrgUnits, listProperties } from "@/server/inventory/service";
 import { getReservationLedger } from "@/server/payments/service";
 import { ReservationForm } from "../../new/reservation-form";
@@ -28,11 +29,12 @@ export default async function EditReservationPage({ params }: { params: Promise<
     return <div className="mx-auto max-w-2xl"><PageHeading title="Edit reservation" backHref={backHref} backLabel="Back to reservation" /><p className="text-sm text-ink/60">Only a hold or confirmed reservation can be edited.</p></div>;
   }
 
-  const [guests, units, properties, ledger] = await Promise.all([
+  const [guests, units, properties, ledger, platforms] = await Promise.all([
     listGuests(membership.organizationId),
     listOrgUnits(membership.organizationId),
     listProperties(membership.organizationId),
     getReservationLedger(membership.organizationId, id),
+    listPlatforms(membership.organizationId, { includeInactive: true }),
   ]);
   const propertyById = new Map(properties.map((property) => [property.id, property]));
   const { reservation, guest, unit } = detail;
@@ -50,6 +52,9 @@ export default async function EditReservationPage({ params }: { params: Promise<
         canSetCharges
         // The current unit stays selectable even if it is no longer active.
         units={units.filter((candidate) => candidate.status === "active" || candidate.id === unit.id).map((candidate) => toUnitOption(candidate, propertyById.get(candidate.propertyId), { multipleProperties: properties.length > 1, showRates: true }))}
+        // A retired platform stays selectable on the reservations that use it.
+        canCreateGuest={can(membership, "guests.create")}
+        platforms={platforms.filter((platform) => platform.isActive || platform.id === detail.reservation.platformId)}
         guests={guests.map((option) => ({ id: option.id, name: option.name, email: option.email, phone: option.phone }))}
         defaultCheckIn={reservation.checkInDate}
         defaultCheckOut={reservation.checkOutDate}
@@ -59,6 +64,8 @@ export default async function EditReservationPage({ params }: { params: Promise<
         edit={{
           reservationId: reservation.id,
           guestId: guest.id,
+          platformId: reservation.platformId,
+          platformReference: reservation.platformReference,
           occupants: (detail.occupants ?? []).map((occupant) => occupant.name),
           charges: detail.charges.map((charge) => ({ type: charge.type, description: charge.description, quantity: charge.quantity, unitAmountCents: charge.unitAmountCents })),
           paid: { bookingCents: ledger.balances.paidBookingCents - ledger.balances.refundedBookingCents, depositCents: ledger.balances.depositHeldCents },

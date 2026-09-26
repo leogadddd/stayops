@@ -40,6 +40,7 @@ import { expireStaleHolds } from "@/server/reservations/holds";
 import { getReservationLedger } from "@/server/payments/service";
 import { getTaskForReservation } from "@/server/operations/service";
 import { ReservationStatusBadge } from "@/components/app/reservation-status-badge";
+import { PlatformBadge } from "@/components/app/platform-badge";
 import { buttonClassName } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import {
@@ -116,6 +117,7 @@ export default async function ReservationDetailPage({
   } = detail;
   // Old reservation records and test doubles predate the optional occupant list.
   const occupants = detail.occupants ?? [];
+  const platform = detail.platform ?? null;
   const ledger = canSeeMoney
     ? await getReservationLedger(membership.organizationId, id)
     : null;
@@ -210,9 +212,15 @@ export default async function ReservationDetailPage({
                     Booked {timeFormat.format(reservation.createdAt)}
                   </span>
                 ) : null}
+                {platform ? (
+                  <span className="inline-flex items-center gap-1 text-xs text-ink/60">
+                    via <PlatformBadge platform={platform} className="font-medium text-pine" />
+                    {reservation.platformReference ? <span className="font-mono text-ink/50">· {reservation.platformReference}</span> : null}
+                  </span>
+                ) : null}
               </div>
               <h1 className="mt-3 truncate font-display text-3xl tracking-tight text-pine sm:text-4xl">
-                {guest.name}
+                {can(membership, "guests.view") ? <Link href={`/guests/${guest.id}`} className="underline-offset-4 hover:underline">{guest.name}</Link> : guest.name}
               </h1>
               <p className="mt-1.5 flex items-center gap-1.5 text-sm text-ink/65">
                 <MapPin className="h-4 w-4 shrink-0 text-pine/45" aria-hidden />

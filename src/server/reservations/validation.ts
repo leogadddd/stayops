@@ -2,6 +2,7 @@ import { z } from "zod";
 import { isLocalDate } from "@/lib/dates";
 import { CHARGE_TYPES, RESERVATION_STATUSES } from "@/lib/db/schema";
 import { recordPaymentSchema } from "@/server/payments/validation";
+import { GUEST_ID_TYPES, GUEST_TAG_LIMIT } from "@/lib/guests";
 
 export class ReservationError extends Error {
   constructor(
@@ -48,6 +49,57 @@ export const guestInputSchema = z
 
 export type GuestInput = z.infer<typeof guestInputSchema>;
 
+const optionalText = (label: string, max: number) =>
+  z.string().trim().max(max, `${label} must be ${max} characters or fewer.`).optional();
+
+/**
+ * A full guest profile, as the Guests pages edit it: the booking contact
+ * plus optional details the team keeps. The reservation flow only ever asks
+ * for the contact fields (guestInputSchema).
+ */
+export const guestProfileSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(2, "Guest name needs at least 2 characters.")
+      .max(120, "Guest name must be 120 characters or fewer."),
+    email: z.string().trim().email("Use a valid email address.").max(200, "Email must be 200 characters or fewer.").optional(),
+    phone: optionalText("Phone number", 40),
+    notes: optionalText("Notes", 2000),
+    preferredName: optionalText("Preferred name", 60),
+    birthDate: localDateField.optional(),
+    nationality: optionalText("Nationality", 60),
+    idType: z.enum(GUEST_ID_TYPES, { message: "Choose an ID type from the list." }).optional(),
+    idNumber: optionalText("ID number", 60),
+    address: optionalText("Address", 300),
+    company: optionalText("Company", 120),
+    tin: optionalText("TIN", 30),
+    emergencyContactName: optionalText("Emergency contact name", 120),
+    emergencyContactPhone: optionalText("Emergency contact phone", 40),
+    tags: z
+      .array(z.string().trim().min(1).max(30, "Tags must be 30 characters or fewer."))
+      .max(GUEST_TAG_LIMIT, `Use at most ${GUEST_TAG_LIMIT} tags.`)
+      .default([]),
+    flagged: z.boolean().default(false),
+    flagReason: optionalText("Flag reason", 500),
+    marketingOptIn: z.boolean().default(false),
+  })
+  .refine((value) => (value.email ?? "") !== "" || (value.phone ?? "") !== "", {
+    message: "Add at least one contact method — email or phone.",
+    path: ["email"],
+  })
+  .refine((value) => !value.birthDate || value.birthDate <= new Date().toISOString().slice(0, 10), {
+    message: "Birth date can't be in the future.",
+    path: ["birthDate"],
+  })
+  .refine((value) => !value.idNumber || value.idType, {
+    message: "Choose the ID type for this ID number.",
+    path: ["idType"],
+  });
+
+export type GuestProfileInput = z.input<typeof guestProfileSchema>;
+
 const centavosInt = z
   .number()
   .int("Amounts must be whole numbers of centavos.")
@@ -90,6 +142,13 @@ export const reservationDetailsSchema = z.object({
     .int("Guest count must be a whole number.")
     .min(1, "At least one guest.")
     .max(50, "Guest count must be 50 or fewer."),
+  // Where the booking came from, and that platform's own confirmation code.
+  platformId: z.string().uuid("Choose a booking platform.").optional(),
+  platformReference: z
+    .string()
+    .trim()
+    .max(80, "Platform booking codes must be 80 characters or fewer.")
+    .optional(),
 });
 
 const reservationBaseSchema = reservationDetailsSchema.extend({

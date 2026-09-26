@@ -21,7 +21,7 @@ delivered in vertical slices (0–5). Brand palette: Pine `#203A35`, Paper
 ```bash
 cp .env.example .env            # then set BETTER_AUTH_SECRET (openssl rand -base64 32)
 npm install
-npm run db:setup                # docker compose up + migrations + seed
+npm run db:setup                # docker compose up + migrations + demo workspace
 npm run dev                     # http://localhost:3000
 ```
 
@@ -32,10 +32,21 @@ migrations before starting the app:
 npm run db:migrate
 ```
 
-Demo credentials (from the seed, clearly fake):
+Demo credentials (from the demo seed, clearly fake):
 
 - email: `owner@stayops.dev`
 - password: `stayops-demo-1234`
+
+For role-based development, run `npm run seed:development`. It creates the
+`StayOps Development` workspace with these accounts (all use
+`stayops102499`):
+
+| Role | Email |
+| --- | --- |
+| Owner | `dev-owner@stayops.dev` |
+| Admin | `admin@stayops.dev` |
+| Operations Manager | `operations-manager@stayops.dev` |
+| Staff | `staff@stayops.dev` |
 
 ## Commands
 
@@ -46,8 +57,12 @@ Demo credentials (from the seed, clearly fake):
 | `npm run test:integration` | Real PostgreSQL acceptance tests (dedicated `stayops_test` database) |
 | `npm run db:up` / `db:down` | Start/stop PostgreSQL |
 | `npm run db:generate` / `db:migrate` | Drizzle migration workflow (see *Database schema changes* in `CLAUDE.md`) |
-| `npm run db:seed` | Idempotent fake demo data |
-| `npm run db:reset-demo` | Delete and recreate only the shared demo workspace |
+| `npm run seed:demo` | Idempotent fake demo workspace |
+| `npm run seed:demo:reset` | Delete and recreate only the shared demo workspace |
+| `npm run seed:development` | Idempotent development workspace with Owner, Admin, Operations Manager, and Staff accounts |
+| `npm run seed:casa-alon` | Import the illustrated Casa Alon Beach Villas sample property into the development workspace |
+| `npm run seed:amenities` / `seed:platforms` | Backfill default amenities or booking platforms for existing workspaces |
+| `npm run seed:calendar-demo` / `seed:reservations` | Add focused calendar or reservation sample data |
 | `npm run db:reset` | Interactively confirm, then erase the database, migrate it, and seed demo data |
 
 ## Nightly demo reset
@@ -59,7 +74,7 @@ Stay Operations` workspace, then recreates the fake baseline data.
 Before deploying, add a random `CRON_SECRET` to the Vercel project’s
 Production environment variables. Vercel sends it in the request’s
 `Authorization` header, and the endpoint rejects calls without it. The cron
-job is created after the next production deployment. `npm run db:reset-demo`
+job is created after the next production deployment. `npm run seed:demo:reset`
 remains available for a deliberate local reset; do not run either reset against
 a production account that reuses the demo email or organization name.
 

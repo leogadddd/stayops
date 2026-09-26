@@ -75,6 +75,7 @@ vi.mock("@/server/reports/service", () => ({
   getReport: vi.fn(),
   ReportError: class extends Error {},
 }));
+vi.mock("@/server/reservations/platforms", () => ({ listPlatforms: vi.fn(async () => []) }));
 vi.mock("@/server/reservations/service", () => ({
   getReservationDetail: vi.fn(),
   listGuests: vi.fn(),

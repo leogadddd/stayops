@@ -3,10 +3,10 @@ import type { CSSProperties, ReactNode } from "react";
 import { BrushCleaning, ChevronLeft, ChevronRight, Wrench } from "lucide-react";
 import { buttonClassName } from "@/components/ui/button";
 import { layoutMonthBars, type BarInterval, type CalendarEvent } from "@/lib/calendar";
-import { addDaysLocal, monthNightRange } from "@/lib/dates";
 import { barStyle, CalendarLegend } from "./calendar-legend";
 import { CalendarSelection } from "./calendar-selection";
 import { EventTrigger, QuickViewProvider, type EventQuickViewData } from "./event-quick-view";
+import { PlatformLogo } from "@/components/app/platform-badge";
 
 export interface DisplayCalendarEvent extends CalendarEvent, BarInterval {
   unitLabel: string;
@@ -51,11 +51,6 @@ export function MonthCalendar({
   viewSwitcher?: ReactNode;
 }) {
   const weeks = layoutMonthBars(month, events);
-  const range = monthNightRange(month);
-  const agenda = events
-    .filter((event) => event.startDate < range.end && event.endDate > range.start)
-    .sort((a, b) => a.startDate.localeCompare(b.startDate) || a.id.localeCompare(b.id));
-
   return (
     <QuickViewProvider>
       <section aria-labelledby="calendar-month" className="overflow-hidden rounded-lg border border-pine/15 bg-linen shadow-[0_1px_3px_rgba(32,58,53,0.03)]">
@@ -74,7 +69,7 @@ export function MonthCalendar({
             <Link href={todayHref} className={buttonClassName("outline", "sm")}>Today</Link>
           </div>
         </div>
-        <p id="calendar-scroll-help" className="border-b border-pine/10 px-4 py-2 text-xs text-ink/60 md:hidden">Swipe across the month, or read the agenda below.</p>
+        <p id="calendar-scroll-help" className="border-b border-pine/10 px-4 py-2 text-xs text-ink/60 md:hidden">Swipe across the month to view all dates.</p>
         <div tabIndex={0} role="region" aria-label={`${monthLabel} month calendar`} className="overflow-x-auto focus-visible:-outline-offset-2">
           <div className="min-w-[630px]">
             <div className="grid grid-cols-7 border-b border-pine/15">
@@ -132,6 +127,7 @@ export function MonthCalendar({
                             style={style}
                           >
                             {event.kind === "block" ? <Wrench className="h-3.5 w-3.5 shrink-0" aria-hidden /> : null}
+                            {event.platform ? <PlatformLogo platform={event.platform} className="h-3.5 w-3.5 rounded-[3px]" /> : null}
                             <span className="truncate font-semibold">{event.kind === "block" ? event.description ?? event.title : event.title}</span>
                             {event.timeLabel && end - start >= 1.7 ? <span className="shrink-0 tabular-nums opacity-70">{event.timeLabel}</span> : null}
                             {showUnit && end - start >= 3.2 ? <span className="truncate opacity-75">· {event.unitLabel}</span> : null}
@@ -166,26 +162,6 @@ export function MonthCalendar({
 
       <CalendarLegend />
 
-      <section aria-labelledby="calendar-agenda" className="mt-6 md:hidden">
-        <h3 id="calendar-agenda" className="mb-3 font-display text-xl text-pine">{monthLabel} at a glance</h3>
-        <ul className="space-y-2">
-          {agenda.map((event) => {
-            const { className, style } = barStyle(event);
-            const lastDay = event.timed ? event.endDate : addDaysLocal(event.endDate, -1);
-            return (
-              <li key={event.id}>
-                <EventTrigger quickView={event.quickView} href={event.href} aria-label={event.accessibleLabel} className={`block w-full rounded-lg px-3 py-3 ${className}`} style={style}>
-                  <div className="flex items-start justify-between gap-3">
-                    <span className="min-w-0 break-words text-sm font-medium">{event.title}</span>
-                    <span className="shrink-0 text-xs">{dateLabel(event.startDate)}{lastDay !== event.startDate ? ` – ${dateLabel(lastDay)}` : ""}</span>
-                  </div>
-                  <p className="mt-1 break-words text-xs">{event.unitLabel} · {event.detail}{event.timeLabel ? ` · ${event.timeLabel}` : ""}</p>
-                </EventTrigger>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
     </QuickViewProvider>
   );
 }

@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { Banknote, CircleCheck, Landmark, Smartphone, Wallet, type LucideIcon } from "lucide-react";
 import { Input, Label } from "@/components/ui/input";
 import { PAYMENT_METHOD_LABELS } from "@/lib/labels";
+import { PAYMENT_METHOD_LOGOS } from "@/components/app/payment-method-logo";
 import { centavosToPesosInput, formatPHP, pesosToCentavos } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
@@ -22,12 +23,14 @@ export function parseAmount(input: string): number | null {
 }
 
 /** A radio styled as a card; the native input stays for keyboard and screen readers. */
-export function ChoiceCard({ name, value, checked, onSelect, icon: Icon, title, disabled, compact, children }: {
+export function ChoiceCard({ name, value, checked, onSelect, icon: Icon, logo, title, disabled, compact, children }: {
   name: string;
   value: string;
   checked: boolean;
   onSelect: () => void;
   icon: LucideIcon;
+  /** A brand logo image, shown instead of `icon`. */
+  logo?: string;
   title: string;
   disabled?: boolean;
   compact?: boolean;
@@ -40,7 +43,7 @@ export function ChoiceCard({ name, value, checked, onSelect, icon: Icon, title, 
       disabled ? "cursor-not-allowed border-pine/10 bg-linen/60 opacity-60" : checked ? "cursor-pointer border-clay bg-clay-mist/40 ring-1 ring-clay" : "cursor-pointer border-pine/15 hover:border-pine/35",
     )}>
       <input type="radio" name={name} value={value} checked={checked} disabled={disabled} onChange={onSelect} className="sr-only" />
-      <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", checked ? "bg-clay text-white" : "bg-sage/60 text-pine")}><Icon className="h-4 w-4" aria-hidden /></span>
+      {logo ? <img src={logo} alt="" aria-hidden className="h-9 w-9 shrink-0 rounded-lg" /> : <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", checked ? "bg-clay text-white" : "bg-sage/60 text-pine")}><Icon className="h-4 w-4" aria-hidden /></span>}
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-medium text-pine">{title}</span>
         {children ? <span className="mt-1 block">{children}</span> : null}
@@ -69,7 +72,7 @@ export function MethodPicker({ legend, value, onChange }: { legend: string; valu
       <legend className="mb-2 text-sm font-medium text-ink">{legend}</legend>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {PAYMENT_METHODS.map((option) => (
-          <ChoiceCard key={option} name="method" value={option} checked={value === option} onSelect={() => onChange(option)} icon={METHOD_ICONS[option]} title={PAYMENT_METHOD_LABELS[option]} compact />
+          <ChoiceCard key={option} name="method" value={option} checked={value === option} onSelect={() => onChange(option)} icon={METHOD_ICONS[option]} logo={PAYMENT_METHOD_LOGOS[option]} title={PAYMENT_METHOD_LABELS[option]} compact />
         ))}
       </div>
     </fieldset>

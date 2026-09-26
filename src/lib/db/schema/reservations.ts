@@ -55,6 +55,23 @@ export const guests = pgTable(
     email: text("email"),
     phone: text("phone"),
     notes: text("notes"),
+    // Optional profile details, kept for the team; never asked for when booking.
+    preferredName: text("preferred_name"),
+    birthDate: date("birth_date"),
+    nationality: text("nationality"),
+    idType: text("id_type"),
+    idNumber: text("id_number"),
+    address: text("address"),
+    company: text("company"),
+    // Tax identification number, for official receipts to companies.
+    tin: text("tin"),
+    emergencyContactName: text("emergency_contact_name"),
+    emergencyContactPhone: text("emergency_contact_phone"),
+    tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
+    // Flagged guests warn the team before rebooking; the reason says why.
+    flagged: boolean("flagged").notNull().default(false),
+    flagReason: text("flag_reason"),
+    marketingOptIn: boolean("marketing_opt_in").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -73,6 +90,51 @@ export const guests = pgTable(
     ),
   ],
 );
+
+/**
+ * Where a booking came from: the organization's own channels (direct,
+ * walk-in) and outside platforms like Airbnb. Defaults live in
+ * `src/lib/platforms.ts`. Platforms are deactivated, not deleted, so past
+ * reservations keep theirs.
+ */
+export const bookingPlatforms = pgTable(
+  "booking_platforms",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    // Stable key for the built-in platforms ("airbnb"); null for custom ones.
+    key: text("key"),
+    name: text("name").notNull(),
+    logoUrl: text("logo_url"),
+    websiteUrl: text("website_url"),
+    // Hex brand color for badges, e.g. "#FF5A5F".
+    color: text("color"),
+    // The platform's cut of each booking, in basis points (1500 = 15%).
+    commissionBasisPoints: integer("commission_basis_points"),
+    isActive: boolean("is_active").notNull().default(true),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("booking_platforms_organization_id_unique").on(table.organizationId, table.id),
+    uniqueIndex("booking_platforms_org_name_unique").on(table.organizationId, sql`lower(${table.name})`),
+    uniqueIndex("booking_platforms_org_key_unique").on(table.organizationId, table.key),
+    check("booking_platforms_name_length", sql`char_length(trim(${table.name})) BETWEEN 2 AND 60`),
+    check(
+      "booking_platforms_commission_check",
+      sql`${table.commissionBasisPoints} IS NULL OR ${table.commissionBasisPoints} BETWEEN 0 AND 10000`,
+    ),
+  ],
+);
+
+export type BookingPlatform = typeof bookingPlatforms.$inferSelect;
 
 export const reservations = pgTable(
   "reservations",
@@ -99,6 +161,11 @@ export const reservations = pgTable(
     // existing reservation instead of inserting a duplicate.
     idempotencyKey: text("idempotency_key"),
     source: text("source").notNull().default("direct"),
+    // Where the booking came from; null for reservations made before
+    // platforms existed.
+    platformId: uuid("platform_id"),
+    // The platform's own confirmation code, e.g. an Airbnb "HMABC123".
+    platformReference: text("platform_reference"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -123,6 +190,10 @@ export const reservations = pgTable(
       columns: [table.organizationId, table.guestId],
       foreignColumns: [guests.organizationId, guests.id],
     }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.organizationId, table.platformId],
+      foreignColumns: [bookingPlatforms.organizationId, bookingPlatforms.id],
+    }),
     check(
       "reservations_range_check",
       sql`${table.checkOutDate} > ${table.checkInDate}`,

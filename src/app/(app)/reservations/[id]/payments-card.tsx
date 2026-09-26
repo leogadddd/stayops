@@ -1,7 +1,8 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { PAYMENT_ALLOCATION_LABELS, PAYMENT_METHOD_LABELS } from "@/lib/labels";
+import { PAYMENT_ALLOCATION_LABELS } from "@/lib/labels";
+import { PaymentMethodLabel } from "@/components/app/payment-method-logo";
 import { formatPHP } from "@/lib/money";
 import type { ReservationLedger } from "@/server/payments/service";
 import { ProofQueue } from "./proof-queue";
@@ -47,7 +48,7 @@ export function PaymentsCard({ reservationId, ledger, canReviewProofs, canRecord
               {payments.length ? payments.map((payment) => (
                 <TableRow key={payment.id}>
                   <TableCell className="whitespace-nowrap text-xs text-ink/60">{TIME_LABEL.format(payment.receivedAt)}</TableCell>
-                  <TableCell><p className="text-pine">{PAYMENT_METHOD_LABELS[payment.method]}</p>{payment.reference ? <p className="mt-1 max-w-64 break-words text-xs text-ink/55">{payment.reference}</p> : null}</TableCell>
+                  <TableCell><PaymentMethodLabel method={payment.method} className="text-pine" />{payment.reference ? <p className="mt-1 max-w-64 break-words text-xs text-ink/55">{payment.reference}</p> : null}</TableCell>
                   <TableCell><Badge tone="neutral">{PAYMENT_ALLOCATION_LABELS[payment.allocation]}</Badge></TableCell>
                   <TableCell className="whitespace-nowrap text-right font-medium text-pine">{formatPHP(payment.amountCents)}</TableCell>
                 </TableRow>
@@ -64,7 +65,7 @@ export function PaymentsCard({ reservationId, ledger, canReviewProofs, canRecord
               {refunds.length ? refunds.map((refund) => (
                 <TableRow key={refund.id}>
                   <TableCell className="whitespace-nowrap text-xs text-ink/60">{TIME_LABEL.format(refund.refundedAt)}</TableCell>
-                  <TableCell><p className="min-w-40 max-w-64 break-words text-pine">{refund.reason}</p><p className="mt-1 text-xs text-ink/55">{PAYMENT_METHOD_LABELS[refund.method]}</p></TableCell>
+                  <TableCell><p className="min-w-40 max-w-64 break-words text-pine">{refund.reason}</p><PaymentMethodLabel method={refund.method} className="mt-1 text-xs text-ink/55" /></TableCell>
                   <TableCell><Badge tone="neutral">{PAYMENT_ALLOCATION_LABELS[refund.allocation]}</Badge></TableCell>
                   <TableCell className="whitespace-nowrap text-right font-medium text-clay-deep">-{formatPHP(refund.amountCents)}</TableCell>
                 </TableRow>

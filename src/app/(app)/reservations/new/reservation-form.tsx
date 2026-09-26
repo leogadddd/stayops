@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, Banknote, Bath, BedDouble, CalendarCheck, Check, CircleAlert, CircleCheck, Clock, Landmark, LoaderCircle, Minus, Pencil, Plus, Receipt, RotateCcw, ShieldCheck, Smartphone, Sparkles, Tag, Trash2, UserPlus, UserRound, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Banknote, Bath, BedDouble, CalendarCheck, Check, CircleAlert, CircleCheck, Clock, Landmark, LoaderCircle, Minus, Pencil, Plus, Receipt, RotateCcw, ShieldCheck, Smartphone, Sparkles, Tag, Trash2, Users, X } from "lucide-react";
 import type { ChargeType } from "@/lib/db/schema";
 import { CHARGE_TYPES } from "@/lib/db/schema";
 import { PAYMENT_ALLOCATION_LABELS, PAYMENT_METHOD_LABELS } from "@/lib/labels";
@@ -33,6 +33,10 @@ import { ReservationSummary } from "./reservation-summary";
 import { StayRangeCalendar } from "./stay-range-calendar";
 import { DateInput } from "@/components/ui/date-input";
 import { TimeInput } from "@/components/ui/time-input";
+import { PlatformLogo, type PlatformDisplay } from "@/components/app/platform-badge";
+import { PLATFORMS_WITHOUT_REFERENCE } from "@/lib/platforms";
+import { PAYMENT_METHOD_LOGOS } from "@/components/app/payment-method-logo";
+import { GuestPicker } from "./guest-picker";
 
 export interface UnitOption {
   id: string;
@@ -126,6 +130,7 @@ const PAYMENT_METHOD_OPTIONS: ChoiceCardOption<PaymentMethod>[] = PAYMENT_METHOD
   value: method,
   label: PAYMENT_METHOD_LABELS[method],
   icon: { gcash: Smartphone, maya: Smartphone, bank_transfer: Landmark, cash: Banknote }[method],
+  logo: PAYMENT_METHOD_LOGOS[method],
 }));
 
 /** The description a charge type gets when picked; blank means "write your own". */
@@ -142,6 +147,8 @@ function autoDescription(type: ChargeType, nights: number | null) {
 export interface ReservationEdit {
   reservationId: string;
   guestId: string;
+  platformId: string | null;
+  platformReference: string | null;
   occupants: string[];
   charges: ChargeLineValues[];
   /** Already recorded on the ledger; editing never changes payments. */
@@ -157,10 +164,13 @@ export interface ReservationEdit {
  */
 export function ReservationForm({
   units,
-  guests,
+  guests: initialGuests,
+  canCreateGuest = false,
+  platforms,
   defaultCheckIn,
   defaultCheckOut,
   requestedUnitId,
+  requestedGuestId,
   defaultGuestCount = 1,
   canConfirm,
   canSetCharges,
@@ -176,9 +186,15 @@ export function ReservationForm({
   edit?: ReservationEdit;
   units: UnitOption[];
   guests: { id: string; name: string; email: string | null; phone: string | null }[];
+  /** Show "New guest" (guests.create). */
+  canCreateGuest?: boolean;
+  /** Where bookings come from (Direct, Airbnb, …), in display order. */
+  platforms: (PlatformDisplay & { id: string; key: string | null })[];
   defaultCheckIn: string;
   defaultCheckOut: string;
   requestedUnitId?: string;
+  /** From a guest's page: starts with that guest selected. */
+  requestedGuestId?: string;
   /** From an availability search: opens one blank name row per extra guest. */
   defaultGuestCount?: number;
 }) {
@@ -198,8 +214,17 @@ export function ReservationForm({
   const [checkOut, setCheckOut] = useState(defaultCheckOut);
   const [additional, setAdditional] = useState<string[]>(() => Array.from({ length: Math.max(0, defaultGuestCount - 1) }, (_, index) => edit?.occupants[index] ?? ""));
   // Guests: "new" creates a guest profile from the contact fields.
-  const [guestId, setGuestId] = useState(edit?.guestId ?? guests[0]?.id ?? "new");
-  const [newGuest, setNewGuest] = useState({ name: "", email: "", phone: "", notes: "" });
+  // Guests created from the "New guest" dialog join the list.
+  const [guests, setGuests] = useState(initialGuests);
+  // Nobody is picked until the user searches, unless we came from a guest's page.
+  const [guestId, setGuestId] = useState(
+    edit?.guestId ?? (initialGuests.some((guest) => guest.id === requestedGuestId) ? requestedGuestId! : ""),
+  );
+  // Booking source: new reservations start on the first platform (Direct).
+  const [platformId, setPlatformId] = useState(edit ? (edit.platformId ?? "") : (platforms[0]?.id ?? ""));
+  const [platformReference, setPlatformReference] = useState(edit?.platformReference ?? "");
+  const selectedPlatform = platforms.find((platform) => platform.id === platformId);
+  const takesReference = !selectedPlatform?.key || !PLATFORMS_WITHOUT_REFERENCE.includes(selectedPlatform.key);
   // Editing lets the owner correct the existing guest's contact details too.
   const contactOf = (id: string) => {
     const guest = guests.find((candidate) => candidate.id === id);
@@ -240,12 +265,12 @@ export function ReservationForm({
   const guestCount = 1 + additional.length;
   const validRange = Boolean(checkIn && checkOut && checkOut > checkIn);
   const nights = validRange ? nightsBetween(checkIn, checkOut) : null;
-  const guestMode = guestId === "new" ? "new" : "existing";
   const selectedGuest = guests.find((guest) => guest.id === guestId);
   const contactChanged = Boolean(edit && selectedGuest && (contact.name !== (selectedGuest.name ?? "") || contact.email !== (selectedGuest.email ?? "") || contact.phone !== (selectedGuest.phone ?? "")));
-  function chooseGuest(id: string) {
+  function chooseGuest(id: string, list = guests) {
     setGuestId(id);
-    if (id !== "new") setContact(contactOf(id));
+    const guest = list.find((candidate) => candidate.id === id);
+    setContact({ name: guest?.name ?? "", email: guest?.email ?? "", phone: guest?.phone ?? "" });
   }
 
   // Live availability, re-checked whenever the unit or dates change.
@@ -289,11 +314,9 @@ export function ReservationForm({
         : guestCount > capacity ? `This unit sleeps ${capacity}. Lower the guest count or choose a larger unit.`
           : currentAvailability?.status === "unavailable" ? `These dates aren’t free: ${currentAvailability.reason}.`
             : null,
-    guests: guestMode === "existing" && !selectedGuest ? "Choose a guest."
-      : edit && guestMode === "existing" && contact.name.trim().length < 2 ? "Enter the guest’s full name."
-        : edit && guestMode === "existing" && !contact.email.trim() && !contact.phone.trim() ? "Add an email or phone number for the guest."
-      : guestMode === "new" && newGuest.name.trim().length < 2 ? "Enter the guest’s full name."
-        : guestMode === "new" && !newGuest.email.trim() && !newGuest.phone.trim() ? "Add an email or phone number for the guest."
+    guests: !selectedGuest ? "Search for the primary guest, or add a new one."
+      : edit && contact.name.trim().length < 2 ? "Enter the guest’s full name."
+        : edit && !contact.email.trim() && !contact.phone.trim() ? "Add an email or phone number for the guest."
           : additional.some((name) => name.trim().length < 2) ? "Enter each additional guest’s full name."
             : null,
     charges: !canSetCharges ? null
@@ -344,13 +367,14 @@ export function ReservationForm({
     data.set("checkIn", checkIn);
     data.set("checkOut", checkOut);
     data.set("guestCount", String(guestCount));
+    data.set("platformId", platformId);
+    data.set("platformReference", platformReference.trim());
     for (const name of additional) data.append("occupantName", name.trim());
     // The update action edits the chosen profile's contact, or creates one for "new".
-    const primary = guestMode === "new" ? newGuest : contact;
-    data.set("guestId", guestMode === "new" ? "new" : guestId);
-    data.set("guestName", primary.name.trim());
-    data.set("guestEmail", primary.email.trim());
-    data.set("guestPhone", primary.phone.trim());
+    data.set("guestId", guestId);
+    data.set("guestName", contact.name.trim());
+    data.set("guestEmail", contact.email.trim());
+    data.set("guestPhone", contact.phone.trim());
     for (const { draft } of parsed.filter((entry) => entry.line !== null)) {
       data.append("chargeType", draft.type);
       data.append("chargeDescription", draft.description.trim());
@@ -378,15 +402,12 @@ export function ReservationForm({
     data.set("checkIn", checkIn);
     data.set("checkOut", checkOut);
     data.set("guestCount", String(guestCount));
+    data.set("platformId", platformId);
+    data.set("platformReference", platformReference.trim());
     for (const name of additional) data.append("occupantName", name.trim());
-    data.set("guestMode", guestMode);
-    if (guestMode === "existing") data.set("guestId", guestId);
-    else {
-      data.set("guestName", newGuest.name.trim());
-      data.set("guestEmail", newGuest.email.trim());
-      data.set("guestPhone", newGuest.phone.trim());
-      data.set("guestNotes", newGuest.notes.trim());
-    }
+    // New guests are created by the picker's dialog, so this is always a saved profile.
+    data.set("guestMode", "existing");
+    data.set("guestId", guestId);
     data.set("chargesJson", JSON.stringify(submittableLines));
     data.set("holdMinutes", holdMinutes);
     if (noPayment) data.set("acknowledgeUnpaid", "on");
@@ -408,7 +429,7 @@ export function ReservationForm({
     );
   }
 
-  const guestLabel = guestMode === "existing" ? (edit ? contact.name.trim() : selectedGuest?.name) || null : newGuest.name.trim() || null;
+  const guestLabel = (edit ? contact.name.trim() : selectedGuest?.name) || null;
 
   return (
     <div className="min-w-0 space-y-6">
@@ -489,42 +510,55 @@ export function ReservationForm({
             <div className="space-y-8">
               <StepHeading title="Who’s staying" description="The primary guest is who the reservation is for. Add names for everyone else staying." />
               <div>
-                <div className="inline-flex rounded-xl bg-linen p-1" role="radiogroup" aria-label="Primary guest">
-                  <SegmentButton active={guestMode === "existing"} disabled={!guests.length} onClick={() => chooseGuest(edit?.guestId ?? guests[0]?.id ?? "new")}><UserRound className="h-4 w-4" aria-hidden />Existing guest</SegmentButton>
-                  <SegmentButton active={guestMode === "new"} onClick={() => setGuestId("new")}><UserPlus className="h-4 w-4" aria-hidden />New guest</SegmentButton>
-                </div>
-                {guestMode === "existing" ? (
-                  <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-                    <div>
-                      <Label htmlFor="guestId">Guest profile</Label>
-                      <Select id="guestId" value={guestId} onChange={(event) => chooseGuest(event.target.value)}>
-                        {guests.map((guest) => <option key={guest.id} value={guest.id}>{guest.name}</option>)}
-                      </Select>
-                    </div>
-                    {edit ? (
-                      <div className="grid gap-4 sm:grid-cols-2 md:col-span-2 xl:grid-cols-3">
-                        <div><Label htmlFor="contactName">Full name</Label><Input id="contactName" value={contact.name} onChange={(event) => setContact({ ...contact, name: event.target.value })} maxLength={120} /></div>
-                        <div><Label htmlFor="contactEmail">Email</Label><Input id="contactEmail" type="email" value={contact.email} onChange={(event) => setContact({ ...contact, email: event.target.value })} maxLength={200} placeholder="guest@example.com" /></div>
-                        <div><Label htmlFor="contactPhone">Phone</Label><Input id="contactPhone" type="tel" value={contact.phone} onChange={(event) => setContact({ ...contact, phone: event.target.value })} maxLength={40} placeholder="+63 9xx xxx xxxx" /></div>
-                        <p className="text-xs text-ink/50 sm:col-span-2 xl:col-span-3">{contactChanged ? `Saving also updates ${selectedGuest?.name ?? "this guest"}’s profile on all of their reservations.` : "Add at least one contact method: email or phone."}</p>
-                      </div>
-                    ) : (
-                      <dl className="grid gap-4 rounded-xl bg-linen px-4 py-3 text-sm sm:grid-cols-2">
-                        <div><dt className="text-xs text-ink/55">Email</dt><dd className="mt-0.5 break-words text-pine">{selectedGuest?.email || "—"}</dd></div>
-                        <div><dt className="text-xs text-ink/55">Phone</dt><dd className="mt-0.5 text-pine">{selectedGuest?.phone || "—"}</dd></div>
-                      </dl>
-                    )}
+                <h3 className="mb-2 text-sm font-medium text-ink">Primary guest</h3>
+                <GuestPicker
+                  guests={guests}
+                  value={guestId}
+                  onChange={(id) => chooseGuest(id)}
+                  onCreated={(guest) => {
+                    const next = [...guests, guest];
+                    setGuests(next);
+                    chooseGuest(guest.id, next);
+                  }}
+                  canCreate={canCreateGuest}
+                />
+                {edit && selectedGuest ? (
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    <div><Label htmlFor="contactName">Full name</Label><Input id="contactName" value={contact.name} onChange={(event) => setContact({ ...contact, name: event.target.value })} maxLength={120} /></div>
+                    <div><Label htmlFor="contactEmail">Email</Label><Input id="contactEmail" type="email" value={contact.email} onChange={(event) => setContact({ ...contact, email: event.target.value })} maxLength={200} placeholder="guest@example.com" /></div>
+                    <div><Label htmlFor="contactPhone">Phone</Label><Input id="contactPhone" type="tel" value={contact.phone} onChange={(event) => setContact({ ...contact, phone: event.target.value })} maxLength={40} placeholder="+63 9xx xxx xxxx" /></div>
+                    <p className="text-xs text-ink/50 sm:col-span-2 xl:col-span-3">{contactChanged ? `Saving also updates ${selectedGuest.name}’s profile on all of their reservations.` : "Correct the contact details here if they changed."}</p>
                   </div>
-                ) : (
-                  <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <div><Label htmlFor="guestName">Full name</Label><Input id="guestName" value={newGuest.name} onChange={(event) => setNewGuest({ ...newGuest, name: event.target.value })} maxLength={120} /></div>
-                    <div><Label htmlFor="guestEmail">Email</Label><Input id="guestEmail" type="email" value={newGuest.email} onChange={(event) => setNewGuest({ ...newGuest, email: event.target.value })} maxLength={200} placeholder="guest@example.com" /></div>
-                    <div><Label htmlFor="guestPhone">Phone</Label><Input id="guestPhone" type="tel" value={newGuest.phone} onChange={(event) => setNewGuest({ ...newGuest, phone: event.target.value })} maxLength={40} placeholder="+63 9xx xxx xxxx" /></div>
-                    {edit ? null : <div><Label htmlFor="guestNotes">Notes</Label><Input id="guestNotes" value={newGuest.notes} onChange={(event) => setNewGuest({ ...newGuest, notes: event.target.value })} maxLength={2000} placeholder="Optional" /></div>}
-                    <p className="text-xs text-ink/50 md:col-span-2">A new guest profile is created when you save. Add at least one contact method: email or phone.</p>
-                  </div>
-                )}
+                ) : null}
               </div>
+
+              {platforms.length ? (
+                <fieldset className="border-t border-pine/10 pt-6">
+                  <legend className="sr-only">Booked through</legend>
+                  <h3 className="font-display text-lg text-pine" aria-hidden>Booked through</h3>
+                  <p className="text-sm text-ink/60">Where this booking came from.</p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {platforms.map((platform) => {
+                      const selected = platform.id === platformId;
+                      return (
+                        <label key={platform.id} className={cn("inline-flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition", selected ? "border-clay bg-clay-mist/40 text-pine ring-2 ring-clay/30" : "border-pine/15 text-pine hover:border-pine/35")}>
+                          <input type="radio" name="platform" value={platform.id} checked={selected} onChange={() => {
+                            setPlatformId(platform.id);
+                            // Own channels have no outside booking code to keep.
+                            if (platform.key && PLATFORMS_WITHOUT_REFERENCE.includes(platform.key)) setPlatformReference("");
+                          }} className="sr-only" />
+                          <PlatformLogo platform={platform} />
+                          {platform.name}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {takesReference ? <div className="mt-4 max-w-sm">
+                    <Label htmlFor="platformReference">{selectedPlatform ? `${selectedPlatform.name} booking code` : "Booking code"} <span className="font-normal text-ink/45">· optional</span></Label>
+                    <Input id="platformReference" value={platformReference} onChange={(event) => setPlatformReference(event.target.value)} maxLength={80} placeholder="e.g. HMABC12345" />
+                  </div> : null}
+                </fieldset>
+              ) : null}
 
               <div className="border-t border-pine/10 pt-6">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -682,10 +716,11 @@ export function ReservationForm({
               </ReviewBlock>
               <ReviewBlock title="Guests" onEdit={() => goTo("guests")}>
                 <dl className="grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
-                  <ReviewItem label={guestMode === "new" ? "Primary guest (new)" : "Primary guest"} value={guestLabel ?? "—"} />
-                  <ReviewItem label="Email" value={(guestMode === "new" ? newGuest.email : edit ? contact.email : selectedGuest?.email) || "—"} />
-                  <ReviewItem label="Phone" value={(guestMode === "new" ? newGuest.phone : edit ? contact.phone : selectedGuest?.phone) || "—"} />
+                  <ReviewItem label="Primary guest" value={guestLabel ?? "—"} />
+                  <ReviewItem label="Email" value={(edit ? contact.email : selectedGuest?.email) || "—"} />
+                  <ReviewItem label="Phone" value={(edit ? contact.phone : selectedGuest?.phone) || "—"} />
                   <ReviewItem label="Also staying" value={additional.length ? additional.map((name) => name.trim()).join(", ") : "No one else"} />
+                  <ReviewItem label="Booked through" value={selectedPlatform ? `${selectedPlatform.name}${platformReference.trim() ? ` · ${platformReference.trim()}` : ""}` : "Not set"} />
                 </dl>
               </ReviewBlock>
               {canSetCharges ? (
@@ -823,14 +858,6 @@ function AvailabilityBanner({ valid, unitChosen, result, nights, checkIn, checkO
   if (result.status === "available") return <p className={cn("flex items-center gap-2 rounded-xl bg-sage/50 px-4 py-3 text-sm font-medium text-pine-deep", compact && "mt-4")}><CircleCheck className="h-4 w-4 shrink-0" aria-hidden />{changed ? `New dates are free: ${range}` : `Free for ${range}`}</p>;
   if (result.status === "unavailable") return <p className={cn("flex items-center gap-2 rounded-xl bg-clay-mist px-4 py-3 text-sm font-medium text-clay-deep", compact && "mt-4")}><CircleAlert className="h-4 w-4 shrink-0" aria-hidden />Not free: {result.reason}</p>;
   return <p className={cn("flex items-center gap-2 rounded-xl bg-linen px-4 py-3 text-sm text-ink/60", compact && "mt-4")}><CircleAlert className="h-4 w-4 shrink-0" aria-hidden />{result.message} Saving still runs the full check.</p>;
-}
-
-function SegmentButton({ active, disabled, onClick, children }: { active: boolean; disabled?: boolean; onClick: () => void; children: ReactNode }) {
-  return (
-    <button type="button" role="radio" aria-checked={active} disabled={disabled} onClick={onClick} className={cn("inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors disabled:opacity-40", active ? "bg-surface text-pine shadow-[0_1px_2px_rgba(32,58,53,0.1)]" : "text-ink/55 hover:text-pine")}>
-      {children}
-    </button>
-  );
 }
 
 function ReviewBlock({ title, onEdit, children }: { title: string; onEdit: () => void; children: ReactNode }) {

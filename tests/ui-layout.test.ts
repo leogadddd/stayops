@@ -40,13 +40,20 @@ describe("branded app shell", () => {
     expect(markup).not.toContain('href="/audit-logs"');
     expect(markup).toContain('aria-current="page"');
     expect(markup).not.toContain("Sign out");
+    expect(markup).toContain("Version 0.9.0");
   });
 
-  it("does not offer staff owner-only destinations", () => {
+  it("shows Settings to staff while keeping protected destinations hidden", () => {
     const markup = renderToStaticMarkup(h(AppSidebar, { ...identity, role: "staff" }));
-    for (const href of ["/reports", "/expenses", "/settings", "/audit-logs"]) expect(markup).not.toContain(`href="${href}`);
+    for (const href of ["/reports", "/expenses", "/audit-logs"]) expect(markup).not.toContain(`href="${href}`);
+    expect(markup).toContain('href="/settings/general"');
     expect(markup).toContain('href="/tasks"');
     expect(markup).toContain('href="/reservations"');
+  });
+
+  it("shows Settings to operations managers", () => {
+    const markup = renderToStaticMarkup(h(AppSidebar, { ...identity, role: "operations_manager" }));
+    expect(markup).toContain('href="/settings/general"');
   });
 
   it("selects only properties while editing a nested unit", () => {

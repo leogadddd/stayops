@@ -25,6 +25,8 @@ import {
 } from "@/server/inventory/availability";
 import { listOrgUnits, listProperties } from "@/server/inventory/service";
 import { listTasks } from "@/server/operations/service";
+import { getReservationBalances } from "@/server/payments/service";
+import { formatPHP } from "@/lib/money";
 import { PageHeading } from "@/components/app/page-heading";
 import { buttonClassName } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -138,6 +140,18 @@ export default async function CalendarPage({
     listCalendarActivity(membership.organizationId, unitDays),
     listTasks(membership.organizationId, { status: "open" }),
   ]);
+  // Money for the quick view, only for people who may see it.
+  const showMoney = can(membership, "payments.view");
+  const balances = showMoney
+    ? await getReservationBalances(
+        membership.organizationId,
+        [...segmentsByUnit.values()].flat().flatMap((segment) => (segment.kind === "reservation" ? [segment.id] : [])),
+      )
+    : new Map();
+  const canStays = can(membership, "stays.update");
+  const canConfirm = can(membership, "reservations.update");
+  const canRecordPayment = can(membership, "payments.create");
+  const canSeeGuests = can(membership, "guests.view");
 
   const unitLabel = (unitId: string) => {
     const unit = unitMap.get(unitId)!;
@@ -280,12 +294,41 @@ export default async function CalendarPage({
         unitLabel: unitLabel(event.unitId),
         detail,
         href,
-        accessibleLabel: `${event.title} · ${unitLabel(event.unitId)} · ${detail} · check-in ${checkInLabel} · check-out ${checkOutLabel}${turnover ? ` · ${turnover.description}` : ""}`,
+        accessibleLabel: `${event.title} · ${unitLabel(event.unitId)} · ${detail}${event.platform ? ` · via ${event.platform.name}` : ""} · check-in ${checkInLabel} · check-out ${checkOutLabel}${turnover ? ` · ${turnover.description}` : ""}`,
         quickView: {
           kindLabel,
           tone,
           title: event.title,
+          reference: event.reservationId ? `#${event.reservationId.slice(0, 8).toUpperCase()}` : undefined,
+          platform: event.platform ?? undefined,
+          platformReference: event.platformReference ?? undefined,
           unitLabel: unitLabel(event.unitId),
+          propertyName: propertyForUnit(event.unitId).name,
+          timing: stayTiming(event.status!, event.startDate, endDate, todayByUnit.get(event.unitId) ?? today),
+          guest: {
+            email: event.guestEmail ?? undefined,
+            phone: event.guestPhone ?? undefined,
+            href: canSeeGuests && event.guestId ? `/guests/${event.guestId}` : undefined,
+          },
+          money: (() => {
+            const balance = event.reservationId ? balances.get(event.reservationId) : undefined;
+            if (!balance) return undefined;
+            const paid = balance.paidBookingCents - balance.refundedBookingCents;
+            return {
+              total: formatPHP(balance.bookingTotalCents),
+              paid: formatPHP(paid),
+              balance: formatPHP(Math.max(0, balance.bookingBalanceCents)),
+              due: balance.bookingBalanceCents > 0,
+              paidShare: balance.bookingTotalCents ? Math.min(1, Math.max(0, paid / balance.bookingTotalCents)) : 1,
+              depositHeld: balance.depositHeldCents ? formatPHP(balance.depositHeldCents) : undefined,
+            };
+          })(),
+          actions: [
+            ...(event.status === "hold" && canConfirm ? [{ label: "Confirm hold", href: `${href}/confirm` }] : []),
+            ...(event.status === "confirmed" && canStays && event.startDate <= (todayByUnit.get(event.unitId) ?? today) ? [{ label: "Check in", href: `${href}/check-in` }] : []),
+            ...(event.status === "checked_in" && canStays ? [{ label: "Check out", href: `${href}/check-out` }] : []),
+            ...(canRecordPayment && event.status !== "checked_out" && (balances.get(event.reservationId ?? "")?.bookingBalanceCents ?? 0) > 0 ? [{ label: "Record payment", href: `${href}/payments/new` }] : []),
+          ],
           checkIn: {
             date: dayLabel(event.startDate),
             time: timeLabel(unit.checkInTime),
@@ -462,4 +505,16 @@ export default async function CalendarPage({
       </div>
     </div>
   );
+}
+
+/** "Arrives tomorrow", "Leaves in 3 days", "Left Sep 23"…, from the unit's today. */
+function stayTiming(status: string, startDate: string, endDate: string, today: string): string {
+  const days = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+  const inDays = (n: number) => (n === 0 ? "today" : n === 1 ? "tomorrow" : `in ${n} days`);
+  const short = (date: string) => new Intl.DateTimeFormat("en-PH", { month: "short", day: "numeric", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`));
+  if (status === "checked_out") return `Checked out ${short(endDate)}`;
+  if (status === "checked_in") return `Staying now · leaves ${inDays(Math.max(0, days(today, endDate)))}`;
+  const untilArrival = days(today, startDate);
+  if (untilArrival < 0) return `Was due ${short(startDate)} · not checked in yet`;
+  return `Arrives ${inDays(untilArrival)}`;
 }

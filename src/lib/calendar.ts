@@ -17,6 +17,11 @@ export interface CalendarEvent extends CalendarInterval {
   expiresAt?: Date | null;
   guestCount?: number;
   actualCheckoutAt?: Date | null;
+  platform?: { name: string; logoUrl: string | null; color: string | null } | null;
+  platformReference?: string | null;
+  guestId?: string;
+  guestEmail?: string | null;
+  guestPhone?: string | null;
   startTime?: string;
   endTime?: string;
 }
@@ -75,6 +80,11 @@ export function calendarEventsForUnit(
       expiresAt: segment.expiresAt,
       guestCount: segment.guestCount,
       actualCheckoutAt: segment.actualCheckoutAt,
+      platform: segment.platform ?? null,
+      platformReference: segment.platformReference ?? null,
+      guestId: segment.guestId,
+      guestEmail: segment.guestEmail ?? null,
+      guestPhone: segment.guestPhone ?? null,
     };
     return [stay];
   });

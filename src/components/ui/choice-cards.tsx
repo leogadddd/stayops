@@ -9,6 +9,8 @@ export interface ChoiceCardOption<T extends string> {
   label: string;
   description?: string;
   icon?: ComponentType<{ className?: string }>;
+  /** A brand logo image, shown instead of `icon`. */
+  logo?: string;
   disabled?: boolean;
 }
 
@@ -77,7 +79,9 @@ export function ChoiceCards<T extends string>({
               active ? "border-clay bg-clay-mist/40 ring-1 ring-clay" : "border-pine/15 bg-surface hover:border-pine/35",
             )}
           >
-            {Icon ? (
+            {option.logo ? (
+              <img src={option.logo} alt="" aria-hidden className="h-9 w-9 shrink-0 rounded-lg" />
+            ) : Icon ? (
               <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors", active ? "bg-clay text-white" : "bg-sage/60 text-pine")}>
                 <Icon className="h-4 w-4" />
               </span>

@@ -8,7 +8,7 @@ import { useEffect, useLayoutEffect, type RefObject } from "react";
  * above it when there's no room below). Pointer-downs outside `wrapperRef`
  * call `onClose`.
  */
-export function useAnchoredPopover({ open, onClose, wrapperRef, triggerRef, popoverRef, matchWidth = false }: {
+export function useAnchoredPopover({ open, onClose, wrapperRef, triggerRef, popoverRef, matchWidth = false, align = "start" }: {
   open: boolean;
   onClose: () => void;
   wrapperRef: RefObject<HTMLElement | null>;
@@ -16,6 +16,8 @@ export function useAnchoredPopover({ open, onClose, wrapperRef, triggerRef, popo
   popoverRef: RefObject<HTMLElement | null>;
   /** Make the popover at least as wide as the trigger. */
   matchWidth?: boolean;
+  /** Line up the popover's left edge with the trigger's ("start"), or its right edge ("end"). */
+  align?: "start" | "end";
 }) {
   useLayoutEffect(() => {
     const popover = popoverRef.current;
@@ -27,7 +29,8 @@ export function useAnchoredPopover({ open, onClose, wrapperRef, triggerRef, popo
       if (matchWidth) popover.style.minWidth = `${rect.width}px`;
       const width = popover.offsetWidth;
       const height = popover.offsetHeight;
-      const left = Math.min(Math.max(8, rect.left), window.innerWidth - width - 8);
+      const anchor = align === "end" ? rect.right - width : rect.left;
+      const left = Math.min(Math.max(8, anchor), window.innerWidth - width - 8);
       const fitsBelow = window.innerHeight - rect.bottom >= height + 12;
       const top = fitsBelow || rect.top < height + 12 ? rect.bottom + 6 : rect.top - height - 6;
       popover.style.left = `${left}px`;
@@ -41,7 +44,7 @@ export function useAnchoredPopover({ open, onClose, wrapperRef, triggerRef, popo
       window.removeEventListener("scroll", place, true);
       if (popover.isConnected) popover.hidePopover?.();
     };
-  }, [open, matchWidth, popoverRef, triggerRef]);
+  }, [open, matchWidth, align, popoverRef, triggerRef]);
 
   useEffect(() => {
     if (!open) return;

@@ -134,6 +134,13 @@
       "when": 1790668800007,
       "tag": "20260926054928_add_organization_role_permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790668800008,
+      "tag": "20260926091313_add_booking_platforms_and_guest_profile",
+      "breakpoints": true
     }
   ]
 }

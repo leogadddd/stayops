@@ -8,6 +8,7 @@ import {
   listProperties,
 } from "@/server/inventory/service";
 import { listGuests } from "@/server/reservations/service";
+import { listPlatforms } from "@/server/reservations/platforms";
 import { PageHeading } from "@/components/app/page-heading";
 import { ReservationForm } from "./reservation-form";
 import { toUnitOption } from "./unit-options";
@@ -17,16 +18,17 @@ export const metadata: Metadata = { title: "New reservation" };
 export default async function NewReservationPage({
   searchParams,
 }: {
-  searchParams: Promise<{ unit?: string; checkIn?: string; checkOut?: string; guests?: string }>;
+  searchParams: Promise<{ unit?: string; checkIn?: string; checkOut?: string; guests?: string; guest?: string }>;
 }) {
   const membership = await requirePermission("reservations.create");
   if (!membership) return <PermissionDenied />;
   const params = await searchParams;
 
-  const [units, properties, guestRows] = await Promise.all([
+  const [units, properties, guestRows, platforms] = await Promise.all([
     listOrgUnits(membership.organizationId),
     listProperties(membership.organizationId),
     listGuests(membership.organizationId),
+    listPlatforms(membership.organizationId),
   ]);
 
   const timezone = properties[0]?.timezone ?? "Asia/Manila";
@@ -56,10 +58,13 @@ export default async function NewReservationPage({
         canConfirm={canConfirm}
         canSetCharges={canSetCharges}
         units={activeUnits.map((unit) => toUnitOption(unit, propertyById.get(unit.propertyId), { multipleProperties: properties.length > 1, showRates: canSetCharges }))}
+        canCreateGuest={can(membership, "guests.create")}
+        platforms={platforms}
         guests={guestRows.map((guest) => ({ id: guest.id, name: guest.name, email: guest.email, phone: guest.phone }))}
         defaultCheckIn={params.checkIn ?? today}
         defaultCheckOut={params.checkOut ?? addDaysLocal(today, 1)}
         requestedUnitId={params.unit}
+        requestedGuestId={params.guest}
         defaultGuestCount={defaultGuestCount}
         today={today}
       />

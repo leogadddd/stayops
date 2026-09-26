@@ -101,6 +101,8 @@ export async function createReservationAction(
       checkIn: readString(formData, "checkIn"),
       checkOut: readString(formData, "checkOut"),
       guestCount: Number(readString(formData, "guestCount") || "1"),
+      platformId: readString(formData, "platformId") || undefined,
+      platformReference: readString(formData, "platformReference") || undefined,
     });
     if (details.checkOut <= details.checkIn) {
       throw new ReservationError("Check-out must be after check-in.", "checkOut");
@@ -234,6 +236,7 @@ export async function updateReservationAction(reservationId: string, _prev: Rese
   try {
     await updateReservation({ organizationId: membership.organizationId, actorUserId: membership.userId, reservationId, data: {
       checkIn: readString(formData, "checkIn"), checkOut: readString(formData, "checkOut"), guestCount: Number(readString(formData, "guestCount")),
+      platformId: readString(formData, "platformId") || undefined, platformReference: readString(formData, "platformReference"),
       // "new" creates a guest profile from the contact fields below.
       guestId: readString(formData, "guestId") === "new" ? undefined : readString(formData, "guestId") || undefined,
       primaryGuest: readString(formData, "guestName") ? { name: readString(formData, "guestName"), email: readString(formData, "guestEmail") || undefined, phone: readString(formData, "guestPhone") || undefined } : undefined,

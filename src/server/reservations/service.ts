@@ -1,10 +1,11 @@
 import "server-only";
 
-import { and, asc, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, isNull, lte, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   accessTokens,
   auditEvents,
+  bookingPlatforms,
   guests,
   properties,
   paymentEntries,
@@ -26,18 +27,21 @@ import {
 } from "@/server/inventory/availability";
 import { localDateTimeToUtc } from "@/lib/dates";
 import { expireStaleHolds } from "./holds";
+import { assertPlatform } from "./platforms";
 import {
   cancelReservationSchema,
   confirmHoldSchema,
   createConfirmedSchema,
   createHoldSchema,
   guestInputSchema,
+  guestProfileSchema,
   isAllowedTransition,
   ReservationError,
   type ChargeLineInput,
   type CreateConfirmedInput,
   type CreateHoldInput,
   type GuestInput,
+  type GuestProfileInput,
   updateReservationSchema,
   type UpdateReservationInput,
 } from "./validation";
@@ -69,22 +73,42 @@ export async function listGuests(organizationId: string, query?: string) {
     .orderBy(asc(guests.name));
 }
 
+/** A parsed profile as guest columns, with blank optional fields stored as null. */
+function guestProfileValues(input: GuestProfileInput) {
+  const data = guestProfileSchema.parse(input);
+  return {
+    name: data.name,
+    email: data.email || null,
+    phone: data.phone || null,
+    notes: data.notes || null,
+    preferredName: data.preferredName || null,
+    birthDate: data.birthDate || null,
+    nationality: data.nationality || null,
+    idType: data.idType ?? null,
+    idNumber: data.idNumber || null,
+    address: data.address || null,
+    company: data.company || null,
+    tin: data.tin || null,
+    emergencyContactName: data.emergencyContactName || null,
+    emergencyContactPhone: data.emergencyContactPhone || null,
+    tags: data.tags,
+    flagged: data.flagged,
+    // A reason only means something while the guest is flagged.
+    flagReason: data.flagged ? data.flagReason || null : null,
+    marketingOptIn: data.marketingOptIn,
+  };
+}
+
 export async function createGuest(input: {
   organizationId: string;
   actorUserId: string;
-  data: GuestInput;
+  data: GuestProfileInput;
 }) {
-  const data = guestInputSchema.parse(input.data);
+  const values = guestProfileValues(input.data);
   return db.transaction(async (tx) => {
     const [guest] = await tx
       .insert(guests)
-      .values({
-        organizationId: input.organizationId,
-        name: data.name,
-        email: data.email || null,
-        phone: data.phone || null,
-        notes: data.notes || null,
-      })
+      .values({ organizationId: input.organizationId, ...values })
       .returning();
     if (!guest) {
       throw new ReservationError("Failed to create the guest.");
@@ -113,6 +137,174 @@ export async function getGuestOrThrow(organizationId: string, guestId: string) {
   return guest;
 }
 
+export const GUEST_ACTIVITIES = ["in_house", "upcoming", "past", "no_stays"] as const;
+export type GuestActivity = (typeof GUEST_ACTIVITIES)[number];
+export const GUEST_SORTS = ["name", "recent", "stays", "added"] as const;
+export type GuestSort = (typeof GUEST_SORTS)[number];
+
+export const GUEST_DIRECTORY_SHOWS = ["missing_email", "missing_phone", "flagged", "marketing"] as const;
+export type GuestDirectoryShow = (typeof GUEST_DIRECTORY_SHOWS)[number];
+
+export interface GuestDirectoryFilters {
+  query?: string;
+  /** Missing email or phone to chase up, flagged guests, or those who agreed to promotions. */
+  show?: GuestDirectoryShow;
+  sort?: GuestSort;
+  /** Adds spentCents (booking value of kept stays). Owner views only. */
+  includeSpend?: boolean;
+}
+
+/**
+ * Guests with their booking history rolled up. Cancelled and expired
+ * reservations count towards `reservationCount` only, never towards stays,
+ * nights or spend. `activity` is the guest's most current state.
+ */
+export async function listGuestDirectory(organizationId: string, filters: GuestDirectoryFilters = {}) {
+  const conditions = [eq(guests.organizationId, organizationId)];
+  const q = filters.query?.trim();
+  if (q) {
+    conditions.push(or(ilike(guests.name, `%${q}%`), ilike(guests.email, `%${q}%`), ilike(guests.phone, `%${q}%`))!);
+  }
+  if (filters.show === "missing_email") conditions.push(isNull(guests.email));
+  if (filters.show === "missing_phone") conditions.push(isNull(guests.phone));
+  if (filters.show === "flagged") conditions.push(eq(guests.flagged, true));
+  if (filters.show === "marketing") conditions.push(eq(guests.marketingOptIn, true));
+
+  const kept = sql`${reservations.status} in ('confirmed', 'checked_in', 'checked_out')`;
+  const stats = db
+    .select({
+      guestId: reservations.guestId,
+      reservationCount: sql<number>`count(*)`.mapWith(Number).as("reservation_count"),
+      stayCount: sql<number>`count(*) filter (where ${kept})`.mapWith(Number).as("stay_count"),
+      nights: sql<number>`coalesce(sum(${reservations.checkOutDate} - ${reservations.checkInDate}) filter (where ${kept}), 0)`.mapWith(Number).as("nights"),
+      inHouse: sql<boolean>`bool_or(${reservations.status} = 'checked_in')`.as("in_house"),
+      nextCheckIn: sql<string | null>`min(${reservations.checkInDate}) filter (where ${reservations.status} in ('hold', 'confirmed'))`.as("next_check_in"),
+      lastCheckOut: sql<string | null>`max(${reservations.checkOutDate}) filter (where ${reservations.status} = 'checked_out')`.as("last_check_out"),
+      lastBookedAt: sql<Date | null>`max(${reservations.createdAt})`.as("last_booked_at"),
+    })
+    .from(reservations)
+    .where(eq(reservations.organizationId, organizationId))
+    .groupBy(reservations.guestId)
+    .as("guest_stats");
+
+  const spentCents = sql<number>`coalesce((
+    select sum(${reservationCharges.amountCents}) from ${reservationCharges}
+    inner join ${reservations} on ${reservations.id} = ${reservationCharges.reservationId}
+      and ${reservations.organizationId} = ${reservationCharges.organizationId}
+    where ${reservations.guestId} = ${guests.id}
+      and ${reservations.organizationId} = ${guests.organizationId}
+      and ${kept}
+      and ${reservationCharges.type} <> 'security_deposit'
+  ), 0)`.mapWith(Number);
+
+  const order = {
+    name: [asc(guests.name)],
+    recent: [sql`${stats.lastBookedAt} desc nulls last`, asc(guests.name)],
+    stays: [sql`coalesce(${stats.stayCount}, 0) desc`, asc(guests.name)],
+    added: [desc(guests.createdAt)],
+  }[filters.sort ?? "name"];
+
+  const rows = await db
+    .select({
+      id: guests.id,
+      name: guests.name,
+      email: guests.email,
+      phone: guests.phone,
+      notes: guests.notes,
+      tags: guests.tags,
+      flagged: guests.flagged,
+      flagReason: guests.flagReason,
+      createdAt: guests.createdAt,
+      reservationCount: sql<number>`coalesce(${stats.reservationCount}, 0)`.mapWith(Number),
+      stayCount: sql<number>`coalesce(${stats.stayCount}, 0)`.mapWith(Number),
+      nights: sql<number>`coalesce(${stats.nights}, 0)`.mapWith(Number),
+      inHouse: sql<boolean>`coalesce(${stats.inHouse}, false)`.mapWith(Boolean),
+      nextCheckIn: stats.nextCheckIn,
+      lastCheckOut: stats.lastCheckOut,
+      ...(filters.includeSpend ? { spentCents } : {}),
+    })
+    .from(guests)
+    .leftJoin(stats, eq(stats.guestId, guests.id))
+    .where(and(...conditions))
+    .orderBy(...order);
+
+  return rows.map((row) => ({ ...row, activity: guestActivity(row) }));
+}
+
+function guestActivity(row: { inHouse: boolean; nextCheckIn: string | null; lastCheckOut: string | null }): GuestActivity {
+  if (row.inHouse) return "in_house";
+  if (row.nextCheckIn) return "upcoming";
+  if (row.lastCheckOut) return "past";
+  return "no_stays";
+}
+
+export async function updateGuest(input: {
+  organizationId: string;
+  actorUserId: string;
+  guestId: string;
+  data: GuestProfileInput;
+}) {
+  const next = guestProfileValues(input.data);
+  return db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(guests)
+      .where(and(eq(guests.id, input.guestId), eq(guests.organizationId, input.organizationId)))
+      .limit(1);
+    if (!existing) throw new ReservationError("Guest not found.", "guestId");
+    // Field names only: ID numbers and similar never go into the audit log.
+    const changed = (Object.keys(next) as (keyof typeof next)[]).filter((key) => JSON.stringify(next[key]) !== JSON.stringify(existing[key]));
+    if (!changed.length) return existing;
+    const [updated] = await tx
+      .update(guests)
+      .set({ ...next, updatedAt: new Date() })
+      .where(eq(guests.id, existing.id))
+      .returning();
+    await recordAudit(tx, {
+      organizationId: input.organizationId,
+      actorUserId: input.actorUserId,
+      entity: "guest",
+      entityId: existing.id,
+      action: "guest.updated",
+      metadata: { fields: changed },
+    });
+    return updated!;
+  });
+}
+
+/**
+ * Delete a guest profile. Deleting would cascade to the guest's reservations
+ * and their payment history, so only guests who never booked can go.
+ */
+export async function deleteGuest(input: { organizationId: string; actorUserId: string; guestId: string }) {
+  return db.transaction(async (tx) => {
+    const [guest] = await tx
+      .select({ id: guests.id, name: guests.name })
+      .from(guests)
+      .where(and(eq(guests.id, input.guestId), eq(guests.organizationId, input.organizationId)))
+      .for("update")
+      .limit(1);
+    if (!guest) throw new ReservationError("Guest not found.", "guestId");
+    const [booking] = await tx
+      .select({ id: reservations.id })
+      .from(reservations)
+      .where(and(eq(reservations.guestId, guest.id), eq(reservations.organizationId, input.organizationId)))
+      .limit(1);
+    if (booking) {
+      throw new ReservationError("This guest has reservations, so their profile is kept for the booking history.");
+    }
+    await tx.delete(guests).where(eq(guests.id, guest.id));
+    await recordAudit(tx, {
+      organizationId: input.organizationId,
+      actorUserId: input.actorUserId,
+      entity: "guest",
+      entityId: guest.id,
+      action: "guest.deleted",
+      metadata: { name: guest.name },
+    });
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Reservations
 // ---------------------------------------------------------------------------
@@ -123,6 +315,11 @@ export interface ReservationListFilters {
   query?: string;
   status?: ReservationStatus;
   unitId?: string;
+  guestId?: string;
+  platformId?: string;
+  /** Inclusive check-in date range. */
+  startDate?: string;
+  endDate?: string;
   /** "checkin" (latest stay first, the default) or "booked" (newest booking first). */
   sort?: "checkin" | "booked";
   /** Adds bookingTotalCents (charges excluding the deposit). Owner views only. */
@@ -150,6 +347,18 @@ export async function listReservations(
   if (filters.unitId) {
     conditions.push(eq(reservations.unitId, filters.unitId));
   }
+  if (filters.guestId) {
+    conditions.push(eq(reservations.guestId, filters.guestId));
+  }
+  if (filters.platformId) {
+    conditions.push(eq(reservations.platformId, filters.platformId));
+  }
+  if (filters.startDate) {
+    conditions.push(gte(reservations.checkInDate, filters.startDate));
+  }
+  if (filters.endDate) {
+    conditions.push(lte(reservations.checkInDate, filters.endDate));
+  }
 
   // Correlated so each row carries its own charge total without a GROUP BY.
   const bookingTotalCents = sql<number>`coalesce((
@@ -173,6 +382,10 @@ export async function listReservations(
       unitId: units.id,
       unitName: units.name,
       propertyName: properties.name,
+      platformReference: reservations.platformReference,
+      platformName: bookingPlatforms.name,
+      platformLogoUrl: bookingPlatforms.logoUrl,
+      platformColor: bookingPlatforms.color,
       ...(filters.includeTotals ? { bookingTotalCents } : {}),
     })
     .from(reservations)
@@ -195,6 +408,13 @@ export async function listReservations(
       and(
         eq(units.propertyId, properties.id),
         eq(units.organizationId, properties.organizationId),
+      ),
+    )
+    .leftJoin(
+      bookingPlatforms,
+      and(
+        eq(reservations.platformId, bookingPlatforms.id),
+        eq(reservations.organizationId, bookingPlatforms.organizationId),
       ),
     )
     .where(and(...conditions))
@@ -223,7 +443,7 @@ export async function getReservationDetail(
     throw new ReservationError("Reservation not found.", "reservationId");
   }
 
-  const [guest, reservationUnits, charges, transitions, tokens, occupants] = await Promise.all([
+  const [guest, reservationUnits, charges, transitions, tokens, occupants, platforms] = await Promise.all([
     getGuestOrThrow(organizationId, reservation.guestId),
     db
       .select()
@@ -273,6 +493,13 @@ export async function getReservationDetail(
         eq(reservationOccupants.organizationId, organizationId),
       ))
       .orderBy(asc(reservationOccupants.position)),
+    reservation.platformId
+      ? db
+          .select()
+          .from(bookingPlatforms)
+          .where(and(eq(bookingPlatforms.id, reservation.platformId), eq(bookingPlatforms.organizationId, organizationId)))
+          .limit(1)
+      : Promise.resolve([]),
   ]);
 
   // Historical reservations must remain readable after their inventory is
@@ -309,6 +536,7 @@ export async function getReservationDetail(
     transitions,
     activeToken,
     occupants,
+    platform: platforms[0] ?? null,
   };
 }
 
@@ -403,6 +631,8 @@ async function createReservation(
       guestCount: number;
       charges: ChargeLineInput[];
       occupantNames: string[];
+      platformId?: string;
+      platformReference?: string;
       expiresAt: Date | null;
       confirmReason: string | null;
       initialPayment?: CreateConfirmedInput["initialPayment"];
@@ -517,6 +747,7 @@ async function createReservation(
         throw new ReservationError("This unit is no longer available.", "unitId");
       }
       assertBookableUnit(lockedUnit);
+      await assertPlatform(tx, organizationId, values.platformId);
 
       let guestId: string;
       if (args.guest.guestId) {
@@ -571,6 +802,8 @@ async function createReservation(
           guestCount: values.guestCount,
           expiresAt: values.expiresAt,
           confirmReason: values.confirmReason,
+          platformId: values.platformId ?? null,
+          platformReference: values.platformReference || null,
           idempotencyKey: args.idempotencyKey ?? null,
         })
         .returning();
@@ -655,6 +888,7 @@ async function createReservation(
           unitId: unit.id,
           checkIn: values.checkIn,
           checkOut: values.checkOut,
+          platformId: values.platformId ?? null,
           occupantCount: values.occupantNames.length,
         },
       });
@@ -699,6 +933,8 @@ export async function createHold(
       guestCount: data.guestCount,
       charges: data.charges,
       occupantNames: data.occupantNames,
+      platformId: data.platformId,
+      platformReference: data.platformReference,
       expiresAt,
       confirmReason: null,
       initialPayment: undefined,
@@ -727,6 +963,8 @@ export async function createConfirmed(
       guestCount: data.guestCount,
       charges: data.charges,
       occupantNames: data.occupantNames,
+      platformId: data.platformId,
+      platformReference: data.platformReference,
       expiresAt: null,
       confirmReason: null,
       initialPayment: data.initialPayment,
@@ -909,17 +1147,18 @@ export async function updateReservation(input: {
     }
     const [unit] = await tx.select().from(units).where(and(eq(units.id, data.unitId), eq(units.organizationId, input.organizationId), isNull(units.deletedAt))).limit(1);
     if (!unit || data.guestCount > unit.capacity) throw new ReservationError(`This unit sleeps ${unit?.capacity ?? 0}; the guest count is too high.`, "guestCount");
+    await assertPlatform(tx, input.organizationId, data.platformId, reservation.platformId);
     const guest = await resolvePrimaryGuest(tx, input.organizationId, input.actorUserId, data.guestId, data.primaryGuest);
     const segments = (await getOccupancySegments(input.organizationId, [unit.id], data.checkIn, data.checkOut)).get(unit.id) ?? [];
     const availability = checkIntervalAvailability(segments.filter((segment) => segment.kind !== "reservation" || segment.id !== reservation.id), data.checkIn, data.checkOut);
     if (!availability.available) throw new ReservationError(`Those dates conflict with ${availability.conflict.reason}.`, "checkIn");
-    const [updated] = await tx.update(reservations).set({ unitId: unit.id, guestId: guest.id, checkInDate: data.checkIn, checkOutDate: data.checkOut, guestCount: data.guestCount, updatedAt: new Date() }).where(eq(reservations.id, reservation.id)).returning();
+    const [updated] = await tx.update(reservations).set({ unitId: unit.id, guestId: guest.id, checkInDate: data.checkIn, checkOutDate: data.checkOut, guestCount: data.guestCount, platformId: data.platformId ?? reservation.platformId, platformReference: data.platformReference === undefined ? reservation.platformReference : data.platformReference || null, updatedAt: new Date() }).where(eq(reservations.id, reservation.id)).returning();
     if (!updated) throw new ReservationError("Failed to update the reservation.");
     await tx.delete(reservationOccupants).where(and(eq(reservationOccupants.reservationId, reservation.id), eq(reservationOccupants.organizationId, input.organizationId)));
     if (data.occupantNames.length) await tx.insert(reservationOccupants).values(data.occupantNames.map((name, position) => ({ organizationId: input.organizationId, reservationId: reservation.id, name, position })));
     await tx.delete(reservationCharges).where(and(eq(reservationCharges.reservationId, reservation.id), eq(reservationCharges.organizationId, input.organizationId)));
     await tx.insert(reservationCharges).values(data.charges.map((line) => ({ organizationId: input.organizationId, reservationId: reservation.id, type: line.type, description: line.description, quantity: line.quantity, unitAmountCents: line.unitAmountCents, amountCents: line.quantity * line.unitAmountCents, isRefundableDeposit: line.type === "security_deposit" })));
-    await recordAudit(tx, { organizationId: input.organizationId, actorUserId: input.actorUserId, entity: "reservation", entityId: reservation.id, action: "reservation.updated", metadata: { unitId: unit.id, guestId: guest.id, checkIn: data.checkIn, checkOut: data.checkOut, guestCount: data.guestCount, occupantCount: data.occupantNames.length, chargeCount: data.charges.length } });
+    await recordAudit(tx, { organizationId: input.organizationId, actorUserId: input.actorUserId, entity: "reservation", entityId: reservation.id, action: "reservation.updated", metadata: { unitId: unit.id, guestId: guest.id, checkIn: data.checkIn, checkOut: data.checkOut, guestCount: data.guestCount, platformId: data.platformId ?? reservation.platformId, occupantCount: data.occupantNames.length, chargeCount: data.charges.length } });
     return updated;
   });
 }

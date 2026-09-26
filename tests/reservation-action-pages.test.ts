@@ -56,6 +56,7 @@ vi.mock("@/components/ui/sonner", () => ({ setToastAfterNavigation: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/db", () => ({ db: {} }));
 vi.mock("@/server/reservations/service", () => ({ getReservationDetail: vi.fn(), isLiveHold: vi.fn(), listReservations: vi.fn(), ReservationError: class extends Error {} }));
+vi.mock("@/server/reservations/platforms", () => ({ listPlatforms: vi.fn(async () => []) }));
 vi.mock("@/server/reservations/holds", () => ({ expireStaleHolds: vi.fn() }));
 vi.mock("@/server/payments/service", () => ({ getReservationLedger: vi.fn(), recordPayment: vi.fn(), dismissProof: vi.fn() }));
 vi.mock("@/server/operations/service", () => ({ getTaskForReservation: vi.fn(), listOpenDamageReports: vi.fn() }));
@@ -271,11 +272,11 @@ describe("read-only reservation detail and shared tables", () => {
 
   it("uses the shared Table for the reservations list", async () => {
     vi.mocked(listOrgUnits).mockResolvedValue([]);
-    vi.mocked(listReservations).mockResolvedValue([{ ...fixture().reservation, guestName: "Test guest", unitName: "Test unit", propertyName: "Test property", createdAt: new Date("2026-08-01T02:00:00Z") }] as Awaited<ReturnType<typeof listReservations>>);
+    vi.mocked(listReservations).mockResolvedValue([{ ...fixture().reservation, guestName: "Test guest", unitName: "Test unit", propertyName: "Test property", platformName: "Airbnb", platformLogoUrl: null, platformColor: "#FF5A5F", createdAt: new Date("2026-08-01T02:00:00Z") }] as Awaited<ReturnType<typeof listReservations>>);
     const tree = await ReservationsPage({ searchParams: Promise.resolve({}) });
     expect(nodes(tree).some((node) => node.type === Table)).toBe(true);
     const html = renderToStaticMarkup(tree);
-    for (const heading of ["Ref", "Guest", "Unit", "Check-in", "Check-out", "Nights", "Guests", "Booked", "Status", "Actions"]) expect(html).toContain(`>${heading}</th>`);
+    for (const heading of ["Ref", "Guest", "Unit", "Check-in", "Check-out", "Nights", "Guests", "Platform", "Created at", "Status", "Actions"]) expect(html).toContain(`>${heading}</th>`);
     // Staff never see money columns.
     expect(html).not.toContain(">Total</th>");
     expect(html).toContain('href="/reservations/reservation-a"');

@@ -10,7 +10,7 @@ import { getOccupancySegments, listCalendarActivity } from "@/server/inventory/a
 import { listOrgUnits, listProperties } from "@/server/inventory/service";
 import { findFreeUnitIds } from "@/server/inventory/stay-search";
 import { listTasks } from "@/server/operations/service";
-import { getDashboardSeries } from "@/server/reports/dashboard";
+import { getDashboardPlatformBreakdown, getDashboardSeries } from "@/server/reports/dashboard";
 import { getReport } from "@/server/reports/service";
 
 vi.mock("@/lib/auth/session", async () => (await import("./helpers/session-mock")).mockSessionModule());
@@ -20,7 +20,7 @@ vi.mock("@/server/inventory/stay-search", async (importOriginal) => ({ ...(await
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/server/operations/service", () => ({ listTasks: vi.fn() }));
 vi.mock("@/server/reports/service", () => ({ getReport: vi.fn() }));
-vi.mock("@/server/reports/dashboard", () => ({ getDashboardSeries: vi.fn() }));
+vi.mock("@/server/reports/dashboard", () => ({ getDashboardSeries: vi.fn(), getDashboardPlatformBreakdown: vi.fn() }));
 
 const owner: MembershipContext = {
   organizationId: "org-a",
@@ -106,6 +106,9 @@ beforeEach(() => {
     refunds: [],
     expenses: [{ date: today, category: "cleaning", classification: "operating", amountCents: 125_000 }],
   }));
+  vi.mocked(getDashboardPlatformBreakdown).mockResolvedValue([
+    { platformId: "platform-direct", name: "Direct", logoUrl: null, color: null, reservationCount: 1 },
+  ]);
 });
 
 describe("operations dashboard", () => {
@@ -119,6 +122,8 @@ describe("operations dashboard", () => {
     expect(html).toContain('href="/calendar/availability"');
     expect(html).not.toContain("Next 14 days");
     expect(html).toContain("Bookings this month");
+    expect(html).toContain("Booking sources");
+    expect(html).toContain("Direct");
     expect(html).toContain("How your stays are doing");
     expect(html).toContain("₱9,000");
     expect(html).toContain("50%");
@@ -142,8 +147,9 @@ describe("operations dashboard", () => {
     expect(html).toContain("Needs attention");
     expect(html).toContain("Ben Reyes");
     expect(html).not.toContain("Open calendar");
-    // Needs attention now sits before today's schedule.
-    expect(html.indexOf("Needs attention")).toBeLessThan(html.indexOf("Today&#x27;s schedule"));
+    // Today's schedule runs full width first; Needs attention sits beside booking sources below it.
+    expect(html.indexOf("Today&#x27;s schedule")).toBeLessThan(html.indexOf("Needs attention"));
+    expect(html.indexOf("Needs attention")).toBeLessThan(html.indexOf("Booking sources"));
   });
 
   it("counts this month's confirmed bookings but not holds", async () => {

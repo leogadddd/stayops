@@ -18,9 +18,9 @@ import {
   LayoutDashboard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { APP_VERSION } from "@/lib/app-version";
 import {
   can,
-  canManagePermissions,
   type Permission,
   type RoleKey,
 } from "@/lib/permissions";
@@ -81,7 +81,6 @@ const NAV_ITEMS: {
     href: "/settings/general",
     label: "Settings",
     icon: Settings,
-    anyOf: ["organization.update", "team.view"],
   },
 ];
 
@@ -90,8 +89,6 @@ function navItemVisible(
   role: RoleKey,
   permissions?: readonly Permission[],
 ) {
-  if (item.href === "/settings/general" && canManagePermissions(role))
-    return true;
   return (
     !item.anyOf ||
     item.anyOf.some((permission) => can({ role, permissions }, permission))
@@ -124,7 +121,7 @@ function Navigation({
   return (
     <nav
       aria-label="Primary"
-      className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-3"
+      className="min-h-0 flex-1 select-none space-y-1 overflow-y-auto px-3 py-3"
     >
       {NAV_ITEMS.filter((item) => navItemVisible(item, role, permissions)).map(
         ({ href, label, icon: Icon }) => {
@@ -172,11 +169,14 @@ export function AppSidebar(props: SidebarProps) {
         className="block px-6 pb-5 pt-7"
       >
         <Logo className="text-paper" />
-        <p className="mt-3 truncate text-xs tracking-wide text-paper/60">
+        {/* <p className="mt-3 truncate text-xs tracking-wide text-paper/60">
           {props.organizationName}
-        </p>
+        </p> */}
       </Link>
       <Navigation role={props.role} permissions={props.permissions} />
+      <p className="px-6 py-5 text-xs font-medium tracking-wide text-paper/45">
+        Version {APP_VERSION}
+      </p>
     </aside>
   );
 }
@@ -337,6 +337,9 @@ export function AppHeader({
             permissions={props.permissions}
             onNavigate={() => mobileNav.current?.close()}
           />
+          <p className="px-6 py-5 text-xs font-medium tracking-wide text-paper/45">
+            Version {APP_VERSION}
+          </p>
         </div>
       </dialog>
     </header>

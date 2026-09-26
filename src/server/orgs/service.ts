@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { auditEvents, memberships, organizationInvitations, organizationJoinCodes, organizationJoinRequests, organizations, roles, user } from "@/lib/db/schema";
 import { type RoleKey } from "@/lib/permissions";
 import { seedDefaultAmenities } from "@/server/inventory/amenities";
+import { seedDefaultPlatforms } from "@/server/reservations/platforms";
 import { isSupportedTimeZone } from "@/lib/timezones";
 import { isValidPhilippineAddress } from "@/lib/philippine-locations";
 
@@ -162,6 +163,7 @@ export async function createOrganization(input: {
       throw new OrgError("Failed to create the organization.");
     }
     await seedDefaultAmenities(tx, org.id);
+    await seedDefaultPlatforms(tx, org.id);
 
     const ownerRole = await getRole(tx, "owner");
     await tx.insert(memberships).values({

@@ -18,9 +18,9 @@ import { assertSafeDatabase, finishTurnover, removeReservations } from "./lib/sa
  * house, two upcoming (confirmed) and a live hold. Guests are fictional
  * (example.com emails, made-up +63 numbers).
  *
- *   npm run db:seed-reservations -- "Casa Yohan Yarn"           # create or top up
- *   npm run db:seed-reservations -- "Casa Yohan Yarn" --dry-run # show the plan only
- *   npm run db:seed-reservations -- "Casa Yohan Yarn" --clean   # remove them again
+ *   npm run seed:reservations -- "Casa Yohan Yarn"           # create or top up
+ *   npm run seed:reservations -- "Casa Yohan Yarn" --dry-run # show the plan only
+ *   npm run seed:reservations -- "Casa Yohan Yarn" --clean   # remove them again
  *
  * The name matches exactly (ignoring case) or, failing that, as part of a
  * name. Reruns are safe: each stay has an idempotency key, and dates that
@@ -269,7 +269,7 @@ async function clean(organization: { id: string; name: string }) {
 async function main() {
   const { name, dryRun, clean: cleaning } = args();
   if (!name) {
-    console.error('Usage: npm run db:seed-reservations -- "<organization name>" [--dry-run] [--clean] [--allow-remote]');
+    console.error('Usage: npm run seed:reservations -- "<organization name>" [--dry-run] [--clean] [--allow-remote]');
     process.exit(1);
   }
   if (!dryRun) assertSafeDatabase();
