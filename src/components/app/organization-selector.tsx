@@ -5,13 +5,15 @@ import { useRouter } from "next/navigation";
 import { Check, ChevronsUpDown, LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import type { RoleKey } from "@/lib/permissions";
+import { roleLabel, type RoleKey } from "@/lib/permissions";
 import { selectActiveOrganization } from "@/app/(app)/organization-actions";
+import { SearchableSelect } from "@/components/ui/timezone-picker";
 
 export type OrganizationOption = {
   id: string;
   name: string;
   role: RoleKey;
+  imageSrc?: string | null;
 };
 
 /** The organization logo, or its initial on brand pine. */
@@ -29,8 +31,6 @@ function OrganizationMark({ name, imageSrc, size = "md", dark = false }: { name:
     </span>
   );
 }
-
-const ROLE_LABELS: Record<RoleKey, string> = { owner: "Owner", admin: "Admin", operations_manager: "Operations Manager", staff: "Staff" };
 
 export function OrganizationSelector({
   organizations,
@@ -89,6 +89,30 @@ export function OrganizationSelector({
     });
   };
 
+  if (!dark) {
+    return (
+      <SearchableSelect
+        id="active-organization"
+        name="activeOrganization"
+        value={activeOrganizationId}
+        options={organizations.map((organization) => ({
+          value: organization.id,
+          label: organization.name,
+          description: roleLabel(organization.role),
+          mark: organization.name,
+          imageSrc: organization.imageSrc,
+        }))}
+        placeholder="Select organization"
+        searchPlaceholder="Search organizations"
+        emptyMessage="No organizations match that search."
+        disabled={switching}
+        className={cn("w-64", className)}
+        onValueChange={selectOrganization}
+      />
+    );
+  }
+
+
   const single = organizations.length <= 1;
   return (
     <div ref={root} className={cn("relative min-w-0", className)}>
@@ -114,7 +138,7 @@ export function OrganizationSelector({
             {activeOrganization.name}
           </span>
           <span className={cn("block text-xs", dark ? "text-paper/60" : "text-ink/55")}>
-            {switching ? "Switching…" : single ? ROLE_LABELS[activeOrganization.role] : `${organizations.length} organizations`}
+            {switching ? "Switching…" : single ? roleLabel(activeOrganization.role) : `${organizations.length} organizations`}
           </span>
         </span>
         {switching ? (
@@ -144,10 +168,14 @@ export function OrganizationSelector({
                     selected ? "bg-pine-mist" : "hover:bg-pine-mist/70",
                   )}
                 >
-                  <OrganizationMark name={organization.name} imageSrc={selected ? imageSrc : null} size="sm" />
+                  <OrganizationMark
+                    name={organization.name}
+                    imageSrc={organization.imageSrc ?? (selected ? imageSrc : null)}
+                    size="sm"
+                  />
                   <span className="min-w-0 flex-1">
                     <span className={cn("block truncate", selected ? "font-semibold text-pine" : "font-medium text-ink")}>{organization.name}</span>
-                    <span className="mt-0.5 inline-flex rounded-full bg-sage/45 px-2 py-0.5 text-[11px] font-medium text-pine">{ROLE_LABELS[organization.role]}</span>
+                    <span className="mt-0.5 inline-flex rounded-full bg-sage/45 px-2 py-0.5 text-[11px] font-medium text-pine">{roleLabel(organization.role)}</span>
                   </span>
                   {selected ? <Check className="h-4 w-4 shrink-0 text-pine" aria-hidden /> : null}
                 </button>

@@ -14,7 +14,16 @@ export default async function AppLayout({
     requireMembership(),
     requireUser().then((user) => listMemberships(user.id)),
   ]);
-  const organizationLogoUrl = await getOrganizationLogoUrl(membership.organizationId);
+  const organizationLogoUrls = await Promise.all(
+    organizations.map((organization) =>
+      getOrganizationLogoUrl(organization.organizationId),
+    ),
+  );
+  const organizationLogoUrl = organizationLogoUrls[
+    organizations.findIndex(
+      (organization) => organization.organizationId === membership.organizationId,
+    )
+  ] ?? null;
   const identity = {
     organizationId: membership.organizationId,
     organizationName: membership.organizationName,
@@ -23,10 +32,15 @@ export default async function AppLayout({
       : organizationLogoUrl
         ? `/api/orgs/${membership.organizationId}/logo`
         : null,
-    organizations: organizations.map((organization) => ({
+    organizations: organizations.map((organization, index) => ({
       id: organization.organizationId,
       name: organization.organizationName,
       role: organization.role,
+      imageSrc: organizationLogoUrls[index]?.startsWith("data:")
+        ? organizationLogoUrls[index]
+        : organizationLogoUrls[index]
+          ? `/api/orgs/${organization.organizationId}/logo`
+          : null,
     })),
     userName: user.name,
     userEmail: user.email,
