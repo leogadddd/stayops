@@ -18,43 +18,85 @@ import {
   LayoutDashboard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { RoleKey } from "@/lib/permissions";
+import {
+  can,
+  canManagePermissions,
+  type Permission,
+  type RoleKey,
+} from "@/lib/permissions";
 import { Logo } from "@/components/logo";
 import { AccountMenu } from "@/components/app/account-menu";
 import { LiveClock } from "@/components/app/live-clock";
-import { OrganizationSelector, type OrganizationOption } from "@/components/app/organization-selector";
+import {
+  OrganizationSelector,
+  type OrganizationOption,
+} from "@/components/app/organization-selector";
 
-const NAV_ITEMS = [
+/** Each item shows when the member holds any of `anyOf`; items without it show to everyone. */
+const NAV_ITEMS: {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  anyOf?: readonly Permission[];
+}[] = [
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   {
-    href: "/dashboard",
-    label: "Dashboard",
-    icon: LayoutDashboard,
-    ownerOnly: false,
+    href: "/calendar",
+    label: "Calendar",
+    icon: Calendar,
+    anyOf: ["reservations.view"],
   },
-  { href: "/calendar", label: "Calendar", icon: Calendar, ownerOnly: false },
   {
     href: "/reservations",
     label: "Reservations",
     icon: BookOpen,
-    ownerOnly: false,
+    anyOf: ["reservations.view"],
   },
   {
     href: "/properties",
     label: "Properties",
     icon: Building2,
-    ownerOnly: true,
+    anyOf: ["properties.view"],
   },
-  { href: "/guests", label: "Guests", icon: Users, ownerOnly: false },
-  { href: "/tasks", label: "Tasks", icon: ClipboardList, ownerOnly: false },
-  { href: "/expenses", label: "Expenses", icon: Receipt, ownerOnly: true },
-  { href: "/reports", label: "Reports", icon: BarChart3, ownerOnly: true },
+  { href: "/guests", label: "Guests", icon: Users, anyOf: ["guests.view"] },
+  {
+    href: "/tasks",
+    label: "Tasks",
+    icon: ClipboardList,
+    anyOf: ["tasks.view"],
+  },
+  {
+    href: "/expenses",
+    label: "Expenses",
+    icon: Receipt,
+    anyOf: ["expenses.view"],
+  },
+  {
+    href: "/reports",
+    label: "Reports",
+    icon: BarChart3,
+    anyOf: ["reports.view"],
+  },
   {
     href: "/settings/general",
     label: "Settings",
     icon: Settings,
-    ownerOnly: true,
+    anyOf: ["organization.update", "team.view"],
   },
-] as const;
+];
+
+function navItemVisible(
+  item: (typeof NAV_ITEMS)[number],
+  role: RoleKey,
+  permissions?: readonly Permission[],
+) {
+  if (item.href === "/settings/general" && canManagePermissions(role))
+    return true;
+  return (
+    !item.anyOf ||
+    item.anyOf.some((permission) => can({ role, permissions }, permission))
+  );
+}
 
 type SidebarProps = {
   organizationName: string;
@@ -62,6 +104,8 @@ type SidebarProps = {
   userEmail: string;
   userImage?: string | null;
   role: RoleKey;
+  /** Only decides which links to show; every page checks access itself. Defaults to the role's. */
+  permissions?: readonly Permission[];
   organizationId?: string;
   organizationImage?: string | null;
   organizations?: OrganizationOption[];
@@ -69,9 +113,11 @@ type SidebarProps = {
 
 function Navigation({
   role,
+  permissions,
   onNavigate,
 }: {
   role: SidebarProps["role"];
+  permissions: SidebarProps["permissions"];
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
@@ -80,7 +126,7 @@ function Navigation({
       aria-label="Primary"
       className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-3"
     >
-      {NAV_ITEMS.filter((item) => !item.ownerOnly || role === "owner").map(
+      {NAV_ITEMS.filter((item) => navItemVisible(item, role, permissions)).map(
         ({ href, label, icon: Icon }) => {
           const active =
             href === "/settings/general"
@@ -130,7 +176,7 @@ export function AppSidebar(props: SidebarProps) {
           {props.organizationName}
         </p>
       </Link>
-      <Navigation role={props.role} />
+      <Navigation role={props.role} permissions={props.permissions} />
     </aside>
   );
 }
@@ -176,19 +222,21 @@ export function AppHeader({
 }: SidebarProps & { initialNow: string }) {
   const pathname = usePathname();
   const mobileNav = useRef<HTMLDialogElement>(null);
-  const segments = pathname.split("/").filter(Boolean);
-  const organizations = props.organizations ?? [{
-    id: props.organizationId ?? "current",
-    name: props.organizationName,
-    role: props.role,
-  }];
+  // const segments = pathname.split("/").filter(Boolean);
+  const organizations = props.organizations ?? [
+    {
+      id: props.organizationId ?? "current",
+      name: props.organizationName,
+      role: props.role,
+    },
+  ];
   const activeOrganizationId = props.organizationId ?? organizations[0]!.id;
   return (
     <header
       data-testid="app-header"
-      className="z-20 flex h-20 shrink-0 items-center justify-between gap-4 border-b border-pine/12 bg-linen px-4 sm:px-6 lg:px-8"
+      className="z-20 flex h-20 shrink-0 items-center justify-between gap-3 border-b border-pine/12 bg-linen px-4 sm:px-6 lg:px-6"
     >
-      <div className="flex min-w-0 items-center gap-3">
+      <div className="flex min-w-0 items-center gap-3 lg:gap-0">
         <button
           type="button"
           aria-label="Open navigation"
@@ -286,6 +334,7 @@ export function AppHeader({
           />
           <Navigation
             role={props.role}
+            permissions={props.permissions}
             onNavigate={() => mobileNav.current?.close()}
           />
         </div>

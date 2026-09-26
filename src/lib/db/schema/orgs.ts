@@ -1,4 +1,5 @@
 import {
+  boolean,
   index,
   pgEnum,
   pgTable,
@@ -137,3 +138,19 @@ export const organizationJoinRequests = pgTable("organization_join_requests", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [uniqueIndex("organization_join_requests_org_user_unique").on(table.organizationId, table.userId), index("organization_join_requests_org_status_idx").on(table.organizationId, table.status)]);
+
+/**
+ * An organization's changes to a role's default permissions (see
+ * `src/lib/permissions.ts`). A permission without a row keeps its default, so
+ * newly added permissions apply to every organization without a backfill.
+ * The owner role is never overridden.
+ */
+export const organizationRolePermissions = pgTable("organization_role_permissions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  roleId: uuid("role_id").notNull().references(() => roles.id, { onDelete: "cascade" }),
+  permission: text("permission").notNull(),
+  allowed: boolean("allowed").notNull(),
+  updatedByUserId: text("updated_by_user_id").references(() => user.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [uniqueIndex("organization_role_permissions_org_role_permission_unique").on(table.organizationId, table.roleId, table.permission)]);

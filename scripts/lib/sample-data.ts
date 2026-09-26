@@ -28,7 +28,7 @@ export async function finishTurnover(ctx: { organizationId: string; actorUserId:
     for (const item of items) {
       await setTaskItemCompleted({ ...ctx, taskId: task.id, itemId: item.id, completed: true });
     }
-    await markTaskReady({ ...ctx, actorRole: "owner", taskId: task.id, data: {} });
+    await markTaskReady({ ...ctx, canOverrideDamage: true, taskId: task.id, data: {} });
   }
 }
 

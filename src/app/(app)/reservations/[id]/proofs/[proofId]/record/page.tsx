@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { requireOwner } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
 import { PermissionDenied } from "@/components/app/permission-denied";
 import { getReservationLedger } from "@/server/payments/service";
 import { ReservationActionPage, loadActionReservation } from "../../../action-page";
@@ -9,7 +9,7 @@ import { RecordProofForm } from "../../../record-proof-form";
 export const metadata: Metadata = { title: "Record payment from reference" };
 
 export default async function RecordProofPage({ params }: { params: Promise<{ id: string; proofId: string }> }) {
-  const membership = await requireOwner();
+  const membership = await requirePermission("payments.update");
   if (!membership) return <PermissionDenied />;
   const { id, proofId } = await params;
   const { reservation, guest, unit } = await loadActionReservation(membership.organizationId, id);

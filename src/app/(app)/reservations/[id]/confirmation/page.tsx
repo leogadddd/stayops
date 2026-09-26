@@ -4,7 +4,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight, CalendarDays, CircleCheck, Clock, LogIn, LogOut, Mail, Phone, Plus, Users, Wallet } from "lucide-react";
 import { buttonClassName } from "@/components/ui/button";
-import { requireMembership } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
+import { can } from "@/lib/permissions";
+import { PermissionDenied } from "@/components/app/permission-denied";
 import { CHARGE_TYPE_LABELS } from "@/lib/charges";
 import { db } from "@/lib/db";
 import { nightsBetween } from "@/lib/dates";
@@ -18,9 +20,10 @@ import { dayLabel, plural, timeLabel, UnitPhoto } from "../../../calendar/availa
 export const metadata: Metadata = { title: "Reservation saved" };
 
 export default async function ReservationConfirmationPage({ params }: { params: Promise<{ id: string }> }) {
-  const membership = await requireMembership();
+  const membership = await requirePermission("reservations.view");
+  if (!membership) return <PermissionDenied />;
   const { id } = await params;
-  const isOwner = membership.role === "owner";
+  const canSeeMoney = can(membership, "payments.view");
   await expireStaleHolds(db, membership.organizationId);
 
   let detail;
@@ -32,7 +35,7 @@ export default async function ReservationConfirmationPage({ params }: { params: 
   }
   const { reservation, guest, unit, property, charges } = detail;
   const occupants = detail.occupants ?? [];
-  const ledger = isOwner ? await getReservationLedger(membership.organizationId, id) : null;
+  const ledger = canSeeMoney ? await getReservationLedger(membership.organizationId, id) : null;
   const nights = nightsBetween(reservation.checkInDate, reservation.checkOutDate);
   const isHold = reservation.status === "hold";
   const expiresLabel = reservation.expiresAt
@@ -59,8 +62,8 @@ export default async function ReservationConfirmationPage({ params }: { params: 
           </div>
           <div className="flex w-full flex-wrap gap-2 sm:w-auto">
             <Link href={reservationHref} className={buttonClassName("clay", "md")}>Open reservation<ArrowRight className="h-4 w-4" aria-hidden /></Link>
-            {isOwner && isHold ? <Link href={`${reservationHref}/confirm`} className={buttonClassName("outline", "md")}>Confirm hold</Link> : null}
-            {isOwner && !isHold && balances && balances.bookingBalanceCents > 0 ? <Link href={`${reservationHref}/payments/new`} className={buttonClassName("outline", "md")}><Wallet className="h-4 w-4" aria-hidden />Record payment</Link> : null}
+            {can(membership, "reservations.update") && isHold ? <Link href={`${reservationHref}/confirm`} className={buttonClassName("outline", "md")}>Confirm hold</Link> : null}
+            {can(membership, "payments.create") && !isHold && balances && balances.bookingBalanceCents > 0 ? <Link href={`${reservationHref}/payments/new`} className={buttonClassName("outline", "md")}><Wallet className="h-4 w-4" aria-hidden />Record payment</Link> : null}
           </div>
         </div>
       </section>
@@ -116,7 +119,7 @@ export default async function ReservationConfirmationPage({ params }: { params: 
         <aside className="min-w-0 lg:sticky lg:top-0">
           <section className="rounded-2xl border border-pine/10 bg-white p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
             <h2 className="font-display text-xl text-pine">Payment breakdown</h2>
-            {isOwner && balances ? (
+            {canSeeMoney && balances ? (
               <dl className="mt-4 space-y-2 text-sm">
                 {charges.filter((charge) => charge.type !== "security_deposit").map((charge) => (
                   <div key={charge.id} className="flex justify-between gap-3 text-ink/70">

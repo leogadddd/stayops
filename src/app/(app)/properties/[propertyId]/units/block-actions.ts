@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireMembership, assertOwner, PermissionError } from "@/lib/auth/session";
+import { requireMembership, assertCan, PermissionError } from "@/lib/auth/session";
 import { z } from "zod";
 import {
   addUnitBlock,
@@ -23,7 +23,7 @@ export async function addUnitBlockAction(
   formData: FormData,
 ): Promise<BlockFormState> {
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "properties.create");
   try {
     await addUnitBlock({
       organizationId: membership.organizationId,
@@ -47,7 +47,7 @@ export async function updateUnitBlockAction(
   formData: FormData,
 ): Promise<BlockFormState> {
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "properties.update");
   try {
     await updateUnitBlock({
       organizationId: membership.organizationId,
@@ -88,7 +88,7 @@ export async function removeUnitBlockAction(
   blockId: string,
 ): Promise<void> {
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "properties.delete");
   await removeUnitBlock({
     organizationId: membership.organizationId,
     actorUserId: membership.userId,

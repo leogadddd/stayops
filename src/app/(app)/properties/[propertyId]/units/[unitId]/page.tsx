@@ -18,7 +18,7 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import { requireOwner } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
 import { PermissionDenied } from "@/components/app/permission-denied";
 import { addDaysLocal, nightsBetween, todayInTimeZone } from "@/lib/dates";
 import { UNIT_STATUS_DESCRIPTIONS, UNIT_STATUS_LABELS } from "@/lib/labels";
@@ -50,7 +50,7 @@ const OUTLOOK_DAYS = 30;
 const UPCOMING_DAYS = 120;
 
 export default async function UnitDetailPage({ params }: { params: Promise<{ propertyId: string; unitId: string }> }) {
-  const membership = await requireOwner();
+  const membership = await requirePermission("properties.view");
   if (!membership) return <PermissionDenied />;
 
   const { propertyId, unitId } = await params;

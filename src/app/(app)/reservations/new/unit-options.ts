@@ -2,11 +2,11 @@ import { unitOrPropertyPhotoSrc } from "@/lib/photos";
 import type { Unit } from "@/lib/db/schema";
 import type { UnitOption } from "./reservation-form";
 
-/** A unit as the reservation form shows it. Rates are only sent to owners. */
+/** A unit as the reservation form shows it. Rates are only sent to people who may see them. */
 export function toUnitOption(
   unit: Unit,
   property: { id: string; name: string; imageUrl: string | null } | undefined,
-  { multipleProperties, isOwner }: { multipleProperties: boolean; isOwner: boolean },
+  { multipleProperties, showRates }: { multipleProperties: boolean; showRates: boolean },
 ): UnitOption {
   return {
     id: unit.id,
@@ -19,9 +19,9 @@ export function toUnitOption(
     bathrooms: unit.bathrooms,
     checkInTime: unit.checkInTime,
     checkOutTime: unit.checkOutTime,
-    nightlyRateCents: isOwner ? unit.defaultNightlyRateCents : null,
-    dayRates: isOwner ? unit.dayRates : null,
-    cleaningFeeCents: isOwner ? unit.cleaningFeeCents : null,
-    securityDepositCents: isOwner ? unit.securityDepositCents : null,
+    nightlyRateCents: showRates ? unit.defaultNightlyRateCents : null,
+    dayRates: showRates ? unit.dayRates : null,
+    cleaningFeeCents: showRates ? unit.cleaningFeeCents : null,
+    securityDepositCents: showRates ? unit.securityDepositCents : null,
   };
 }

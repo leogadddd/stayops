@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { requireOwner } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
 import { getPropertyOrThrow } from "@/server/inventory/service";
 import { InventoryError } from "@/server/inventory/validation";
 import { listAmenities } from "@/server/inventory/amenities";
@@ -11,7 +11,7 @@ import { UnitCreateForm } from "../../../unit-create-form";
 export const metadata: Metadata = { title: "Add unit" };
 
 export default async function NewUnitPage({ params }: { params: Promise<{ propertyId: string }> }) {
-  const membership = await requireOwner();
+  const membership = await requirePermission("properties.create");
   if (!membership) return <PermissionDenied />;
   const { propertyId } = await params;
   let property;

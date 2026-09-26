@@ -1,7 +1,7 @@
 import { photoSrc } from "@/lib/photos";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { requireOwner } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
 import { getPropertyOrThrow } from "@/server/inventory/service";
 import { InventoryError } from "@/server/inventory/validation";
 import { PageHeading } from "@/components/app/page-heading";
@@ -12,7 +12,7 @@ import { listAmenities, listPropertyAmenities } from "@/server/inventory/ameniti
 export const metadata: Metadata = { title: "Edit property" };
 
 export default async function EditPropertyPage({ params }: { params: Promise<{ propertyId: string }> }) {
-  const membership = await requireOwner();
+  const membership = await requirePermission("properties.update");
   if (!membership) return <PermissionDenied />;
 
   const { propertyId } = await params;

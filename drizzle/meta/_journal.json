@@ -127,6 +127,13 @@
       "when": 1790668800006,
       "tag": "20260926045412_fantastic_sharon_carter",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790668800007,
+      "tag": "20260926054928_add_organization_role_permissions",
+      "breakpoints": true
     }
   ]
 }

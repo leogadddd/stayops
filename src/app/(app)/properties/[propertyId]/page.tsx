@@ -15,7 +15,7 @@ import {
   Plus,
   TrendingUp,
 } from "lucide-react";
-import { requireOwner } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
 import { PermissionDenied } from "@/components/app/permission-denied";
 import { addDaysLocal, todayInTimeZone } from "@/lib/dates";
 import { formatPHP } from "@/lib/money";
@@ -46,7 +46,7 @@ const OUTLOOK_DAYS = 30;
 const ARRIVAL_DAYS = 14;
 
 export default async function PropertyDetailPage({ params }: { params: Promise<{ propertyId: string }> }) {
-  const membership = await requireOwner();
+  const membership = await requirePermission("properties.view");
   if (!membership) return <PermissionDenied />;
 
   const { propertyId } = await params;

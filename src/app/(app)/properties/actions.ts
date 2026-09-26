@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireMembership, assertOwner, PermissionError } from "@/lib/auth/session";
+import { requireMembership, assertCan, PermissionError } from "@/lib/auth/session";
 import { MoneyParseError, pesosToCentavos } from "@/lib/money";
 import { WEEKDAYS, type DayRates } from "@/lib/rates";
 import {
@@ -107,7 +107,7 @@ export async function createPropertyAction(
   formData: FormData,
 ): Promise<InventoryFormState> {
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "properties.create");
   let property;
   try {
     property = await saveWithPhoto(membership.organizationId, formData, (imageUrl) => createProperty({
@@ -139,7 +139,7 @@ export async function updatePropertyAction(
   formData: FormData,
 ): Promise<InventoryFormState> {
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "properties.update");
   try {
     await saveWithPhoto(membership.organizationId, formData, (imageUrl) => updateProperty({
       organizationId: membership.organizationId,
@@ -172,7 +172,7 @@ export async function updateHouseRulesAction(
   formData: FormData,
 ): Promise<InventoryFormState> {
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "properties.update");
   try {
     const property = await getPropertyOrThrow(membership.organizationId, propertyId);
     await updateProperty({
@@ -200,7 +200,7 @@ export async function deletePropertyAction(
   propertyId: string,
 ): Promise<InventoryFormState> {
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "properties.delete");
   try {
     await deleteProperty({
       organizationId: membership.organizationId,
@@ -245,7 +245,7 @@ export async function createUnitAction(
   formData: FormData,
 ): Promise<InventoryFormState> {
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "properties.create");
   try {
     await saveWithPhoto(membership.organizationId, formData, (imageUrl) => createUnit({
       organizationId: membership.organizationId,
@@ -269,7 +269,7 @@ export async function updateUnitAction(
   formData: FormData,
 ): Promise<InventoryFormState> {
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "properties.update");
   try {
     await saveWithPhoto(membership.organizationId, formData, (imageUrl) => updateUnit({
       organizationId: membership.organizationId,
@@ -295,7 +295,7 @@ export async function updateUnitStatusAction(
   formData: FormData,
 ): Promise<InventoryFormState> {
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "properties.update");
   const status = readString(formData, "status") as UnitStatus;
   try {
     if (!UNIT_STATUSES.includes(status)) {
@@ -339,7 +339,7 @@ export async function deleteUnitAction(
   unitId: string,
 ): Promise<InventoryFormState> {
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "properties.delete");
   try {
     await deleteUnit({
       organizationId: membership.organizationId,
@@ -364,7 +364,7 @@ export async function updateChecklistTemplateAction(
   formData: FormData,
 ): Promise<InventoryFormState> {
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "properties.update");
   let items: unknown;
   try {
     items = JSON.parse(readString(formData, "templateJson") || "[]");
@@ -391,7 +391,7 @@ export async function createAmenityAction(
   name: string,
 ): Promise<{ amenity?: AmenityOption; error?: string }> {
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "properties.update");
   if (!AMENITY_SCOPES.includes(scope)) return { error: "Choose a property or unit amenity." };
   try {
     const amenity = await createAmenity({

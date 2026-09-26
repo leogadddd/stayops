@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { requireMembership } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
+import { can } from "@/lib/permissions";
+import { PermissionDenied } from "@/components/app/permission-denied";
 import { TASK_STATUS_LABELS } from "@/lib/labels";
 import { formatPHP } from "@/lib/money";
 import { getTaskDetail } from "@/server/operations/service";
@@ -21,14 +23,16 @@ const STATUS_TONE: Record<string, "sage" | "clay" | "neutral"> = { open: "clay",
 
 export default async function TaskDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const membership = await requireMembership();
+  const membership = await requirePermission("tasks.view");
+  if (!membership) return <PermissionDenied />;
   const { task, unitName, propertyName, items, openDamage, assessment, nextCheckIn } =
     await getTaskDetail(membership.organizationId, id);
   const open = task.status === "open";
-  const owner = membership.role === "owner";
+  const canWork = open && can(membership, "tasks.update");
+  const canResolveDamage = can(membership, "damage.update");
   const doneCount = items.filter((item) => item.completedAt !== null).length;
   const requiredComplete = items.every((item) => !item.required || item.completedAt !== null);
-  const canReviewReady = requiredComplete && (assessment.canMarkReady || owner);
+  const canReviewReady = canWork && requiredComplete && (assessment.canMarkReady || canResolveDamage);
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -47,7 +51,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
         <Card className="lg:col-span-3">
           <CardHeader><h2 className="font-display text-lg text-pine">Turnover checklist</h2></CardHeader>
           <CardBody>
-            <Checklist taskId={task.id} editable={open} items={items.map((item) => ({
+            <Checklist taskId={task.id} editable={canWork} items={items.map((item) => ({
               id: item.id, label: item.label, required: item.required, completed: item.completedAt !== null,
             }))} />
             <div className="mt-4 border-t border-pine/10 pt-4">
@@ -68,7 +72,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
                   {assessment.openDamageCount > 0 ? (
                     <p className="rounded-lg border border-clay/25 bg-clay/10 p-3 text-sm text-clay-deep">
                       {assessment.openDamageCount} open damage {assessment.openDamageCount === 1 ? "report needs" : "reports need"} attention.
-                      {owner ? " Resolve the damage, or give a reason to mark ready anyway." : " Ask the owner to review the damage before marking ready."}
+                      {canResolveDamage ? " Resolve the damage, or give a reason to mark ready anyway." : " Ask someone who can resolve damage to review it before marking ready."}
                     </p>
                   ) : null}
                   {canReviewReady ? (
@@ -92,7 +96,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
           <Card>
             <CardHeader className="flex items-center justify-between gap-3">
               <h2 className="font-display text-lg text-pine">Notes</h2>
-              {open ? <Link href={`/tasks/${task.id}/edit`} className="text-sm font-medium text-clay hover:underline">Edit notes</Link> : null}
+              {canWork ? <Link href={`/tasks/${task.id}/edit`} className="text-sm font-medium text-clay hover:underline">Edit notes</Link> : null}
             </CardHeader>
             <CardBody><p className="whitespace-pre-line text-sm text-ink/70">{task.notes || "No turnover notes yet."}</p></CardBody>
           </Card>
@@ -109,7 +113,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
             <h2 className="font-display text-lg text-pine">Damage reports</h2>
             <p className="mt-1 text-xs text-ink/55">Open reports for this unit.</p>
           </div>
-          {open ? <Link href={`/tasks/${task.id}/damage/new`} className={buttonClassName("clay", "sm")}>Report damage</Link> : null}
+          {open && can(membership, "damage.create") ? <Link href={`/tasks/${task.id}/damage/new`} className={buttonClassName("clay", "sm")}>Report damage</Link> : null}
         </CardHeader>
         {openDamage.length === 0 ? (
           <CardBody><p className="text-sm text-ink/60">No open damage for this unit.</p></CardBody>
@@ -120,7 +124,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
                 <TableHead scope="col">Damage</TableHead>
                 <TableHead scope="col">Reported</TableHead>
                 <TableHead scope="col" className="text-right">Estimated cost</TableHead>
-                {owner ? <TableHead scope="col" className="text-right">Action</TableHead> : null}
+                {canResolveDamage ? <TableHead scope="col" className="text-right">Action</TableHead> : null}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -129,7 +133,7 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
                   <TableCell className="min-w-56 whitespace-pre-line text-pine">{report.description}</TableCell>
                   <TableCell className="whitespace-nowrap text-ink/60">{TIME_LABEL.format(report.createdAt)}</TableCell>
                   <TableCell className="text-right tabular-nums text-ink/70">{report.estimatedAmountCents !== null ? formatPHP(report.estimatedAmountCents) : "—"}</TableCell>
-                  {owner ? <TableCell className="text-right"><Link href={`/tasks/${task.id}/damage/${report.id}/resolve`} className={buttonClassName("outline", "sm")}>Resolve</Link></TableCell> : null}
+                  {canResolveDamage ? <TableCell className="text-right"><Link href={`/tasks/${task.id}/damage/${report.id}/resolve`} className={buttonClassName("outline", "sm")}>Resolve</Link></TableCell> : null}
                 </TableRow>
               ))}
             </TableBody>

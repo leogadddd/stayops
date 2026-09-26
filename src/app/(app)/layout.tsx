@@ -1,4 +1,9 @@
-import { listMemberships, requireMembership, requireUser } from "@/lib/auth/session";
+import {
+  listMemberships,
+  requireMembership,
+  requireUser,
+} from "@/lib/auth/session";
+import { resolvePermissions } from "@/lib/permissions";
 import { AppHeader, AppSidebar } from "@/components/app/sidebar";
 import { getOrganizationLogoUrl } from "@/server/orgs/service";
 
@@ -46,8 +51,9 @@ export default async function AppLayout({
     userEmail: user.email,
     userImage: user.image?.startsWith(`user/${user.id}/`)
       ? `/api/users/${user.id}/profile-image`
-      : user.image ?? null,
+      : (user.image ?? null),
     role: membership.role,
+    permissions: membership.permissions ?? resolvePermissions(membership.role),
   };
   return (
     <div className="flex h-dvh overflow-hidden bg-paper">

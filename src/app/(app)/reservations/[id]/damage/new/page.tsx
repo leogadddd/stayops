@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
-import { requireMembership } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
+import { PermissionDenied } from "@/components/app/permission-denied";
 import { DamageReportForm } from "@/app/(app)/tasks/damage-report-form";
 import { ReservationActionPage, loadActionReservation } from "../../action-page";
 
 export const metadata: Metadata = { title: "Report damage" };
 
 export default async function NewReservationDamagePage({ params }: { params: Promise<{ id: string }> }) {
-  const membership = await requireMembership();
+  const membership = await requirePermission("damage.create");
+  if (!membership) return <PermissionDenied />;
   const { id } = await params;
   const { reservation, guest, unit } = await loadActionReservation(membership.organizationId, id);
   const available = reservation.status === "checked_in" || reservation.status === "checked_out";

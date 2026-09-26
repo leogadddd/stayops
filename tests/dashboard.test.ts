@@ -13,7 +13,7 @@ import { listTasks } from "@/server/operations/service";
 import { getDashboardSeries } from "@/server/reports/dashboard";
 import { getReport } from "@/server/reports/service";
 
-vi.mock("@/lib/auth/session", () => ({ requireMembership: vi.fn() }));
+vi.mock("@/lib/auth/session", async () => (await import("./helpers/session-mock")).mockSessionModule());
 vi.mock("@/server/inventory/availability", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/server/inventory/availability")>()), listCalendarActivity: vi.fn(), getOccupancySegments: vi.fn() }));
 vi.mock("@/server/inventory/service", () => ({ listOrgUnits: vi.fn(), listProperties: vi.fn() }));
 vi.mock("@/server/inventory/stay-search", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/server/inventory/stay-search")>()), findFreeUnitIds: vi.fn() }));

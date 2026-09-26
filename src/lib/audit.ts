@@ -120,6 +120,23 @@ export function formatAuditDetails(event: AuditDisplayEvent): string | null {
     case "organization.staff_invited":
     case "organization.staff_removed":
       return join([text(metadata, "name"), text(metadata, "email")]) || null;
+    case "organization.permissions_updated": {
+      const role = text(metadata, "role");
+      const count = (key: string) => (Array.isArray(metadata?.[key]) ? (metadata[key] as unknown[]).length : 0);
+      return join([
+        role ? words(role) : null,
+        count("granted") ? `${count("granted")} granted` : null,
+        count("revoked") ? `${count("revoked")} removed` : null,
+      ]) || null;
+    }
+    case "organization.member_role_changed": {
+      const from = text(metadata, "fromRole");
+      const to = text(metadata, "toRole");
+      return join([
+        text(metadata, "name"),
+        from && to ? `${words(from)} → ${words(to)}` : null,
+      ]) || null;
+    }
     case "task.item_completed":
     case "task.item_reopened":
       return text(metadata, "label");

@@ -17,6 +17,7 @@ import { buttonClassName } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireMembership } from "@/lib/auth/session";
+import { can } from "@/lib/permissions";
 import { calendarEventsForUnit, monthGridRange } from "@/lib/calendar";
 import { seriesStart } from "@/lib/dashboard-series";
 import {
@@ -103,7 +104,8 @@ export default async function DashboardPage() {
     unitDays.map((item) => [item.unitId, item.today]),
   );
   const month = today.slice(0, 7);
-  const isOwner = membership.role === "owner";
+  // Revenue and balances are report figures.
+  const showPerformance = can(membership, "reports.view");
   const monthGrid = monthGridRange(month);
 
   const [activity, openTasks, monthSegmentsByUnit, series, monthReport] =
@@ -116,13 +118,13 @@ export default async function DashboardPage() {
         monthGrid.start,
         monthGrid.end,
       ),
-      isOwner
+      showPerformance
         ? getDashboardSeries(membership.organizationId, {
             from: seriesStart(today),
             to: addDaysLocal(today, 1),
           }).catch(logAndSkip("performance series"))
         : null,
-      isOwner
+      showPerformance
         ? getReport(membership.organizationId, {
             from: monthNightRange(month).start,
             to: monthNightRange(month).end,
@@ -243,7 +245,7 @@ export default async function DashboardPage() {
                   : "confirmed",
           href: event.reservationId
             ? `/reservations/${event.reservationId}`
-            : isOwner
+            : can(membership, "properties.view")
               ? `/properties/${unit.propertyId}/units/${unit.id}`
               : undefined,
         },
@@ -351,12 +353,12 @@ export default async function DashboardPage() {
         <EmptyState
           title="Your operations dashboard is ready"
           description={
-            isOwner
+            can(membership, "properties.create")
               ? "Add your first property and unit to start tracking arrivals, cleaning work, occupancy and cash movement."
-              : "Ask the owner to add the first property and unit."
+              : "Ask an owner or admin to add the first property and unit."
           }
           action={
-            isOwner ? (
+            can(membership, "properties.create") ? (
               <Link
                 href="/properties/new"
                 className={buttonClassName("clay", "md")}
@@ -631,7 +633,7 @@ export default async function DashboardPage() {
             </Card>
           </section>
 
-          {isOwner ? (
+          {showPerformance ? (
             series ? (
               <PerformanceSection
                 series={series}

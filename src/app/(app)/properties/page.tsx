@@ -2,7 +2,7 @@ import { photoSrc } from "@/lib/photos";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { BedDouble, DoorOpen, MapPin, Plus, TrendingUp } from "lucide-react";
-import { requireOwner } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
 import { PermissionDenied } from "@/components/app/permission-denied";
 import { PageHeading } from "@/components/app/page-heading";
 import { addDaysLocal, todayInTimeZone } from "@/lib/dates";
@@ -21,7 +21,7 @@ export const metadata: Metadata = { title: "Properties" };
 const OUTLOOK_DAYS = 30;
 
 export default async function PropertiesPage() {
-  const membership = await requireOwner();
+  const membership = await requirePermission("properties.view");
   if (!membership) return <PermissionDenied />;
 
   const [properties, units] = await Promise.all([

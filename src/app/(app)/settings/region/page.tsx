@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
-import { requireOwner } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { organizations } from "@/lib/db/schema";
 import { PermissionDenied } from "@/components/app/permission-denied";
@@ -11,7 +11,7 @@ import { RegionForm } from "../region-form";
 export const metadata: Metadata = { title: "Region settings" };
 
 export default async function RegionSettingsPage() {
-  const membership = await requireOwner();
+  const membership = await requirePermission("organization.update");
   if (!membership) return <PermissionDenied />;
   const organization = await db.query.organizations.findFirst({ where: eq(organizations.id, membership.organizationId) });
   if (!organization) notFound();

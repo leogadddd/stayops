@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { requireOwner } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
 import { PageHeading } from "@/components/app/page-heading";
 import { PermissionDenied } from "@/components/app/permission-denied";
 import { PropertyForm } from "../property-form";
@@ -11,7 +11,7 @@ import { eq } from "drizzle-orm";
 export const metadata: Metadata = { title: "Add property" };
 
 export default async function NewPropertyPage() {
-  const membership = await requireOwner();
+  const membership = await requirePermission("properties.create");
   if (!membership) return <PermissionDenied />;
 
   const organization = await db.query.organizations.findFirst({ where: eq(organizations.id, membership.organizationId) });

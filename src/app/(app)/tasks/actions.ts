@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { ZodError } from "zod";
-import { requireMembership, assertOwner, PermissionError } from "@/lib/auth/session";
+import { requireMembership, assertCan, PermissionError } from "@/lib/auth/session";
+import { can } from "@/lib/permissions";
 import {
   createDamageReport,
   getTaskDetail,
@@ -44,6 +45,7 @@ export async function setTaskItemCompletedAction(
 ): Promise<TaskFormState> {
   const membership = await requireMembership();
   try {
+    assertCan(membership, "tasks.update");
     await setTaskItemCompleted({
       organizationId: membership.organizationId,
       actorUserId: membership.userId,
@@ -66,10 +68,11 @@ export async function markTaskReadyAction(
 ): Promise<TaskFormState> {
   const membership = await requireMembership();
   try {
+    assertCan(membership, "tasks.update");
     await markTaskReady({
       organizationId: membership.organizationId,
       actorUserId: membership.userId,
-      actorRole: membership.role,
+      canOverrideDamage: can(membership, "damage.update"),
       taskId,
       data: { overrideReason: readString(formData, "overrideReason") },
     });
@@ -88,6 +91,7 @@ export async function updateTaskNotesAction(
 ): Promise<TaskFormState> {
   const membership = await requireMembership();
   try {
+    assertCan(membership, "tasks.update");
     const { task } = await getTaskDetail(membership.organizationId, taskId);
     if (task.status !== "open") {
       throw new OperationsError("This task is already marked ready and can no longer be edited.");
@@ -118,6 +122,7 @@ export async function createDamageReportAction(
 ): Promise<DamageFormState> {
   const membership = await requireMembership();
   try {
+    assertCan(membership, "damage.create");
     await createDamageReport({
       organizationId: membership.organizationId,
       actorUserId: membership.userId,
@@ -145,7 +150,7 @@ export async function resolveDamageReportAction(
   formData: FormData,
 ): Promise<DamageFormState> {
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "damage.update");
   try {
     const { openDamage } = await getTaskDetail(membership.organizationId, taskId);
     if (!openDamage.some((report) => report.id === damageReportId)) {

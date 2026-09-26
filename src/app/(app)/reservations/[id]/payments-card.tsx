@@ -8,10 +8,11 @@ import { ProofQueue } from "./proof-queue";
 
 const TIME_LABEL = new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeStyle: "short" });
 
-export function PaymentsCard({ reservationId, ledger, isOwner, canRecord = true }: {
+export function PaymentsCard({ reservationId, ledger, canReviewProofs, canRecord = true }: {
   reservationId: string;
   ledger: ReservationLedger;
-  isOwner: boolean;
+  /** payments.update: record or dismiss guest payment proofs. */
+  canReviewProofs: boolean;
   canRecord?: boolean;
 }) {
   const { balances, payments, refunds, deductions, proofs } = ledger;
@@ -88,7 +89,7 @@ export function PaymentsCard({ reservationId, ledger, isOwner, canRecord = true 
           </Table>
         </section>
 
-        {isOwner && proofs.length > 0 ? (
+        {canReviewProofs && proofs.length > 0 ? (
           <div className="border-t border-pine/10 pt-5">
             <ProofQueue reservationId={reservationId} canRecord={canRecord} proofs={proofs.map((proof) => ({ id: proof.id, reference: proof.reference, note: proof.note, createdAt: proof.createdAt, status: proof.status }))} />
           </div>

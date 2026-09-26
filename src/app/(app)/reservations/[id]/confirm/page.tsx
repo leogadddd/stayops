@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { requireOwner } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
 import { PermissionDenied } from "@/components/app/permission-denied";
 import { isLiveHold } from "@/server/reservations/service";
 import { ReservationActionPage, loadActionReservation } from "../action-page";
@@ -8,7 +8,7 @@ import { ConfirmHoldForm } from "../confirm-hold-form";
 export const metadata: Metadata = { title: "Confirm hold" };
 
 export default async function ConfirmReservationPage({ params }: { params: Promise<{ id: string }> }) {
-  const membership = await requireOwner();
+  const membership = await requirePermission("reservations.update");
   if (!membership) return <PermissionDenied />;
   const { id } = await params;
   const { reservation, guest, unit } = await loadActionReservation(membership.organizationId, id);

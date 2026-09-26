@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
-import { auditEvents, memberships } from "@/lib/db/schema";
+import { auditEvents, memberships, roles } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import {
   createHold,
@@ -13,7 +13,7 @@ import { InventoryError } from "@/server/inventory/validation";
 import { recordPayment } from "@/server/payments/service";
 import { PaymentError } from "@/server/payments/validation";
 import { listAuditEvents } from "@/server/audit/service";
-import { acceptInvitation, inviteStaff, removeStaff, OrgError } from "@/server/orgs/service";
+import { acceptInvitation, changeMemberRole, inviteStaff, removeStaff, OrgError } from "@/server/orgs/service";
 import {
   createActiveUnit,
   createTestOrg,
@@ -106,5 +106,35 @@ describe("organization isolation", () => {
     await expect(removeStaff({
       organizationId: a.org.id, actorUserId: a.owner.id, membershipId: member!.id,
     })).rejects.toBeInstanceOf(OrgError);
+  });
+
+  it("promotes and demotes members within the organization and audits it", async () => {
+    const a = await createTestOrg("role-a");
+    const b = await createTestOrg("role-b");
+    const staff = await createTestUser("role-staff");
+    const invitation = await inviteStaff({ organizationId: a.org.id, actorUserId: a.owner.id, email: staff.email });
+    await acceptInvitation({ code: invitation.code, userId: staff.id, email: staff.email });
+    const memberRole = async (userId: string) => {
+      const [row] = await db.select({ id: memberships.id, key: roles.key, legacy: memberships.role }).from(memberships)
+        .innerJoin(roles, eq(memberships.roleId, roles.id))
+        .where(and(eq(memberships.organizationId, a.org.id), eq(memberships.userId, userId)));
+      return row!;
+    };
+    const member = await memberRole(staff.id);
+
+    await changeMemberRole({ organizationId: a.org.id, actorUserId: a.owner.id, membershipId: member.id, role: "admin" });
+    expect(await memberRole(staff.id)).toMatchObject({ key: "admin", legacy: "staff" });
+    await changeMemberRole({ organizationId: a.org.id, actorUserId: a.owner.id, membershipId: member.id, role: "operations_manager" });
+    expect((await memberRole(staff.id)).key).toBe("operations_manager");
+
+    // Another organization can't touch the member, and owners can't be changed.
+    await expect(changeMemberRole({ organizationId: b.org.id, actorUserId: b.owner.id, membershipId: member.id, role: "staff" }))
+      .rejects.toBeInstanceOf(OrgError);
+    const owner = await memberRole(a.owner.id);
+    await expect(changeMemberRole({ organizationId: a.org.id, actorUserId: staff.id, membershipId: owner.id, role: "staff" }))
+      .rejects.toBeInstanceOf(OrgError);
+
+    const events = await listAuditEvents(a.org.id);
+    expect(events.filter((event) => event.action === "organization.member_role_changed")).toHaveLength(2);
   });
 });

@@ -21,7 +21,9 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import { requireMembership } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
+import { can } from "@/lib/permissions";
+import { PermissionDenied } from "@/components/app/permission-denied";
 import { db } from "@/lib/db";
 import type { ReservationStatus } from "@/lib/db/schema";
 import { RESERVATION_STATUS_LABELS } from "@/lib/labels";
@@ -86,9 +88,13 @@ export default async function ReservationDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const membership = await requireMembership();
+  const membership = await requirePermission("reservations.view");
+  if (!membership) return <PermissionDenied />;
   const { id } = await params;
-  const isOwner = membership.role === "owner";
+  const canSeeMoney = can(membership, "payments.view");
+  const canRecordMoney = can(membership, "payments.create");
+  const canConfirmHold = can(membership, "reservations.update");
+  const canRunStay = can(membership, "stays.update");
   await expireStaleHolds(db, membership.organizationId);
 
   let detail;
@@ -110,23 +116,24 @@ export default async function ReservationDetailPage({
   } = detail;
   // Old reservation records and test doubles predate the optional occupant list.
   const occupants = detail.occupants ?? [];
-  const ledger = isOwner
+  const ledger = canSeeMoney
     ? await getReservationLedger(membership.organizationId, id)
     : null;
   const turnoverTask =
     reservation.status === "checked_out"
       ? await getTaskForReservation(membership.organizationId, id)
       : null;
-  const totals = isOwner ? computeTotals(charges) : null;
+  const totals = canSeeMoney ? computeTotals(charges) : null;
   const nights = listNights(reservation.checkInDate, reservation.checkOutDate);
   const liveHold = isLiveHold(reservation.status, reservation.expiresAt);
   const moneyEditable =
-    reservation.status !== "cancelled" && reservation.status !== "expired";
-  const canCancel = isOwner && (liveHold || reservation.status === "confirmed");
-  // Matches updateReservation: only an active hold or a confirmed booking is editable.
-  const canEdit = isOwner && (liveHold || reservation.status === "confirmed");
-  const canReportDamage =
-    reservation.status === "checked_in" || reservation.status === "checked_out";
+    canRecordMoney && reservation.status !== "cancelled" && reservation.status !== "expired";
+  const canCancel = can(membership, "reservations.delete") && (liveHold || reservation.status === "confirmed");
+  // Matches updateReservation: only an active hold or a confirmed booking is
+  // editable. Editing re-prices the stay, so it also needs payments.create.
+  const canEdit = canConfirmHold && canRecordMoney && (liveHold || reservation.status === "confirmed");
+  const canReportDamage = can(membership, "damage.create")
+    && (reservation.status === "checked_in" || reservation.status === "checked_out");
   const href = `/reservations/${reservation.id}`;
 
   const timezone = property?.timezone ?? "Asia/Manila";
@@ -216,7 +223,7 @@ export default async function ReservationDetailPage({
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-              {isOwner && liveHold ? (
+              {canConfirmHold && liveHold ? (
                 <Link
                   href={`${href}/confirm`}
                   className={buttonClassName("clay", "md")}
@@ -225,7 +232,7 @@ export default async function ReservationDetailPage({
                   Confirm hold
                 </Link>
               ) : null}
-              {reservation.status === "confirmed" ? (
+              {canRunStay && reservation.status === "confirmed" ? (
                 <Link
                   href={`${href}/check-in`}
                   className={buttonClassName("clay", "md")}
@@ -234,7 +241,7 @@ export default async function ReservationDetailPage({
                   Check in
                 </Link>
               ) : null}
-              {reservation.status === "checked_in" ? (
+              {canRunStay && reservation.status === "checked_in" ? (
                 <Link
                   href={`${href}/check-out`}
                   className={buttonClassName("clay", "md")}
@@ -280,7 +287,7 @@ export default async function ReservationDetailPage({
           label="Guests"
           value={String(reservation.guestCount)}
         />
-        {isOwner && balances ? (
+        {canSeeMoney && balances ? (
           <>
             <StatTile
               icon={Wallet}
@@ -523,7 +530,7 @@ export default async function ReservationDetailPage({
             </div>
           </section>
 
-          {isOwner && ledger && totals ? (
+          {canSeeMoney && ledger && totals ? (
             <>
               <Card>
                 <CardHeader>
@@ -596,7 +603,7 @@ export default async function ReservationDetailPage({
               <PaymentsCard
                 reservationId={reservation.id}
                 ledger={ledger}
-                isOwner={isOwner}
+                canReviewProofs={can(membership, "payments.update")}
                 canRecord={moneyEditable}
               />
             </>
@@ -612,7 +619,7 @@ export default async function ReservationDetailPage({
           className="min-w-0 space-y-6 lg:sticky lg:top-0"
           aria-label="Reservation actions"
         >
-          {isOwner && balances ? (
+          {canSeeMoney && balances ? (
             <section className="rounded-2xl border border-pine/10 bg-white p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
               <div className="flex items-baseline justify-between gap-3">
                 <h2 className="font-display text-lg text-pine">Balance</h2>
@@ -716,7 +723,7 @@ export default async function ReservationDetailPage({
               Manage reservation
             </h2>
             <div className="mt-4 space-y-2">
-              {isOwner && liveHold ? (
+              {canConfirmHold && liveHold ? (
                 <Link
                   href={`${href}/confirm`}
                   className={buttonClassName(
@@ -729,7 +736,7 @@ export default async function ReservationDetailPage({
                   <ArrowRight className="h-4 w-4" aria-hidden />
                 </Link>
               ) : null}
-              {reservation.status === "confirmed" ? (
+              {canRunStay && reservation.status === "confirmed" ? (
                 <Link
                   href={`${href}/check-in`}
                   className={buttonClassName(
@@ -742,7 +749,7 @@ export default async function ReservationDetailPage({
                   <ArrowRight className="h-4 w-4" aria-hidden />
                 </Link>
               ) : null}
-              {reservation.status === "checked_in" ? (
+              {canRunStay && reservation.status === "checked_in" ? (
                 <Link
                   href={`${href}/check-out`}
                   className={buttonClassName(
@@ -797,6 +804,7 @@ export default async function ReservationDetailPage({
               ) : null}
               {!liveHold &&
               !canReportDamage &&
+              can(membership, "reservations.create") &&
               reservation.status !== "confirmed" ? (
                 <Link
                   href="/reservations/new"
@@ -806,15 +814,15 @@ export default async function ReservationDetailPage({
                   New reservation
                 </Link>
               ) : null}
-              {liveHold && !isOwner ? (
+              {liveHold && !canConfirmHold ? (
                 <p className="text-sm text-ink/60">
-                  The owner can confirm or cancel this hold.
+                  Someone who can confirm bookings will confirm or cancel this hold.
                 </p>
               ) : null}
             </div>
           </section>
 
-          {isOwner ? (
+          {can(membership, "guests.update") ? (
             <section className="rounded-2xl border border-pine/10 bg-white p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
               <h2 className="font-display text-lg text-pine">Guest link</h2>
               <div className="mt-4">

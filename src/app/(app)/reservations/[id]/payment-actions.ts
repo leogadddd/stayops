@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { ZodError } from "zod";
-import { requireMembership, assertOwner, PermissionError } from "@/lib/auth/session";
+import { requireMembership, assertCan, PermissionError } from "@/lib/auth/session";
 import {
   addDeduction,
   dismissProof,
@@ -41,7 +41,7 @@ export async function recordPaymentAction(
   formData: FormData,
 ): Promise<PaymentFormState> {
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "payments.create");
   try {
     await recordPayment({
       organizationId: membership.organizationId,
@@ -71,7 +71,7 @@ export async function recordProofPaymentAction(
   formData: FormData,
 ): Promise<PaymentFormState> {
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "payments.update");
   try {
     await recordPayment({
       organizationId: membership.organizationId,
@@ -102,7 +102,7 @@ export async function recordRefundAction(
   formData: FormData,
 ): Promise<PaymentFormState> {
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "payments.create");
   try {
     await recordRefund({
       organizationId: membership.organizationId,
@@ -129,7 +129,7 @@ export async function addDeductionAction(
   formData: FormData,
 ): Promise<PaymentFormState> {
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "payments.create");
   try {
     await addDeduction({
       organizationId: membership.organizationId,
@@ -157,7 +157,7 @@ export async function dismissProofAction(
   void _prev;
   void _formData;
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "payments.update");
   try {
     await dismissProof({
       organizationId: membership.organizationId,

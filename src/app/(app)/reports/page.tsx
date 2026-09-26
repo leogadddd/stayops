@@ -6,7 +6,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Label, Select } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { requireOwner } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
 import { addDaysLocal, monthNightRange, todayInTimeZone } from "@/lib/dates";
 import { formatPHP } from "@/lib/money";
 import type { ReportSummary } from "@/lib/reporting";
@@ -87,10 +87,10 @@ export default async function ReportsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const membership = await requireOwner();
+  const membership = await requirePermission("reports.view");
   if (!membership) {
     return (
-      <PermissionDenied description="Reports are limited to the organization owner. Staff members can use the calendar, reservations, guests and tasks pages." />
+      <PermissionDenied description="Reports are limited to the organization owner. Other team members can use the calendar, reservations, guests and tasks pages." />
     );
   }
 

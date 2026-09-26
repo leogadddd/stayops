@@ -5,10 +5,9 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { memberships, organizations } from "@/lib/db/schema";
-import { roles } from "@/lib/db/schema";
-import { desc, eq } from "drizzle-orm";
-import { hasRolePermission, type Permission, type RoleKey } from "@/lib/permissions";
+import { memberships, organizationRolePermissions, organizations, roles } from "@/lib/db/schema";
+import { and, desc, eq } from "drizzle-orm";
+import { can, resolvePermissions, type Permission, type RoleKey } from "@/lib/permissions";
 
 export const ACTIVE_ORGANIZATION_COOKIE = "stayops_active_organization_id";
 
@@ -50,6 +49,11 @@ export interface MembershipContext {
   organizationSlug: string;
   role: RoleKey;
   userId: string;
+  /**
+   * Effective permissions in this organization. `requireMembership` always
+   * sets it; when absent (hand-built contexts) the role's defaults apply.
+   */
+  permissions?: readonly Permission[];
 }
 
 /**
@@ -78,37 +82,47 @@ export const requireMembership = cache(async (): Promise<MembershipContext> => {
   return {
     ...membership,
     userId: session.user.id,
+    permissions: await getRolePermissions(membership.organizationId, membership.role),
   };
 });
 
-/**
- * Owner-only guard for money, reports, settings and staff management. Returns
- * null for staff members so callers can render a permission-denied state
- * instead of silently redirecting.
- */
-export const requireOwner = cache(async (): Promise<MembershipContext | null> => {
-  const membership = await requireMembership();
-  return membership.role === "owner" ? membership : null;
+/** The organization's permission matrix for one role, defaults merged with its overrides. */
+export const getRolePermissions = cache(async (organizationId: string, role: RoleKey): Promise<Permission[]> => {
+  if (role === "owner") return resolvePermissions("owner");
+  const overrides = await db
+    .select({ permission: organizationRolePermissions.permission, allowed: organizationRolePermissions.allowed })
+    .from(organizationRolePermissions)
+    .innerJoin(roles, eq(organizationRolePermissions.roleId, roles.id))
+    .where(and(eq(organizationRolePermissions.organizationId, organizationId), eq(roles.key, role)));
+  return resolvePermissions(role, overrides);
 });
 
-/** Thrown by server actions when a staff member attempts an owner-only mutation. */
+/**
+ * Page guard: the membership when it holds `permission`, otherwise null so the
+ * page can render a permission-denied state instead of silently redirecting.
+ */
+export const requirePermission = cache(async (permission: Permission): Promise<MembershipContext | null> => {
+  const membership = await requireMembership();
+  return can(membership, permission) ? membership : null;
+});
+
+/** Thrown by server actions when a member attempts something their role doesn't allow. */
 export class PermissionError extends Error {
-  constructor(message = "Only the organization owner can do that.") {
+  constructor(message = "Your role doesn’t allow that. Ask an owner or admin for access.") {
     super(message);
     this.name = "PermissionError";
   }
 }
 
-export function assertOwner(membership: MembershipContext): void {
-  if (membership.role !== "owner") {
-    throw new PermissionError();
-  }
+/** Server action guard: throws a PermissionError unless the member holds `permission`. */
+export function assertCan(membership: MembershipContext, permission: Permission): void {
+  if (!can(membership, permission)) throw new PermissionError();
 }
 
-/** Use this for new capability checks; owner-only legacy flows stay explicit. */
-export function assertPermission(membership: MembershipContext, permission: Permission): void {
-  if (!hasRolePermission(membership.role, permission)) {
-    throw new PermissionError("You do not have permission to do that.");
+/** Onboarding creates the organization's first property; that flow stays with its owner. */
+export function assertOwner(membership: MembershipContext): void {
+  if (membership.role !== "owner") {
+    throw new PermissionError("Only the organization owner can do that.");
   }
 }
 

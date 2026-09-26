@@ -6,7 +6,7 @@ import { dayLabel, timeLabel, UnitPhoto } from "../../calendar/availability/stay
 import type { UnitOption } from "./reservation-form";
 
 /** The sticky side card: which unit, when, who, and (for owners) what it costs. */
-export function ReservationSummary({ unit, checkIn, checkOut, nights, guestCount, guestName, lines, totals, paymentCents, paymentAllocation, alreadyPaid, isOwner }: {
+export function ReservationSummary({ unit, checkIn, checkOut, nights, guestCount, guestName, lines, totals, paymentCents, paymentAllocation, alreadyPaid, showPricing }: {
   unit: UnitOption | undefined;
   checkIn: string;
   checkOut: string;
@@ -19,7 +19,7 @@ export function ReservationSummary({ unit, checkIn, checkOut, nights, guestCount
   paymentAllocation: "booking" | "security_deposit";
   /** Editing: what the ledger already holds for this reservation. */
   alreadyPaid?: { bookingCents: number; depositCents: number };
-  isOwner: boolean;
+  showPricing: boolean;
 }) {
   const paidBooking = (alreadyPaid?.bookingCents ?? 0) + (paymentCents && paymentAllocation === "booking" ? paymentCents : 0);
   const paidDeposit = (alreadyPaid?.depositCents ?? 0) + (paymentCents && paymentAllocation === "security_deposit" ? paymentCents : 0);
@@ -48,7 +48,7 @@ export function ReservationSummary({ unit, checkIn, checkOut, nights, guestCount
         </dl>
         {guestName ? <p className="flex items-center gap-2 text-sm text-ink/70"><CalendarDays className="h-4 w-4 shrink-0 text-pine/50" aria-hidden />For <span className="truncate font-medium text-pine">{guestName}</span></p> : null}
 
-        {isOwner ? (
+        {showPricing ? (
           <div className="border-t border-pine/10 pt-4">
             <h3 className="text-xs font-medium uppercase tracking-wide text-ink/45">Payment breakdown</h3>
             {lines.length ? (

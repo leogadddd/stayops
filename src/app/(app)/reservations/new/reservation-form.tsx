@@ -162,11 +162,15 @@ export function ReservationForm({
   defaultCheckOut,
   requestedUnitId,
   defaultGuestCount = 1,
-  isOwner,
+  canConfirm,
+  canSetCharges,
   edit,
   today,
 }: {
-  isOwner: boolean;
+  /** Book straight to confirmed (needs reservations.update and payments.create). */
+  canConfirm: boolean;
+  /** Set charge lines and see prices (payments.create); others get the unit's standard rates. */
+  canSetCharges: boolean;
   /** The first property's local date; the calendar can't book before it. */
   today: string;
   edit?: ReservationEdit;
@@ -209,7 +213,7 @@ export function ReservationForm({
   // Checked: recorded as received now. Unchecked: the owner enters when.
   const [receivedNow, setReceivedNow] = useState(true);
   // Review
-  const [submitMode, setSubmitMode] = useState<"hold" | "confirmed">(isOwner ? "confirmed" : "hold");
+  const [submitMode, setSubmitMode] = useState<"hold" | "confirmed">(canConfirm ? "confirmed" : "hold");
   const [holdMinutes, setHoldMinutes] = useState("1440");
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [idempotencyKey] = useState(() => crypto.randomUUID());
@@ -292,7 +296,7 @@ export function ReservationForm({
         : guestMode === "new" && !newGuest.email.trim() && !newGuest.phone.trim() ? "Add an email or phone number for the guest."
           : additional.some((name) => name.trim().length < 2) ? "Enter each additional guest’s full name."
             : null,
-    charges: !isOwner ? null
+    charges: !canSetCharges ? null
       : submittableLines.length === 0 ? "Add at least one charge with a description, quantity and amount."
         : parsed.some((entry) => entry.line === null) ? "Fix the highlighted charge lines. Amounts look like 5500 or 5,500.50."
           : !edit && payment.amount.trim() && paymentCents === null ? "Enter the payment like 3000 or 3,000.50."
@@ -300,7 +304,7 @@ export function ReservationForm({
               : null,
     review: null,
   };
-  const steps: StepId[] = isOwner ? ["stay", "guests", "charges", "review"] : ["stay", "guests", "review"];
+  const steps: StepId[] = canSetCharges ? ["stay", "guests", "charges", "review"] : ["stay", "guests", "review"];
   const firstBlocked = steps.findIndex((step) => stepIssues[step] !== null);
   const requested = steps.indexOf((searchParams.get("step") ?? "stay") as StepId);
   const stepIndex = Math.max(0, Math.min(requested === -1 ? 0 : requested, firstBlocked === -1 ? steps.length - 1 : firstBlocked));
@@ -546,7 +550,7 @@ export function ReservationForm({
             </div>
           ) : null}
 
-          {step === "charges" && isOwner ? (
+          {step === "charges" && canSetCharges ? (
             <div className="space-y-8">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <StepHeading title="Charges" description={edit ? "This reservation’s current charges. Edit any line, or reset to the unit’s rates for the new dates." : "Built from the unit’s rates. Edit any line for a negotiated price, fee, or discount."} />
@@ -684,7 +688,7 @@ export function ReservationForm({
                   <ReviewItem label="Also staying" value={additional.length ? additional.map((name) => name.trim()).join(", ") : "No one else"} />
                 </dl>
               </ReviewBlock>
-              {isOwner ? (
+              {canSetCharges ? (
                 <ReviewBlock title="Charges & payment" onEdit={() => goTo("charges")}>
                   <table className="w-full text-sm">
                     <tbody className="divide-y divide-pine/10">
@@ -705,11 +709,11 @@ export function ReservationForm({
 
               {edit ? null : <fieldset>
                 <legend className="mb-3 font-display text-lg text-pine">Save as</legend>
-                <div className={cn("grid gap-3", isOwner && "md:grid-cols-2")}>
-                  {isOwner ? (
+                <div className={cn("grid gap-3", canConfirm && "md:grid-cols-2")}>
+                  {canConfirm ? (
                     <SaveOption active={submitMode === "confirmed"} onSelect={() => setSubmitMode("confirmed")} icon={ShieldCheck} title="Confirmed booking" description="Locks the dates for this guest and records any payment." />
                   ) : null}
-                  <SaveOption active={submitMode === "hold"} onSelect={() => setSubmitMode("hold")} icon={Clock} title="Hold" description={isOwner ? "Reserves the dates for a limited time while the guest pays." : "Reserves the dates for a limited time for the owner to confirm."}>
+                  <SaveOption active={submitMode === "hold"} onSelect={() => setSubmitMode("hold")} icon={Clock} title="Hold" description={canConfirm ? "Reserves the dates for a limited time while the guest pays." : "Reserves the dates for a limited time for someone who can confirm bookings."}>
                     <div className="mt-3 max-w-48" onClick={(event) => event.stopPropagation()}>
                       <Label htmlFor="holdMinutes">Hold for</Label>
                       <Select id="holdMinutes" value={holdMinutes} onChange={(event) => { setHoldMinutes(event.target.value); setSubmitMode("hold"); }}>{HOLD_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select>
@@ -752,7 +756,7 @@ export function ReservationForm({
           paymentCents={edit ? null : paymentCents}
           paymentAllocation={payment.allocation}
           alreadyPaid={edit?.paid}
-          isOwner={isOwner}
+          showPricing={canSetCharges}
         />
       </aside>
     </div>

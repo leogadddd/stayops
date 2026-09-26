@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
-import { requireOwner } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { organizations } from "@/lib/db/schema";
 import { PageHeading } from "@/components/app/page-heading";
@@ -12,7 +12,7 @@ import { PaymentInstructionsForm } from "../../payment-instructions-form";
 export const metadata: Metadata = { title: "Edit payment instructions" };
 
 export default async function EditPaymentInstructionsPage() {
-  const membership = await requireOwner();
+  const membership = await requirePermission("organization.update");
   if (!membership) return <PermissionDenied />;
 
   const org = await db.query.organizations.findFirst({ where: eq(organizations.id, membership.organizationId) });

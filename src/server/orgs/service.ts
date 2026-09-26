@@ -465,6 +465,45 @@ export async function listOrganizationJoinRequests(organizationId: string) {
     .where(and(eq(organizationJoinRequests.organizationId, organizationId), eq(organizationJoinRequests.status, "pending")));
 }
 
+/** Promote or demote a non-owner member. Ownership is never granted or taken here. */
+export async function changeMemberRole(input: {
+  organizationId: string;
+  actorUserId: string;
+  membershipId: string;
+  role: Exclude<RoleKey, "owner">;
+}): Promise<void> {
+  if ((input.role as RoleKey) === "owner") throw new OrgError("Ownership cannot be granted by changing a role.");
+  await db.transaction(async (tx) => {
+    const [target] = await tx
+      .select({ id: memberships.id, userId: memberships.userId, roleKey: roles.key, name: user.name, email: user.email })
+      .from(memberships)
+      .innerJoin(roles, eq(memberships.roleId, roles.id))
+      .innerJoin(user, eq(memberships.userId, user.id))
+      .where(and(eq(memberships.id, input.membershipId), eq(memberships.organizationId, input.organizationId)))
+      .limit(1);
+    if (!target) throw new OrgError("Member not found.");
+    if (target.roleKey === "owner") throw new OrgError("The owner's role can't be changed.");
+    if (target.userId === input.actorUserId) throw new OrgError("You cannot change your own role.");
+    if (target.roleKey === input.role) return;
+
+    const role = await getRole(tx, input.role);
+    await tx
+      .update(memberships)
+      // The legacy column only distinguishes owners; every other role is "staff".
+      .set({ roleId: role.id, role: "staff", updatedAt: new Date() })
+      .where(and(eq(memberships.id, target.id), eq(memberships.organizationId, input.organizationId)));
+
+    await tx.insert(auditEvents).values({
+      organizationId: input.organizationId,
+      actorUserId: input.actorUserId,
+      entity: "membership",
+      entityId: target.id,
+      action: "organization.member_role_changed",
+      metadata: { name: target.name, email: target.email, fromRole: target.roleKey, toRole: input.role },
+    });
+  });
+}
+
 export async function removeStaff(input: {
   organizationId: string;
   actorUserId: string;

@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { ZodError } from "zod";
-import { requireMembership, assertOwner, PermissionError } from "@/lib/auth/session";
+import { requireMembership, assertCan, PermissionError } from "@/lib/auth/session";
+import { can } from "@/lib/permissions";
 import {
   cancelReservation,
   confirmHold,
@@ -74,8 +75,11 @@ export async function createReservationAction(
 ): Promise<ReservationFormState> {
   const membership = await requireMembership();
   const mode = readString(formData, "mode") === "confirmed" ? "confirmed" : "hold";
+  assertCan(membership, "reservations.create");
+  // Booking straight to confirmed skips the hold review and records payment.
   if (mode === "confirmed") {
-    assertOwner(membership);
+    assertCan(membership, "reservations.update");
+    assertCan(membership, "payments.create");
   }
 
   const guestMode = readString(formData, "guestMode") === "new" ? "new" : "existing";
@@ -102,7 +106,9 @@ export async function createReservationAction(
       throw new ReservationError("Check-out must be after check-in.", "checkOut");
     }
     let charges: ChargeLineInput[];
-    if (membership.role === "owner") {
+    // Only people who may set prices send their own charge lines; everyone
+    // else gets the unit's standard rates.
+    if (can(membership, "payments.create")) {
       charges = readChargeLines(formData);
     } else {
       const unit = await getUnitOrThrow(membership.organizationId, details.unitId);
@@ -171,7 +177,7 @@ export async function confirmHoldAction(
   formData: FormData,
 ): Promise<ReservationFormState> {
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "reservations.update");
   try {
     await confirmHold({
       organizationId: membership.organizationId,
@@ -193,7 +199,7 @@ export async function cancelReservationAction(
   formData: FormData,
 ): Promise<ReservationFormState> {
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "reservations.delete");
   try {
     await cancelReservation({
       organizationId: membership.organizationId,
@@ -212,7 +218,7 @@ export async function cancelReservationAction(
 
 export async function quickCancelReservationAction(reservationId: string): Promise<ReservationFormState> {
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "reservations.delete");
   try {
     await cancelReservation({ organizationId: membership.organizationId, actorUserId: membership.userId, reservationId, reason: "Cancelled from the reservation list." });
   } catch (error) { return toFormError(error); }
@@ -222,7 +228,9 @@ export async function quickCancelReservationAction(reservationId: string): Promi
 
 export async function updateReservationAction(reservationId: string, _prev: ReservationFormState, formData: FormData): Promise<ReservationFormState> {
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "reservations.update");
+  // Edits re-price the stay.
+  assertCan(membership, "payments.create");
   try {
     await updateReservation({ organizationId: membership.organizationId, actorUserId: membership.userId, reservationId, data: {
       checkIn: readString(formData, "checkIn"), checkOut: readString(formData, "checkOut"), guestCount: Number(readString(formData, "guestCount")),
@@ -244,6 +252,7 @@ export async function checkInAction(
 ): Promise<ReservationFormState> {
   const membership = await requireMembership();
   try {
+    assertCan(membership, "stays.update");
     await checkIn({
       organizationId: membership.organizationId,
       actorUserId: membership.userId,
@@ -265,6 +274,7 @@ export async function checkOutAction(
 ): Promise<ReservationFormState> {
   const membership = await requireMembership();
   try {
+    assertCan(membership, "stays.update");
     await checkOut({
       organizationId: membership.organizationId,
       actorUserId: membership.userId,
@@ -296,7 +306,7 @@ export async function createGuestLinkAction(
   void _prev;
   void _formData;
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "guests.update");
   try {
     const link = await createGuestLink({
       organizationId: membership.organizationId,
@@ -322,7 +332,7 @@ export async function revokeGuestLinkAction(
   void _prev;
   void _formData;
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "guests.update");
   try {
     await revokeGuestLink({
       organizationId: membership.organizationId,

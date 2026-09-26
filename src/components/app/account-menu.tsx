@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ChevronDown, LogOut, UserRound } from "lucide-react";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { signOutAndRedirect } from "@/lib/auth/sign-out";
-import type { RoleKey } from "@/lib/permissions";
+import { roleLabel, type RoleKey } from "@/lib/permissions";
 
 export function AccountMenu({ userName, userEmail, userImage, role }: {
   userName: string;
@@ -47,7 +47,7 @@ export function AccountMenu({ userName, userEmail, userImage, role }: {
         </span>
         <span className="hidden sm:block">
           <span className="block max-w-36 truncate text-sm font-medium text-pine">{userName}</span>
-          <span className="block text-xs text-ink/55">{{ owner: "Owner", admin: "Admin", operations_manager: "Operations Manager", staff: "Staff" }[role]}</span>
+          <span className="block text-xs text-ink/55">{roleLabel(role)}</span>
         </span>
         <ChevronDown className={`hidden h-4 w-4 text-ink/45 transition-transform sm:block ${open ? "rotate-180" : ""}`} aria-hidden />
       </button>
@@ -57,7 +57,7 @@ export function AccountMenu({ userName, userEmail, userImage, role }: {
           <div className="border-b border-pine/10 px-4 py-4">
             <p className="truncate text-sm font-semibold text-pine">{userName}</p>
             <p className="mt-1 truncate text-xs text-ink/55" title={userEmail}>{userEmail}</p>
-            <p className="mt-2 inline-flex rounded-full bg-sage/45 px-2 py-1 text-[11px] font-medium text-pine">{role === "owner" ? "Organization owner" : "Team member"}</p>
+            <p className="mt-2 inline-flex rounded-full bg-sage/45 px-2 py-1 text-[11px] font-medium text-pine">{role === "owner" ? "Organization owner" : `Team member · ${roleLabel(role)}`}</p>
           </div>
           <div className="p-2">
             <Link href="/settings/profile" role="menuitem" onClick={() => setOpen(false)} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-ink hover:bg-pine-mist hover:text-pine">

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { requireMembership } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
+import { can } from "@/lib/permissions";
+import { PermissionDenied } from "@/components/app/permission-denied";
 import { addDaysLocal, isLocalDate, todayInTimeZone } from "@/lib/dates";
 import {
   listOrgUnits,
@@ -17,7 +19,8 @@ export default async function NewReservationPage({
 }: {
   searchParams: Promise<{ unit?: string; checkIn?: string; checkOut?: string; guests?: string }>;
 }) {
-  const membership = await requireMembership();
+  const membership = await requirePermission("reservations.create");
+  if (!membership) return <PermissionDenied />;
   const params = await searchParams;
 
   const [units, properties, guestRows] = await Promise.all([
@@ -28,7 +31,8 @@ export default async function NewReservationPage({
 
   const timezone = properties[0]?.timezone ?? "Asia/Manila";
   const today = todayInTimeZone(timezone);
-  const isOwner = membership.role === "owner";
+  const canSetCharges = can(membership, "payments.create");
+  const canConfirm = canSetCharges && can(membership, "reservations.update");
   const propertyById = new Map(properties.map((property) => [property.id, property]));
 
   const activeUnits = units.filter((unit) => unit.status === "active");
@@ -45,12 +49,13 @@ export default async function NewReservationPage({
         title="New reservation"
         backHref={backHref}
         backLabel={fromSearch ? "Back to stay details" : "All reservations"}
-        description={`${isOwner ? "Place a time-limited hold or a confirmed booking." : "Place a time-limited hold for the owner to review."} Dates use each property's local timezone; the check-out day is free.`}
+        description={`${canConfirm ? "Place a time-limited hold or a confirmed booking." : "Place a time-limited hold for someone who can confirm bookings to review."} Dates use each property's local timezone; the check-out day is free.`}
       />
 
       <ReservationForm
-        isOwner={isOwner}
-        units={activeUnits.map((unit) => toUnitOption(unit, propertyById.get(unit.propertyId), { multipleProperties: properties.length > 1, isOwner }))}
+        canConfirm={canConfirm}
+        canSetCharges={canSetCharges}
+        units={activeUnits.map((unit) => toUnitOption(unit, propertyById.get(unit.propertyId), { multipleProperties: properties.length > 1, showRates: canSetCharges }))}
         guests={guestRows.map((guest) => ({ id: guest.id, name: guest.name, email: guest.email, phone: guest.phone }))}
         defaultCheckIn={params.checkIn ?? today}
         defaultCheckOut={params.checkOut ?? addDaysLocal(today, 1)}

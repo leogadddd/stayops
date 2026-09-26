@@ -1,7 +1,8 @@
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { requireMembership, requireOwner, type MembershipContext } from "@/lib/auth/session";
+import { requireMembership, requirePermission, type MembershipContext } from "@/lib/auth/session";
+import { permissionGuardFor } from "./helpers/session-mock";
 import { db } from "@/lib/db";
 import { PermissionDenied } from "@/components/app/permission-denied";
 import { getAuditLogPage, listAuditEvents } from "@/server/audit/service";
@@ -30,10 +31,17 @@ import { RecordRefundForm } from "@/app/(app)/reservations/[id]/record-refund-fo
 import { AddDeductionForm } from "@/app/(app)/reservations/[id]/add-deduction-form";
 import { GuestLinkCard } from "@/app/(app)/reservations/[id]/guest-link-card";
 
-vi.mock("@/lib/auth/session", () => ({
-  requireMembership: vi.fn(),
-  requireOwner: vi.fn(),
-}));
+vi.mock("@/lib/auth/session", async () => {
+  const { can } = await import("@/lib/permissions");
+  return {
+    requireMembership: vi.fn(),
+    requirePermission: vi.fn(),
+    PermissionError: class extends Error {},
+    assertCan: (membership: MembershipContext, permission: Parameters<typeof can>[1]) => {
+      if (!can(membership, permission)) throw new Error("Owner only");
+    },
+  };
+});
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/navigation", () => ({
   notFound: vi.fn(() => { throw new Error("Not found"); }),
@@ -95,7 +103,8 @@ afterAll(() => vi.unstubAllGlobals());
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(requireMembership).mockResolvedValue(staff);
-  vi.mocked(requireOwner).mockResolvedValue(null);
+  // Follows requireMembership, like the real guard, unless a test overrides it.
+  vi.mocked(requirePermission).mockImplementation(permissionGuardFor(() => requireMembership()));
 });
 
 const protectedReads = [
@@ -139,16 +148,26 @@ const ownerPages = [
 
 describe("independent owner page boundaries", () => {
   it.each(ownerPages)("denies direct staff rendering of $name before protected reads", async ({ render }) => {
+    vi.mocked(requirePermission).mockResolvedValue(null);
     const tree = await render();
     expect(tree.type).toBe(PermissionDenied);
-    expect(renderToStaticMarkup(tree)).toContain("Owner access only");
-    expect(requireOwner).toHaveBeenCalledOnce();
+    expect(renderToStaticMarkup(tree)).toContain("You don’t have access");
+    expect(requirePermission).toHaveBeenCalledOnce();
     expect(requireMembership).not.toHaveBeenCalled();
     for (const read of protectedReads) expect(read).not.toHaveBeenCalled();
   });
 
+  it("opens a page to a role the organization granted it to", async () => {
+    vi.mocked(requireMembership).mockResolvedValue({ ...staff, permissions: ["properties.view"] });
+    vi.mocked(inventory.listProperties).mockResolvedValue([]);
+    vi.mocked(inventory.listOrgUnits).mockResolvedValue([]);
+    const tree = await PropertiesPage();
+    expect(tree.type).not.toBe(PermissionDenied);
+    expect(inventory.listProperties).toHaveBeenCalledWith(staff.organizationId);
+  });
+
   it.each(ownerPages)("allows owners through the $name boundary", async ({ render, firstRead }) => {
-    vi.mocked(requireOwner).mockResolvedValue(owner);
+    vi.mocked(requirePermission).mockResolvedValue(owner);
     vi.mocked(db.query.organizations.findFirst).mockResolvedValue({
       id: owner.organizationId, name: owner.organizationName, displayName: null,
       slug: owner.organizationSlug, defaultTimezone: "Asia/Manila", contactEmail: null,
@@ -184,7 +203,7 @@ describe("independent owner page boundaries", () => {
 
     const tree = await render();
     expect(tree.type).not.toBe(PermissionDenied);
-    expect(requireOwner).toHaveBeenCalledOnce();
+    expect(requirePermission).toHaveBeenCalledOnce();
     expect(firstRead).toHaveBeenCalledOnce();
     expect(vi.mocked(firstRead).mock.calls[0]?.[0]).toBe(owner.organizationId);
   });
@@ -233,7 +252,8 @@ describe("new reservation financial boundary", () => {
     vi.mocked(listGuests).mockResolvedValue([]);
     const tree = await NewReservationPage({ searchParams: Promise.resolve({}) });
     const form = elements(tree).find((node) => node.type === ReservationForm);
-    expect(form?.props.isOwner).toBe(false);
+    expect(form?.props.canConfirm).toBe(false);
+    expect(form?.props.canSetCharges).toBe(false);
     expect(form?.props.units).toEqual([{
       id: "unit-a", label: "Test unit", name: "Test unit", propertyName: null, imageUrl: null,
       capacity: 2, bedrooms: 1, bathrooms: 1, checkInTime: "15:00", checkOutTime: "11:00",
@@ -300,7 +320,7 @@ describe("reservation financial boundary", () => {
     expect(getReservationLedger).toHaveBeenCalledExactlyOnceWith(owner.organizationId, "reservation-a");
     const paymentCard = nodes.find((node) => node.type === PaymentsCard);
     expect(paymentCard?.props.ledger).toEqual(await vi.mocked(getReservationLedger).mock.results[0]?.value);
-    expect(paymentCard?.props.isOwner).toBe(true);
+    expect(paymentCard?.props.canReviewProofs).toBe(true);
     for (const component of [PaymentsCard, GuestLinkCard]) {
       expect(nodes.some((node) => node.type === component)).toBe(true);
     }

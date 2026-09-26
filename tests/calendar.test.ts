@@ -15,7 +15,7 @@ import { TodayPanel } from "@/app/(app)/calendar/today-panel";
 import { ViewSwitcher } from "@/app/(app)/calendar/view-switcher";
 import { UnitFilter } from "@/app/(app)/calendar/unit-filter";
 
-vi.mock("@/lib/auth/session", () => ({ requireMembership: vi.fn() }));
+vi.mock("@/lib/auth/session", async () => (await import("./helpers/session-mock")).mockSessionModule());
 vi.mock("@/server/inventory/service", () => ({ listOrgUnits: vi.fn(), listProperties: vi.fn() }));
 vi.mock("@/server/inventory/availability", () => ({ getOccupancySegments: vi.fn(), listCalendarActivity: vi.fn() }));
 vi.mock("@/server/operations/service", () => ({ listTasks: vi.fn() }));

@@ -86,6 +86,8 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "organization.payment_instructions_updated": "Guest payment instructions updated",
   "organization.staff_invited": "Staff member added",
   "organization.staff_removed": "Staff member removed",
+  "organization.member_role_changed": "Team member role changed",
+  "organization.permissions_updated": "Role permissions updated",
   "property.created": "Property created",
   "property.updated": "Property updated",
   "property.deleted": "Property deleted",

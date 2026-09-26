@@ -6,7 +6,9 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight, Bath, BedDouble, CalendarDays, CircleAlert, CircleCheck, MapPin, Users } from "lucide-react";
 import { z } from "zod";
 import { buttonClassName } from "@/components/ui/button";
-import { requireMembership } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
+import { can } from "@/lib/permissions";
+import { PermissionDenied } from "@/components/app/permission-denied";
 import { UNIT_STATUS_LABELS } from "@/lib/labels";
 import { addDaysLocal, todayInTimeZone } from "@/lib/dates";
 import { formatPHP } from "@/lib/money";
@@ -37,7 +39,8 @@ export default async function StayShowcasePage({ params, searchParams }: {
   params: Promise<{ unitId: string }>;
   searchParams: Promise<StaySearchParams>;
 }) {
-  const membership = await requireMembership();
+  const membership = await requirePermission("reservations.view");
+  if (!membership) return <PermissionDenied />;
   const [{ unitId }, query] = await Promise.all([params, searchParams]);
   if (!z.uuid().safeParse(unitId).success) notFound();
 
@@ -70,7 +73,7 @@ export default async function StayShowcasePage({ params, searchParams }: {
   const resultsHref = searchQuery ? `/calendar/availability?${searchQuery}` : "/calendar/availability";
   const bookHref = `/reservations/new?${new URLSearchParams({ unit: unit.id, ...(search ? { checkIn: search.checkIn, checkOut: search.checkOut, guests: String(search.guestCount) } : {}) })}`;
   const calendarHref = `/calendar?${new URLSearchParams({ unit: unit.id, ...(search ? { month: search.checkIn.slice(0, 7) } : {}) })}`;
-  const showRates = membership.role === "owner";
+  const showRates = can(membership, "payments.view");
   const photos = [...new Set([photoSrc("unit", unit), photoSrc("property", property)].filter((src): src is string => Boolean(src)))];
   // One line per rate when weekend (or other day) rates apply to these nights.
   const stayLines = search
@@ -81,7 +84,7 @@ export default async function StayShowcasePage({ params, searchParams }: {
   const segments = segmentsByUnit.get(unit.id) ?? [];
   const segmentHref = (segment: { kind: "reservation" | "block"; id: string }) => segment.kind === "reservation"
     ? `/reservations/${segment.id}`
-    : membership.role === "owner" ? `/properties/${property.id}/units/${unit.id}` : undefined;
+    : can(membership, "properties.view") ? `/properties/${property.id}/units/${unit.id}` : undefined;
   const neighbors = search ? findNeighbors(segments, search.checkIn, search.checkOut, segmentHref) : { previous: null, next: null };
   const rules = houseRuleLines(property.houseRules);
   const amenityCount = unitAmenities.length + propertyAmenities.length;

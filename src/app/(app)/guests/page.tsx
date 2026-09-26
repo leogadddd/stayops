@@ -1,7 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Plus, ArrowUpRight } from "lucide-react";
-import { requireMembership } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
+import { PermissionDenied } from "@/components/app/permission-denied";
 import { listGuests } from "@/server/reservations/service";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -13,7 +14,8 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 export const metadata: Metadata = { title: "Guests" };
 
 export default async function GuestsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  const membership = await requireMembership();
+  const membership = await requirePermission("guests.view");
+  if (!membership) return <PermissionDenied />;
   const params = await searchParams;
   const guests = await listGuests(membership.organizationId, params.q);
 

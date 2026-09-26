@@ -1,6 +1,9 @@
 import "server-only";
 
+import { and, desc, eq } from "drizzle-orm";
 import { listMemberships } from "@/lib/auth/session";
+import { db } from "@/lib/db";
+import { organizationJoinRequests, organizations } from "@/lib/db/schema";
 import { listOrgUnits, listProperties } from "@/server/inventory/service";
 
 export type OnboardingMembership = Awaited<ReturnType<typeof listMemberships>>[number];
@@ -60,4 +63,17 @@ export function guardOnboardingStep(
   if (step === "property" && !state.membership) return "/onboarding/organization";
   if (step === "unit" && !state.property) return nextOnboardingPath(state);
   return null;
+}
+
+/**
+ * Join requests this user sent that an owner hasn't reviewed yet. The user
+ * already had each organization's code, so showing its name leaks nothing.
+ */
+export async function listPendingJoinRequests(userId: string) {
+  return db
+    .select({ id: organizationJoinRequests.id, organizationName: organizations.name, createdAt: organizationJoinRequests.createdAt })
+    .from(organizationJoinRequests)
+    .innerJoin(organizations, eq(organizationJoinRequests.organizationId, organizations.id))
+    .where(and(eq(organizationJoinRequests.userId, userId), eq(organizationJoinRequests.status, "pending")))
+    .orderBy(desc(organizationJoinRequests.updatedAt));
 }

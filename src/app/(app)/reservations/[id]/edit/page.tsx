@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { requireOwner } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
+import { can } from "@/lib/permissions";
 import { PermissionDenied } from "@/components/app/permission-denied";
 import { PageHeading } from "@/components/app/page-heading";
 import { getReservationDetail, ReservationError } from "@/server/reservations/service";
@@ -14,8 +15,11 @@ import { todayInTimeZone } from "@/lib/dates";
 export const metadata: Metadata = { title: "Edit reservation" };
 
 export default async function EditReservationPage({ params }: { params: Promise<{ id: string }> }) {
-  const membership = await requireOwner();
-  if (!membership) return <PermissionDenied />;
+  const membership = await requirePermission("reservations.update");
+  // Editing re-prices the stay, so it also needs permission to set charges.
+  if (!membership || !can(membership, "payments.create")) {
+    return <PermissionDenied description="Editing a reservation changes its charges, so your role needs to update reservations and record payments." />;
+  }
   const { id } = await params;
   let detail;
   try { detail = await getReservationDetail(membership.organizationId, id); } catch (error) { if (error instanceof ReservationError) notFound(); throw error; }
@@ -42,9 +46,10 @@ export default async function EditReservationPage({ params }: { params: Promise<
         backLabel="Back to reservation"
       />
       <ReservationForm
-        isOwner
+        canConfirm
+        canSetCharges
         // The current unit stays selectable even if it is no longer active.
-        units={units.filter((candidate) => candidate.status === "active" || candidate.id === unit.id).map((candidate) => toUnitOption(candidate, propertyById.get(candidate.propertyId), { multipleProperties: properties.length > 1, isOwner: true }))}
+        units={units.filter((candidate) => candidate.status === "active" || candidate.id === unit.id).map((candidate) => toUnitOption(candidate, propertyById.get(candidate.propertyId), { multipleProperties: properties.length > 1, showRates: true }))}
         guests={guests.map((option) => ({ id: option.id, name: option.name, email: option.email, phone: option.phone }))}
         defaultCheckIn={reservation.checkInDate}
         defaultCheckOut={reservation.checkOutDate}

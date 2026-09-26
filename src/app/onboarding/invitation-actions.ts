@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/session";
+import { selectActiveOrganization } from "@/app/(app)/organization-actions";
 import { OrgError, acceptInvitation, getInvitationForUser, requestOrganizationAccess } from "@/server/orgs/service";
 
 export type InvitationActionState = {
@@ -34,7 +35,9 @@ export async function inspectInvitationAction(
 export async function acceptInvitationAction(code: string): Promise<InvitationActionState> {
   const currentUser = await requireUser();
   try {
-    await acceptInvitation({ code, userId: currentUser.id, email: currentUser.email });
+    const { organizationId } = await acceptInvitation({ code, userId: currentUser.id, email: currentUser.email });
+    // Open the organization they just joined, even if they already belong to another.
+    await selectActiveOrganization(organizationId);
     revalidatePath("/", "layout");
     return { success: true };
   } catch (error) {

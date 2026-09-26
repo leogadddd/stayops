@@ -2,7 +2,9 @@ import { unitOrPropertyPhotoSrc } from "@/lib/photos";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { CalendarCheck, Plus } from "lucide-react";
-import { requireMembership } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
+import { can } from "@/lib/permissions";
+import { PermissionDenied } from "@/components/app/permission-denied";
 import {
   calendarEventsForUnit,
   monthGridRange,
@@ -64,7 +66,8 @@ export default async function CalendarPage({
 }: {
   searchParams: Promise<{ month?: string; unit?: string; view?: string }>;
 }) {
-  const membership = await requireMembership();
+  const membership = await requirePermission("reservations.view");
+  if (!membership) return <PermissionDenied />;
   const params = await searchParams;
   const [properties, allUnits] = await Promise.all([
     listProperties(membership.organizationId),
@@ -78,12 +81,12 @@ export default async function CalendarPage({
         <EmptyState
           title="No properties yet"
           description={
-            membership.role === "owner"
+            can(membership, "properties.create")
               ? "Add a property and its first unit to start planning your stays."
-              : "Ask the owner to add a property and its first unit."
+              : "Ask an owner or admin to add a property and its first unit."
           }
           action={
-            membership.role === "owner" ? (
+            can(membership, "properties.create") ? (
               <Link
                 href="/properties"
                 className={buttonClassName("clay", "md")}
@@ -197,7 +200,7 @@ export default async function CalendarPage({
         : undefined;
     const href = event.reservationId
       ? `/reservations/${event.reservationId}`
-      : membership.role === "owner"
+      : can(membership, "properties.view")
         ? `/properties/${unit.propertyId}/units/${unit.id}`
         : undefined;
     const title =
@@ -430,7 +433,7 @@ export default async function CalendarPage({
               title="No units to show"
               description="Add a unit to your property to see stays and availability here."
               action={
-                membership.role === "owner" ? (
+                can(membership, "properties.create") ? (
                   <Link
                     href="/properties"
                     className={buttonClassName("outline", "md")}

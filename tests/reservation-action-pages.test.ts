@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { setToastAfterNavigation } from "@/components/ui/sonner";
 import { useReservationSaved } from "@/app/(app)/reservations/[id]/use-reservation-saved";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { requireMembership, requireOwner, type MembershipContext } from "@/lib/auth/session";
+import { requireMembership, requirePermission, type MembershipContext } from "@/lib/auth/session";
+import { permissionGuardFor } from "./helpers/session-mock";
 import { PermissionDenied } from "@/components/app/permission-denied";
 import { Table } from "@/components/ui/table";
 import { getReservationDetail, isLiveHold, listReservations, ReservationError } from "@/server/reservations/service";
@@ -36,11 +37,17 @@ import { PaymentsCard } from "@/app/(app)/reservations/[id]/payments-card";
 import { ProofQueue } from "@/app/(app)/reservations/[id]/proof-queue";
 import { recordProofPaymentAction } from "@/app/(app)/reservations/[id]/payment-actions";
 
-vi.mock("@/lib/auth/session", () => ({
-  requireMembership: vi.fn(), requireOwner: vi.fn(),
-  assertOwner: (membership: MembershipContext) => { if (membership.role !== "owner") throw new Error("Owner only"); },
-  PermissionError: class extends Error {},
-}));
+vi.mock("@/lib/auth/session", async () => {
+  const { can } = await import("@/lib/permissions");
+  return {
+    requireMembership: vi.fn(),
+    requirePermission: vi.fn(),
+    PermissionError: class extends Error {},
+    assertCan: (membership: MembershipContext, permission: Parameters<typeof can>[1]) => {
+      if (!can(membership, permission)) throw new Error("Owner only");
+    },
+  };
+});
 vi.mock("next/navigation", () => ({
   notFound: vi.fn(() => { throw new Error("Not found"); }),
   useRouter: vi.fn(() => ({ replace: vi.fn(), refresh: vi.fn() })),
@@ -90,7 +97,8 @@ afterAll(() => vi.unstubAllGlobals());
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(requireMembership).mockResolvedValue(staff);
-  vi.mocked(requireOwner).mockResolvedValue(null);
+  // Follows requireMembership, like the real guard, unless a test overrides it.
+  vi.mocked(requirePermission).mockImplementation(permissionGuardFor(() => requireMembership()));
   vi.mocked(getReservationDetail).mockResolvedValue(fixture());
   vi.mocked(getReservationLedger).mockResolvedValue(ledgerFixture());
   vi.mocked(listOpenDamageReports).mockResolvedValue([]);
@@ -117,17 +125,17 @@ describe("dedicated reservation action pages", () => {
   it.each(ownerPages)("denies staff on $name before any protected read", async ({ page }) => {
     const tree = await page({ params });
     expect(tree.type).toBe(PermissionDenied);
-    expect(requireOwner).toHaveBeenCalledOnce();
+    expect(requirePermission).toHaveBeenCalledOnce();
     for (const read of reads) expect(read).not.toHaveBeenCalled();
   });
 
   it.each(ownerPages)("loads the existing $name form for owners after the guard", async ({ page, form, status }) => {
-    vi.mocked(requireOwner).mockResolvedValue(owner);
+    vi.mocked(requirePermission).mockResolvedValue(owner);
     vi.mocked(getReservationDetail).mockResolvedValue(fixture(status));
     const tree = await page({ params });
     expect(nodes(tree).some((node) => node.type === form)).toBe(true);
     expect(getReservationDetail).toHaveBeenCalledExactlyOnceWith(owner.organizationId, "reservation-a");
-    expect(vi.mocked(requireOwner).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(getReservationDetail).mock.invocationCallOrder[0]!);
+    expect(vi.mocked(requirePermission).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(getReservationDetail).mock.invocationCallOrder[0]!);
     expect(tree.props.reservationId).toBe("reservation-a");
   });
 
@@ -148,7 +156,7 @@ describe("dedicated reservation action pages", () => {
   });
 
   it.each([...ownerPages, ...memberPages])("hides the $name form for an expired reservation", async ({ page, form }) => {
-    vi.mocked(requireOwner).mockResolvedValue(owner);
+    vi.mocked(requirePermission).mockResolvedValue(owner);
     vi.mocked(getReservationDetail).mockResolvedValue(fixture("expired"));
     const tree = await page({ params });
     expect(nodes(tree).some((node) => node.type === form)).toBe(false);
@@ -156,7 +164,7 @@ describe("dedicated reservation action pages", () => {
   });
 
   it("offers a refund only once money was received, and only from where it went", async () => {
-    vi.mocked(requireOwner).mockResolvedValue(owner);
+    vi.mocked(requirePermission).mockResolvedValue(owner);
     const unpaid = ledgerFixture();
     unpaid.balances = { ...unpaid.balances, paidBookingCents: 0, paidDepositCents: 0, depositHeldCents: 0 };
     vi.mocked(getReservationLedger).mockResolvedValue(unpaid);
@@ -172,7 +180,7 @@ describe("dedicated reservation action pages", () => {
   });
 
   it("offers a deposit deduction only once a deposit is held", async () => {
-    vi.mocked(requireOwner).mockResolvedValue(owner);
+    vi.mocked(requirePermission).mockResolvedValue(owner);
     const noDeposit = ledgerFixture();
     noDeposit.balances = { ...noDeposit.balances, paidDepositCents: 0, depositHeldCents: 0 };
     vi.mocked(getReservationLedger).mockResolvedValue(noDeposit);
@@ -195,13 +203,13 @@ describe("dedicated reservation action pages", () => {
   });
 
   it("maps a missing or foreign reservation to not-found", async () => {
-    vi.mocked(requireOwner).mockResolvedValue(owner);
+    vi.mocked(requirePermission).mockResolvedValue(owner);
     vi.mocked(getReservationDetail).mockRejectedValue(new ReservationError("Missing"));
     await expect(NewPaymentPage({ params })).rejects.toThrow("Not found");
   });
 
   it.each(["missing", "other-reservation", "other-organization"])("rejects %s proof identifiers", async (kind) => {
-    vi.mocked(requireOwner).mockResolvedValue(owner);
+    vi.mocked(requirePermission).mockResolvedValue(owner);
     const ledger = ledgerFixture();
     if (kind === "missing") ledger.proofs = [];
     if (kind === "other-reservation") ledger.proofs[0]!.reservationId = "reservation-b";
@@ -211,7 +219,7 @@ describe("dedicated reservation action pages", () => {
   });
 
   it.each(["recorded", "dismissed"] as const)("does not reopen a %s proof", async (status) => {
-    vi.mocked(requireOwner).mockResolvedValue(owner);
+    vi.mocked(requirePermission).mockResolvedValue(owner);
     const ledger = ledgerFixture();
     ledger.proofs[0]!.status = status;
     vi.mocked(getReservationLedger).mockResolvedValue(ledger);
@@ -274,7 +282,7 @@ describe("read-only reservation detail and shared tables", () => {
   });
 
   it("uses shared tables for all three financial movement lists", () => {
-    const tree = PaymentsCard({ reservationId: "reservation-a", ledger: ledgerFixture(), isOwner: true });
+    const tree = PaymentsCard({ reservationId: "reservation-a", ledger: ledgerFixture(), canReviewProofs: true });
     expect(nodes(tree).filter((node) => node.type === Table)).toHaveLength(3);
   });
 

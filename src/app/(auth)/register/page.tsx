@@ -1,17 +1,27 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { CircleAlert } from "lucide-react";
+import { CircleAlert, MailCheck } from "lucide-react";
+import { afterAuthPath, inviteQuery } from "@/lib/auth/invite-redirect";
 import { authClient } from "@/lib/auth/client";
 import { Button } from "@/components/ui/button";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Input, Label } from "@/components/ui/input";
 
 export default function RegisterPage() {
+  return (
+    <Suspense>
+      <RegisterContent />
+    </Suspense>
+  );
+}
+
+function RegisterContent() {
   const router = useRouter();
+  const invite = useSearchParams().get("invite");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -48,8 +58,10 @@ export default function RegisterPage() {
       toast.error("Couldn’t create your account", { description: message });
       return;
     }
-    toast.success("Account created", { description: "Let’s get you set up." });
-    router.push("/onboarding");
+    toast.success("Account created", {
+      description: invite ? "Let’s look at your invitation." : "Let’s get you set up.",
+    });
+    router.push(afterAuthPath(invite, "/onboarding"));
     router.refresh();
   }
 
@@ -57,8 +69,16 @@ export default function RegisterPage() {
     <div>
       <h1 className="font-display text-3xl text-pine">Create your account</h1>
       <p className="mt-2 text-sm text-ink/60">
-        Start with one property. Add your organization next.
+        {invite
+          ? "Create an account to accept your invitation."
+          : "Start with one property. Add your organization next."}
       </p>
+      {invite ? (
+        <p className="mt-6 flex items-start gap-2 rounded-xl border border-pine/15 bg-sage/35 px-4 py-3 text-sm text-pine">
+          <MailCheck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          <span>Use the email address your invitation was sent to, or it won’t be able to find your invitation.</span>
+        </p>
+      ) : null}
 
       <form
         onSubmit={onSubmit}
@@ -153,7 +173,7 @@ export default function RegisterPage() {
       <p className="mt-8 text-center text-sm text-ink/60">
         Already have an account?{" "}
         <Link
-          href="/login"
+          href={`/login${inviteQuery(invite)}`}
           className="font-medium text-pine underline underline-offset-4 hover:text-pine-soft"
         >
           Sign in

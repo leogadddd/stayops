@@ -6,7 +6,9 @@ import { Bath, BedDouble, CalendarSearch, ChevronRight, Users } from "lucide-rea
 import { PageHeading } from "@/components/app/page-heading";
 import { buttonClassName } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { requireMembership } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
+import { can } from "@/lib/permissions";
+import { PermissionDenied } from "@/components/app/permission-denied";
 import { todayInTimeZone } from "@/lib/dates";
 import { formatPHP } from "@/lib/money";
 import { listOrgUnits, listProperties } from "@/server/inventory/service";
@@ -29,7 +31,8 @@ interface ResultCard {
 }
 
 export default async function AvailabilityPage({ searchParams }: { searchParams: Promise<StaySearchParams> }) {
-  const membership = await requireMembership();
+  const membership = await requirePermission("reservations.view");
+  if (!membership) return <PermissionDenied />;
   const params = await searchParams;
   const [properties, units] = await Promise.all([
     listProperties(membership.organizationId),
@@ -38,7 +41,7 @@ export default async function AvailabilityPage({ searchParams }: { searchParams:
   // Quick date picks start from the first property's local today, like the calendar.
   const today = todayInTimeZone(properties[0]?.timezone ?? "Asia/Manila");
   const { search, error } = parseStaySearch(params);
-  const showRates = membership.role === "owner";
+  const showRates = can(membership, "payments.view");
 
   const activeUnits = units.filter((unit) => unit.status === "active");
   let results: { cards: ResultCard[]; tooSmallCount: number; occupiedCount: number } | null = null;
@@ -83,8 +86,8 @@ export default async function AvailabilityPage({ searchParams }: { searchParams:
       ) : (
         <EmptyState
           title="No units to check"
-          description={membership.role === "owner" ? "Add a property and unit before checking stay dates." : "Ask the owner to add a property and unit."}
-          action={membership.role === "owner" ? <Link href="/properties" className={buttonClassName("clay", "md")}>Manage properties</Link> : undefined}
+          description={can(membership, "properties.create") ? "Add a property and unit before checking stay dates." : "Ask an owner or admin to add a property and unit."}
+          action={can(membership, "properties.create") ? <Link href="/properties" className={buttonClassName("clay", "md")}>Manage properties</Link> : undefined}
         />
       )}
     </div>

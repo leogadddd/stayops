@@ -1,7 +1,7 @@
 import { DateInput } from "@/components/ui/date-input";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { requireOwner } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
 import { formatAuditDetails, formatAuditTarget } from "@/lib/audit";
 import { isLocalDate } from "@/lib/dates";
 import { db } from "@/lib/db";
@@ -20,7 +20,7 @@ export const metadata: Metadata = { title: "Audit logs" };
 type AuditSearchParams = { action?: string; actor?: string; startDate?: string; endDate?: string; page?: string };
 
 export default async function AuditLogsPage({ searchParams = Promise.resolve({}) }: { searchParams?: Promise<AuditSearchParams> } = {}) {
-  const membership = await requireOwner();
+  const membership = await requirePermission("audit_logs.view");
   if (!membership) return <PermissionDenied />;
 
   const params = await searchParams;

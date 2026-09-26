@@ -1,7 +1,9 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Plus, Search } from "lucide-react";
-import { requireMembership } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
+import { can } from "@/lib/permissions";
+import { PermissionDenied } from "@/components/app/permission-denied";
 import { RESERVATION_STATUSES, type ReservationStatus } from "@/lib/db/schema";
 import { RESERVATION_STATUS_LABELS } from "@/lib/labels";
 import { nightsBetween } from "@/lib/dates";
@@ -50,10 +52,13 @@ export default async function ReservationsPage({
     sort?: string;
   }>;
 }) {
-  const membership = await requireMembership();
+  const membership = await requirePermission("reservations.view");
+  if (!membership) return <PermissionDenied />;
   const params = await searchParams;
   await expireStaleHolds(db, membership.organizationId);
-  const isOwner = membership.role === "owner";
+  const showTotals = can(membership, "payments.view");
+  const canEdit = can(membership, "reservations.update") && can(membership, "payments.create");
+  const canCancel = can(membership, "reservations.delete");
 
   const status = RESERVATION_STATUSES.includes(params.status as ReservationStatus)
     ? (params.status as ReservationStatus)
@@ -62,7 +67,7 @@ export default async function ReservationsPage({
 
   // Loaded without the status filter so the status pills can show counts.
   const [allReservations, units] = await Promise.all([
-    listReservations(membership.organizationId, { query: params.q, unitId: params.unit, sort, includeTotals: isOwner }),
+    listReservations(membership.organizationId, { query: params.q, unitId: params.unit, sort, includeTotals: showTotals }),
     listOrgUnits(membership.organizationId),
   ]);
   const reservations = status ? allReservations.filter((reservation) => reservation.status === status) : allReservations;
@@ -144,7 +149,7 @@ export default async function ReservationsPage({
                 <TableHead>Check-out</TableHead>
                 <TableHead className="text-right">Nights</TableHead>
                 <TableHead className="text-right">Guests</TableHead>
-                {isOwner ? <TableHead className="text-right">Total</TableHead> : null}
+                {showTotals ? <TableHead className="text-right">Total</TableHead> : null}
                 <TableHead>Booked</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -152,7 +157,7 @@ export default async function ReservationsPage({
             <TableBody>
               {reservations.map((reservation) => {
                 const href = `/reservations/${reservation.id}`;
-                const editable = isOwner && (reservation.status === "hold" || reservation.status === "confirmed");
+                const active = reservation.status === "hold" || reservation.status === "confirmed";
                 return (
                   <TableRow key={reservation.id} className={cn((reservation.status === "cancelled" || reservation.status === "expired") && "text-ink/55")}>
                     <TableCell className="whitespace-nowrap font-mono text-xs text-ink/55"><Link href={href} className="hover:text-clay">#{reservation.id.slice(0, 8).toUpperCase()}</Link></TableCell>
@@ -164,18 +169,18 @@ export default async function ReservationsPage({
                     <TableCell className="whitespace-nowrap text-ink/75">{dayLabel(reservation.checkOutDate, thisYear)}</TableCell>
                     <TableCell className="text-right tabular-nums text-ink/75">{nightsBetween(reservation.checkInDate, reservation.checkOutDate)}</TableCell>
                     <TableCell className="text-right tabular-nums text-ink/75">{reservation.guestCount}</TableCell>
-                    {isOwner ? <TableCell className="whitespace-nowrap text-right font-medium tabular-nums text-pine">{formatPHP(reservation.bookingTotalCents ?? 0)}</TableCell> : null}
+                    {showTotals ? <TableCell className="whitespace-nowrap text-right font-medium tabular-nums text-pine">{formatPHP(reservation.bookingTotalCents ?? 0)}</TableCell> : null}
                     <TableCell className="whitespace-nowrap text-ink/65" title={reservation.createdAt ? `Booked ${BOOKED_TIME.format(reservation.createdAt)}` : undefined}>{reservation.createdAt ? bookedLabel(reservation.createdAt, thisYear) : "—"}</TableCell>
                     <TableCell className="text-right">
                       <TableActionsMenu
                         label={`reservation for ${reservation.guestName}`}
                         viewHref={href}
-                        editHref={editable ? `${href}/edit` : undefined}
+                        editHref={canEdit && active ? `${href}/edit` : undefined}
                         deleteLabel={`Cancel reservation for ${reservation.guestName}?`}
                         deleteDescription="This safely cancels the reservation and releases its dates. It keeps payment, task, and audit history; it does not permanently delete records."
                         destructiveActionLabel="Cancel"
                         deleteSuccessMessage="Reservation cancelled."
-                        onDelete={editable ? quickCancelReservationAction.bind(null, reservation.id) : undefined}
+                        onDelete={canCancel && active ? quickCancelReservationAction.bind(null, reservation.id) : undefined}
                       />
                     </TableCell>
                   </TableRow>
@@ -184,7 +189,7 @@ export default async function ReservationsPage({
             </TableBody>
           </Table>
           <p className="border-t border-pine/10 bg-linen/60 px-4 py-2.5 text-xs text-ink/55">
-            {reservations.length} {reservations.length === 1 ? "reservation" : "reservations"}{status ? ` · ${RESERVATION_STATUS_LABELS[status].toLowerCase()}` : ""}{isOwner ? " · totals exclude refundable deposits" : ""}
+            {reservations.length} {reservations.length === 1 ? "reservation" : "reservations"}{status ? ` · ${RESERVATION_STATUS_LABELS[status].toLowerCase()}` : ""}{showTotals ? " · totals exclude refundable deposits" : ""}
           </p>
         </div>
       )}

@@ -17,7 +17,17 @@ export type OrganizationOption = {
 };
 
 /** The organization logo, or its initial on brand pine. */
-function OrganizationMark({ name, imageSrc, size = "md", dark = false }: { name: string; imageSrc: string | null; size?: "sm" | "md"; dark?: boolean }) {
+function OrganizationMark({
+  name,
+  imageSrc,
+  size = "md",
+  dark = false,
+}: {
+  name: string;
+  imageSrc: string | null;
+  size?: "sm" | "md";
+  dark?: boolean;
+}) {
   return (
     <span
       aria-hidden
@@ -27,7 +37,11 @@ function OrganizationMark({ name, imageSrc, size = "md", dark = false }: { name:
         size === "md" ? "h-10 w-10 text-lg" : "h-8 w-8 text-base",
       )}
     >
-      {imageSrc ? <img src={imageSrc} alt="" className="h-full w-full object-cover" /> : name.trim().slice(0, 1).toUpperCase()}
+      {imageSrc ? (
+        <img src={imageSrc} alt="" className="h-full w-full object-cover" />
+      ) : (
+        name.trim().slice(0, 1).toUpperCase()
+      )}
     </span>
   );
 }
@@ -53,7 +67,10 @@ export function OrganizationSelector({
   const root = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [switching, startTransition] = useTransition();
-  const activeOrganization = organizations.find((organization) => organization.id === activeOrganizationId) ?? organizations[0]!;
+  const activeOrganization =
+    organizations.find(
+      (organization) => organization.id === activeOrganizationId,
+    ) ?? organizations[0]!;
   const disabled = organizations.length <= 1 || switching;
 
   useEffect(() => {
@@ -79,7 +96,9 @@ export function OrganizationSelector({
     startTransition(async () => {
       const result = await selectActiveOrganization(organizationId);
       if (result.error) {
-        toast.error("Couldn’t switch organization", { description: result.error });
+        toast.error("Couldn’t switch organization", {
+          description: result.error,
+        });
         return;
       }
       setOpen(false);
@@ -88,6 +107,8 @@ export function OrganizationSelector({
       router.refresh();
     });
   };
+
+  const single = organizations.length <= 1;
 
   if (!dark) {
     return (
@@ -112,10 +133,8 @@ export function OrganizationSelector({
     );
   }
 
-
-  const single = organizations.length <= 1;
   return (
-    <div ref={root} className={cn("relative min-w-0", className)}>
+    <div ref={root} className={cn("relative min-w-0 ml-0", className)}>
       <button
         type="button"
         aria-label="Active organization"
@@ -128,27 +147,69 @@ export function OrganizationSelector({
           "flex min-w-0 items-center gap-2.5 rounded-lg p-1.5 pr-2 text-left transition-colors disabled:cursor-default",
           dark ? "w-full" : "",
           dark
-            ? open ? "bg-paper/10" : "enabled:hover:bg-paper/10"
-            : open ? "bg-pine-mist" : "enabled:hover:bg-pine-mist/70",
+            ? open
+              ? "bg-paper/10"
+              : "enabled:hover:bg-paper/10"
+            : open
+              ? "bg-pine-mist"
+              : "enabled:hover:bg-pine-mist/70",
         )}
       >
-        <OrganizationMark name={activeOrganization.name} imageSrc={imageSrc} dark={dark} />
+        <OrganizationMark
+          name={activeOrganization.name}
+          imageSrc={imageSrc}
+          dark={dark}
+        />
         <span className={cn("min-w-0", dark && "flex-1")}>
-          <span className={cn("block truncate font-display text-lg leading-tight", dark ? "text-paper" : "max-w-36 text-pine sm:max-w-56")}>
+          <span
+            className={cn(
+              "block truncate font-display text-lg leading-tight",
+              dark ? "text-paper" : "max-w-36 text-pine sm:max-w-56",
+            )}
+          >
             {activeOrganization.name}
           </span>
-          <span className={cn("block text-xs", dark ? "text-paper/60" : "text-ink/55")}>
-            {switching ? "Switching…" : single ? roleLabel(activeOrganization.role) : `${organizations.length} organizations`}
+          <span
+            className={cn(
+              "block text-xs",
+              dark ? "text-paper/60" : "text-ink/55",
+            )}
+          >
+            {switching
+              ? "Switching…"
+              : single
+                ? roleLabel(activeOrganization.role)
+                : `${organizations.length} organizations`}
           </span>
         </span>
         {switching ? (
-          <LoaderCircle className={cn("h-4 w-4 shrink-0 animate-spin", dark ? "text-paper/70" : "text-pine/60")} aria-hidden />
+          <LoaderCircle
+            className={cn(
+              "h-4 w-4 shrink-0 animate-spin",
+              dark ? "text-paper/70" : "text-pine/60",
+            )}
+            aria-hidden
+          />
         ) : single ? null : (
-          <ChevronsUpDown className={cn("h-4 w-4 shrink-0", dark ? "text-paper/60" : "text-ink/45")} aria-hidden />
+          <ChevronsUpDown
+            className={cn(
+              "h-4 w-4 shrink-0",
+              dark ? "text-paper/60" : "text-ink/45",
+            )}
+            aria-hidden
+          />
         )}
       </button>
       {open ? (
-        <div role="menu" aria-label="Organizations" className={cn("absolute left-0 top-[calc(100%+0.5rem)] z-40 overflow-hidden", dark ? "right-0" : "w-80 max-w-[calc(100vw-2rem)]", "rounded-xl border border-pine/15 bg-linen shadow-xl")}>
+        <div
+          role="menu"
+          aria-label="Organizations"
+          className={cn(
+            "absolute left-0 top-[calc(100%+0.5rem)] z-40 overflow-hidden",
+            dark ? "right-0" : "w-80 max-w-[calc(100vw-2rem)]",
+            "rounded-xl border border-pine/15 bg-linen shadow-xl",
+          )}
+        >
           <p className="border-b border-pine/10 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-ink/50">
             Switch organization
           </p>
@@ -174,10 +235,23 @@ export function OrganizationSelector({
                     size="sm"
                   />
                   <span className="min-w-0 flex-1">
-                    <span className={cn("block truncate", selected ? "font-semibold text-pine" : "font-medium text-ink")}>{organization.name}</span>
-                    <span className="mt-0.5 inline-flex rounded-full bg-sage/45 px-2 py-0.5 text-[11px] font-medium text-pine">{roleLabel(organization.role)}</span>
+                    <span
+                      className={cn(
+                        "block truncate",
+                        selected
+                          ? "font-semibold text-pine"
+                          : "font-medium text-ink",
+                      )}
+                    >
+                      {organization.name}
+                    </span>
+                    <span className="mt-0.5 inline-flex rounded-full bg-sage/45 px-2 py-0.5 text-[11px] font-medium text-pine">
+                      {roleLabel(organization.role)}
+                    </span>
                   </span>
-                  {selected ? <Check className="h-4 w-4 shrink-0 text-pine" aria-hidden /> : null}
+                  {selected ? (
+                    <Check className="h-4 w-4 shrink-0 text-pine" aria-hidden />
+                  ) : null}
                 </button>
               );
             })}

@@ -10,7 +10,7 @@ import { listMemberships, requireMembership, requireUser } from "@/lib/auth/sess
 import { getOrganizationLogoUrl } from "@/server/orgs/service";
 
 vi.mock("next/navigation", () => ({ usePathname: vi.fn(), useRouter: vi.fn() }));
-vi.mock("@/lib/auth/session", () => ({ requireUser: vi.fn(), requireMembership: vi.fn(), listMemberships: vi.fn() }));
+vi.mock("@/lib/auth/session", async () => (await import("./helpers/session-mock")).mockSessionModule({ requireUser: vi.fn(), listMemberships: vi.fn() }));
 vi.mock("@/server/orgs/service", () => ({ getOrganizationLogoUrl: vi.fn() }));
 
 const identity = { organizationName: "Example stays", userName: "Test Owner", userEmail: "owner@example.com", role: "owner" as const };

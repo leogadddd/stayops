@@ -1,7 +1,7 @@
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { requireOwner, type MembershipContext } from "@/lib/auth/session";
+import { requirePermission, type MembershipContext } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { PermissionDenied } from "@/components/app/permission-denied";
 import { getAuditLogPage, listAuditEvents } from "@/server/audit/service";
@@ -16,7 +16,7 @@ import UnitDetailPage from "@/app/(app)/properties/[propertyId]/units/[unitId]/p
 import AuditLogsPage from "@/app/(app)/audit-logs/page";
 import EditOrganizationPage from "@/app/(app)/settings/organization/edit/page";
 import EditPaymentInstructionsPage from "@/app/(app)/settings/payment-instructions/edit/page";
-import NewStaffPage from "@/app/(app)/settings/staff/new/page";
+import InviteTeamMemberPage from "@/app/(app)/settings/team/invite/page";
 import NewPropertyPage from "@/app/(app)/properties/new/page";
 import EditPropertyPage from "@/app/(app)/properties/[propertyId]/edit/page";
 import NewUnitPage from "@/app/(app)/properties/[propertyId]/units/new/page";
@@ -28,7 +28,7 @@ import UnitStatusPage from "@/app/(app)/properties/[propertyId]/units/[unitId]/s
 import EditUnitBlockPage from "@/app/(app)/properties/[propertyId]/units/[unitId]/blocks/[blockId]/edit/page";
 import { OrgNameForm } from "@/app/(app)/settings/org-name-form";
 import { PaymentInstructionsForm } from "@/app/(app)/settings/payment-instructions-form";
-import { InviteStaffForm } from "@/app/(app)/settings/staff-forms";
+import { InviteTeamMemberForm } from "@/app/(app)/settings/team-forms";
 import { PropertyForm } from "@/app/(app)/properties/property-form";
 import { UnitCreateForm } from "@/app/(app)/properties/unit-create-form";
 import { UnitEditForm } from "@/app/(app)/properties/[propertyId]/units/unit-edit-form";
@@ -46,7 +46,7 @@ vi.mock("next/navigation", () => ({
   redirect: navigation.redirect,
   notFound: () => { throw new Error("Not found"); },
 }));
-vi.mock("@/lib/auth/session", () => ({ requireOwner: vi.fn() }));
+vi.mock("@/lib/auth/session", () => ({ requirePermission: vi.fn() }));
 vi.mock("@/lib/db", () => ({ db: { query: { organizations: { findFirst: vi.fn() } }, select: vi.fn() } }));
 vi.mock("@/server/audit/service", () => ({ getAuditLogPage: vi.fn(), listAuditEvents: vi.fn() }));
 vi.mock("@/server/inventory/service", () => ({
@@ -62,6 +62,7 @@ vi.mock("@/server/inventory/amenities", () => ({
 }));
 vi.mock("@/app/(app)/settings/actions", () => ({
   renameOrganization: vi.fn(), saveOrganizationProfile: vi.fn(), savePaymentInstructions: vi.fn(), inviteStaffAction: vi.fn(), removeStaffAction: vi.fn(),
+  createOrganizationJoinCodeAction: vi.fn(), reviewOrganizationJoinRequestAction: vi.fn(),
 }));
 vi.mock("@/app/(app)/properties/actions", () => ({
   createPropertyAction: vi.fn(), updatePropertyAction: vi.fn(), createUnitAction: vi.fn(),
@@ -111,7 +112,7 @@ const newPages = [
   { name: "audit logs", render: () => AuditLogsPage(), firstRead: getAuditLogPage },
   { name: "organization edit", render: () => EditOrganizationPage(), firstRead: db.query.organizations.findFirst, hasPageHeading: false },
   { name: "payment instructions edit", render: () => EditPaymentInstructionsPage(), firstRead: db.query.organizations.findFirst },
-  { name: "staff create", render: () => NewStaffPage(), firstRead: undefined },
+  { name: "team invite", render: () => InviteTeamMemberPage(), firstRead: undefined },
   { name: "property create", render: () => NewPropertyPage(), firstRead: undefined },
   ...propertyPages, ...unitPages,
 ];
@@ -122,7 +123,7 @@ afterAll(() => vi.unstubAllGlobals());
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(React.useActionState).mockReturnValue([{}, vi.fn(), false]);
-  vi.mocked(requireOwner).mockResolvedValue(owner);
+  vi.mocked(requirePermission).mockResolvedValue(owner);
   vi.mocked(db.query.organizations.findFirst).mockResolvedValue({
     id: owner.organizationId, name: owner.organizationName, displayName: null, slug: owner.organizationSlug, defaultTimezone: "Asia/Manila",
     contactEmail: null, contactPhone: null, logoUrl: null, addressLine1: null, addressLine2: null,
@@ -148,10 +149,10 @@ beforeEach(() => {
 
 describe("dedicated owner route boundaries", () => {
   it.each(newPages)("denies direct non-owner access to $name before any reads", async ({ render }) => {
-    vi.mocked(requireOwner).mockResolvedValue(null);
+    vi.mocked(requirePermission).mockResolvedValue(null);
     const tree = await render();
     expect(tree.type).toBe(PermissionDenied);
-    expect(requireOwner).toHaveBeenCalledOnce();
+    expect(requirePermission).toHaveBeenCalledOnce();
     for (const read of reads) expect(read).not.toHaveBeenCalled();
   });
 
@@ -160,10 +161,10 @@ describe("dedicated owner route boundaries", () => {
     const hasPageHeading = !("hasPageHeading" in page) || page.hasPageHeading !== false;
     const tree = await render();
     expect(tree.type).not.toBe(PermissionDenied);
-    expect(requireOwner).toHaveBeenCalledOnce();
+    expect(requirePermission).toHaveBeenCalledOnce();
     if (firstRead) {
       expect(firstRead).toHaveBeenCalledOnce();
-      const ownerCheckOrder = vi.mocked(requireOwner).mock.invocationCallOrder[0];
+      const ownerCheckOrder = vi.mocked(requirePermission).mock.invocationCallOrder[0];
       expect(ownerCheckOrder).toBeDefined();
       expect(vi.mocked(firstRead).mock.invocationCallOrder[0]).toBeGreaterThan(ownerCheckOrder ?? Infinity);
     }
@@ -269,7 +270,8 @@ describe("read-only summaries and reusable tables", () => {
 const editors = [
   { name: "organization", render: () => React.createElement(OrgNameForm, { defaultName: owner.organizationName }), destination: undefined },
   { name: "payment instructions", render: () => React.createElement(PaymentInstructionsForm, { defaultValue: "" }), destination: undefined },
-  { name: "staff", render: () => React.createElement(InviteStaffForm), destination: "/settings" },
+  // Stays on the page so the one-time invitation link can be copied.
+  { name: "team invite", render: () => React.createElement(InviteTeamMemberForm), destination: undefined },
 ];
 // These can open as a modal, so the save itself returns to the page (closing it).
 const returningEditors = [
