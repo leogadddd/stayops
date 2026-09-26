@@ -62,6 +62,7 @@ type SidebarProps = {
   userImage?: string | null;
   role: "owner" | "staff";
   organizationId?: string;
+  organizationImage?: string | null;
   organizations?: OrganizationOption[];
 };
 
@@ -240,9 +241,12 @@ export function AppHeader({
             })}
           </ol> */}
         </nav>
+        {/* Below lg the selector lives in the navigation drawer instead. */}
         <OrganizationSelector
           organizations={organizations}
           activeOrganizationId={activeOrganizationId}
+          imageSrc={props.organizationImage ?? null}
+          className="hidden lg:block"
         />
       </div>
       <div className="flex shrink-0 items-center gap-5">
@@ -271,9 +275,14 @@ export function AppHeader({
               <X className="h-5 w-5" />
             </button>
           </div>
-          <p className="truncate px-6 pb-3 text-xs text-paper/65">
-            {props.organizationName}
-          </p>
+          <OrganizationSelector
+            organizations={organizations}
+            activeOrganizationId={activeOrganizationId}
+            imageSrc={props.organizationImage ?? null}
+            tone="dark"
+            className="mx-3.5 mb-2 border-b border-paper/10 pb-3"
+            onSwitched={() => mobileNav.current?.close()}
+          />
           <Navigation
             role={props.role}
             onNavigate={() => mobileNav.current?.close()}

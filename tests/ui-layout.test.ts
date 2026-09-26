@@ -7,9 +7,11 @@ import { Logo, LogoMark } from "@/components/logo";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import AppLayout from "@/app/(app)/layout";
 import { listMemberships, requireMembership, requireUser } from "@/lib/auth/session";
+import { getOrganizationLogoUrl } from "@/server/orgs/service";
 
 vi.mock("next/navigation", () => ({ usePathname: vi.fn(), useRouter: vi.fn() }));
 vi.mock("@/lib/auth/session", () => ({ requireUser: vi.fn(), requireMembership: vi.fn(), listMemberships: vi.fn() }));
+vi.mock("@/server/orgs/service", () => ({ getOrganizationLogoUrl: vi.fn() }));
 
 const identity = { organizationName: "Example stays", userName: "Test Owner", userEmail: "owner@example.com", role: "owner" as const };
 const h = React.createElement;
@@ -72,6 +74,7 @@ describe("branded app shell", () => {
     vi.mocked(requireUser).mockResolvedValue({ id: "user-a", name: identity.userName, email: identity.userEmail } as Awaited<ReturnType<typeof requireUser>>);
     vi.mocked(requireMembership).mockResolvedValue({ userId: "user-a", organizationId: "org-a", organizationName: identity.organizationName, organizationSlug: "example", role: "owner" });
     vi.mocked(listMemberships).mockResolvedValue([{ organizationId: "org-a", organizationName: identity.organizationName, organizationSlug: "example", role: "owner" }]);
+    vi.mocked(getOrganizationLogoUrl).mockResolvedValue(null);
     const markup = renderToStaticMarkup(await AppLayout({ children: h("p", null, "Page content") }));
     expect(requireMembership).toHaveBeenCalledOnce();
     expect(markup).toContain("h-dvh overflow-hidden");

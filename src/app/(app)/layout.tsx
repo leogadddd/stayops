@@ -1,5 +1,6 @@
 import { listMemberships, requireMembership, requireUser } from "@/lib/auth/session";
 import { AppHeader, AppSidebar } from "@/components/app/sidebar";
+import { getOrganizationLogoUrl } from "@/server/orgs/service";
 
 export default async function AppLayout({
   children,
@@ -13,9 +14,15 @@ export default async function AppLayout({
     requireMembership(),
     requireUser().then((user) => listMemberships(user.id)),
   ]);
+  const organizationLogoUrl = await getOrganizationLogoUrl(membership.organizationId);
   const identity = {
     organizationId: membership.organizationId,
     organizationName: membership.organizationName,
+    organizationImage: organizationLogoUrl?.startsWith("data:")
+      ? organizationLogoUrl
+      : organizationLogoUrl
+        ? `/api/orgs/${membership.organizationId}/logo`
+        : null,
     organizations: organizations.map((organization) => ({
       id: organization.organizationId,
       name: organization.organizationName,
