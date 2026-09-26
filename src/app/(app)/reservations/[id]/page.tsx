@@ -190,7 +190,7 @@ export default async function ReservationDetailPage({
         All reservations
       </Link>
 
-      <section className="overflow-hidden rounded-2xl border border-pine/10 bg-white shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
+      <section className="overflow-hidden rounded-2xl border border-pine/10 bg-surface shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
         <div className="grid md:grid-cols-[16rem_minmax(0,1fr)] xl:grid-cols-[20rem_minmax(0,1fr)]">
           <UnitPhoto
             src={unitOrPropertyPhotoSrc(unit, property)}
@@ -343,7 +343,7 @@ export default async function ReservationDetailPage({
 
       <div className="mt-6 grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_24rem]">
         <div className="min-w-0 space-y-6">
-          <section className="rounded-2xl border border-pine/10 bg-white p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)] sm:p-6">
+          <section className="rounded-2xl border border-pine/10 bg-surface p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)] sm:p-6">
             <h2 className="font-display text-lg text-pine">Stay progress</h2>
             <ol className="mt-5 grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
               {PROGRESS.map((step, index) => {
@@ -377,7 +377,7 @@ export default async function ReservationDetailPage({
                         aria-hidden
                         className={cn(
                           "absolute left-4 top-8 h-[calc(100%-1rem)] w-0.5 sm:-right-3 sm:left-8 sm:top-4 sm:h-0.5 sm:w-auto",
-                          done ? "bg-pine" : "bg-pine/10",
+                          done ? "bg-primary" : "bg-pine/10",
                         )}
                       />
                     ) : (
@@ -385,15 +385,15 @@ export default async function ReservationDetailPage({
                         aria-hidden
                         className={cn(
                           "absolute hidden sm:left-0 sm:right-8 sm:top-4 sm:block sm:h-0.5",
-                          prevDone ? "bg-pine" : "bg-pine/10",
+                          prevDone ? "bg-primary" : "bg-pine/10",
                         )}
                       />
                     )}
                     <span
                       className={cn(
-                        "relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold ring-4 ring-white",
+                        "relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold ring-4 ring-surface",
                         done
-                          ? "bg-pine text-white"
+                          ? "bg-primary text-white"
                           : current
                             ? "bg-clay text-white"
                             : "bg-pine/10 text-ink/45",
@@ -455,7 +455,7 @@ export default async function ReservationDetailPage({
             ) : null}
           </section>
 
-          <section className="rounded-2xl border border-pine/10 bg-white p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)] sm:p-6">
+          <section className="rounded-2xl border border-pine/10 bg-surface p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)] sm:p-6">
             <h2 className="font-display text-lg text-pine">Guests</h2>
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <div className="min-w-0 rounded-xl bg-linen p-4">
@@ -469,7 +469,7 @@ export default async function ReservationDetailPage({
                   {guest.email ? (
                     <a
                       href={`mailto:${guest.email}`}
-                      className="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-pine/15 bg-white px-2.5 py-1.5 text-sm text-pine hover:border-pine/35"
+                      className="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-pine/15 bg-surface px-2.5 py-1.5 text-sm text-pine hover:border-pine/35"
                     >
                       <Mail
                         className="h-3.5 w-3.5 shrink-0 text-pine/55"
@@ -481,7 +481,7 @@ export default async function ReservationDetailPage({
                   {guest.phone ? (
                     <a
                       href={`tel:${guest.phone}`}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-pine/15 bg-white px-2.5 py-1.5 text-sm text-pine hover:border-pine/35"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-pine/15 bg-surface px-2.5 py-1.5 text-sm text-pine hover:border-pine/35"
                     >
                       <Phone
                         className="h-3.5 w-3.5 shrink-0 text-pine/55"
@@ -509,7 +509,7 @@ export default async function ReservationDetailPage({
                     {occupants.map((occupant) => (
                       <li
                         key={occupant.id}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-sm text-pine ring-1 ring-pine/10"
+                        className="inline-flex items-center gap-1.5 rounded-full bg-surface px-3 py-1 text-sm text-pine ring-1 ring-pine/10"
                       >
                         <Users
                           className="h-3.5 w-3.5 text-pine/50"
@@ -609,7 +609,7 @@ export default async function ReservationDetailPage({
             </>
           ) : null}
 
-          <section className="rounded-2xl border border-pine/10 bg-white p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)] sm:p-6">
+          <section className="rounded-2xl border border-pine/10 bg-surface p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)] sm:p-6">
             <h2 className="font-display text-lg text-pine">History</h2>
             <ReservationHistory transitions={transitions} ledger={ledger} timeZone={timezone} />
           </section>
@@ -620,7 +620,7 @@ export default async function ReservationDetailPage({
           aria-label="Reservation actions"
         >
           {canSeeMoney && balances ? (
-            <section className="rounded-2xl border border-pine/10 bg-white p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
+            <section className="rounded-2xl border border-pine/10 bg-surface p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
               <div className="flex items-baseline justify-between gap-3">
                 <h2 className="font-display text-lg text-pine">Balance</h2>
                 <span
@@ -651,7 +651,7 @@ export default async function ReservationDetailPage({
                 aria-valuenow={Math.round(paidShare * 100)}
               >
                 <div
-                  className="h-full rounded-full bg-pine"
+                  className="h-full rounded-full bg-primary"
                   style={{ width: `${paidShare * 100}%` }}
                 />
               </div>
@@ -718,7 +718,7 @@ export default async function ReservationDetailPage({
             </section>
           ) : null}
 
-          <section className="rounded-2xl border border-pine/10 bg-white p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
+          <section className="rounded-2xl border border-pine/10 bg-surface p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
             <h2 className="font-display text-lg text-pine">
               Manage reservation
             </h2>
@@ -823,7 +823,7 @@ export default async function ReservationDetailPage({
           </section>
 
           {can(membership, "guests.update") ? (
-            <section className="rounded-2xl border border-pine/10 bg-white p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
+            <section className="rounded-2xl border border-pine/10 bg-surface p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
               <h2 className="font-display text-lg text-pine">Guest link</h2>
               <div className="mt-4">
                 <GuestLinkCard
@@ -843,7 +843,7 @@ export default async function ReservationDetailPage({
           ) : null}
 
           {turnoverTask ? (
-            <section className="rounded-2xl border border-pine/10 bg-white p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
+            <section className="rounded-2xl border border-pine/10 bg-surface p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
               <h2 className="font-display text-lg text-pine">Turnover</h2>
               <p className="mt-3 text-sm text-ink/70">
                 {turnoverTask.doneItems} of {turnoverTask.totalItems} checklist
@@ -958,12 +958,12 @@ function BalanceCard({ balanceCents, paidShare, href, muted }: { balanceCents: n
   );
   const className = cn(
     "col-span-2 flex min-w-0 items-center gap-3 rounded-xl p-3 sm:p-4 @3xl:col-span-1 @3xl:col-start-3 @3xl:row-span-2 @3xl:row-start-1 @3xl:p-5",
-    muted ? "bg-linen text-pine" : due ? "bg-clay text-white shadow-[0_6px_18px_rgba(166,78,55,0.3)]" : overpaid ? "bg-amber-500 text-white" : "bg-pine text-white",
+    muted ? "bg-linen text-pine" : due ? "bg-clay text-white shadow-[0_6px_18px_rgba(166,78,55,0.3)]" : overpaid ? "bg-amber-500 text-white" : "bg-primary text-white",
   );
   if (!href) return <div className={className}>{body}</div>;
   // A stretched link keeps the <dl> valid while making the whole card open the payment modal.
   return (
-    <div className={cn(className, "relative transition-colors hover:bg-clay-deep has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-clay has-[a:focus-visible]:ring-offset-2")}>
+    <div className={cn(className, "relative transition-colors hover:bg-clay-strong has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-clay has-[a:focus-visible]:ring-offset-2")}>
       {body}
       <Link href={href} className="absolute inset-0 rounded-xl focus-visible:outline-none" aria-label="Record payment" />
     </div>
@@ -1000,7 +1000,7 @@ function StatTile({
           tone === "clay"
             ? "bg-clay text-white"
             : tone === "sage"
-              ? "bg-pine text-white"
+              ? "bg-primary text-white"
               : "bg-sage/60 text-pine",
         )}
       >

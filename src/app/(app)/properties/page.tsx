@@ -85,7 +85,7 @@ export default async function PropertiesPage() {
             return (
               <li
                 key={property.id}
-                className="group relative flex flex-col overflow-hidden rounded-2xl border border-pine/10 bg-white shadow-[0_1px_2px_rgba(32,58,53,0.06)] transition hover:-translate-y-0.5 hover:border-pine/25 hover:shadow-[0_10px_24px_rgba(32,58,53,0.08)]"
+                className="group relative flex flex-col overflow-hidden rounded-2xl border border-pine/10 bg-surface shadow-[0_1px_2px_rgba(32,58,53,0.06)] transition hover:-translate-y-0.5 hover:border-pine/25 hover:shadow-[0_10px_24px_rgba(32,58,53,0.08)]"
               >
                 <UnitPhoto src={photoSrc("property", property)} className="aspect-[16/9]" />
                 <div className="flex flex-1 flex-col p-5">

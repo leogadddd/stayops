@@ -100,7 +100,7 @@ export function MonthCalendar({
                       return (
                         <div key={day} className="px-1.5 pt-1.5">
                           {newReservationHref ? (
-                            <Link href={newReservationHref(day)} aria-label={`New reservation starting ${label}`} aria-current={currentDay ? "date" : undefined} className={`${numberClass} ${currentDay ? "hover:bg-clay-deep" : "hover:bg-sage/60"}`}>
+                            <Link href={newReservationHref(day)} aria-label={`New reservation starting ${label}`} aria-current={currentDay ? "date" : undefined} className={`${numberClass} ${currentDay ? "hover:bg-clay-strong" : "hover:bg-sage/60"}`}>
                               <time dateTime={day}>{Number(day.slice(-2))}</time>
                             </Link>
                           ) : <time dateTime={day} aria-label={label} aria-current={currentDay ? "date" : undefined} className={numberClass}>{Number(day.slice(-2))}</time>}

@@ -94,7 +94,7 @@ export function OrganizationProfileForm({
       onSubmit={() => setDirty(false)}
       className={saveBarVisible ? "space-y-6" : "space-y-6"}
     >
-      <Card className="bg-[#FFFDFA]">
+      <Card className="bg-card">
         <CardBody>
           <section>
             <h2 className="font-display text-xl text-pine">
@@ -111,7 +111,7 @@ export function OrganizationProfileForm({
         </CardBody>
       </Card>
 
-      <Card className="bg-[#FFFDFA]">
+      <Card className="bg-card">
         <CardBody>
           <section>
             <h2 className="font-display text-xl text-pine">
@@ -167,7 +167,7 @@ export function OrganizationProfileForm({
         </CardBody>
       </Card>
 
-      <Card className="bg-[#FFFDFA]">
+      <Card className="bg-card">
         <CardBody>
           <section>
             <h2 className="font-display text-xl text-pine">Contact</h2>
@@ -201,7 +201,7 @@ export function OrganizationProfileForm({
         </CardBody>
       </Card>
 
-      <Card className="bg-[#FFFDFA]">
+      <Card className="bg-card">
         <CardBody>
           <AddressFields values={values} onChange={checkDirty} />
         </CardBody>
@@ -389,7 +389,7 @@ function LogoImageField({
       </div>
       <dialog
         ref={dialogRef}
-        className="m-auto w-[min(92vw,30rem)] rounded-2xl border border-pine/15 bg-[#FFFDFA] p-0 text-ink shadow-2xl backdrop:bg-ink/55"
+        className="m-auto w-[min(92vw,30rem)] rounded-2xl border border-pine/15 bg-card p-0 text-ink shadow-2xl backdrop:bg-scrim/55"
         onCancel={closeEditor}
       >
         <div className="p-6">

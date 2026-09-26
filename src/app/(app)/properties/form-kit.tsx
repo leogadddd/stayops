@@ -19,7 +19,7 @@ export function FormSection({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-pine/10 bg-white p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)] sm:p-6">
+    <section className="rounded-2xl border border-pine/10 bg-surface p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)] sm:p-6">
       <h2 className="font-display text-xl text-pine">{title}</h2>
       {description ? <p className="mt-1 text-sm text-ink/55">{description}</p> : null}
       <div className="mt-5">{children}</div>
@@ -59,7 +59,7 @@ export function FormAside({
   note?: string;
 }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-pine/10 bg-white shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
+    <div className="overflow-hidden rounded-2xl border border-pine/10 bg-surface shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
       {preview}
       <div className="space-y-3 border-t border-pine/10 p-5">
         <FieldError message={error} />

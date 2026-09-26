@@ -28,7 +28,7 @@ export function AmenityList({ amenities, emptyLabel }: { amenities: { id: string
       {amenities.map((amenity) => {
         const Icon = amenityIcon(amenity.icon);
         return (
-          <li key={amenity.id} className="inline-flex items-center gap-1.5 rounded-full border border-pine/15 bg-white px-3 py-1 text-sm text-pine">
+          <li key={amenity.id} className="inline-flex items-center gap-1.5 rounded-full border border-pine/15 bg-surface px-3 py-1 text-sm text-pine">
             <Icon aria-hidden className="h-3.5 w-3.5 text-pine/60" />{amenity.name}
           </li>
         );

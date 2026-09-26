@@ -107,7 +107,7 @@ export function DateTimeInput({ name, label, timeZone, nowLabel = "Right now", h
           {now ? (
             <div className="flex flex-wrap gap-2" role="group" aria-label="Quick dates">
               {[{ label: "Today", value: now.date }, { label: "Yesterday", value: shiftDate(now.date, -1) }, { label: "2 days ago", value: shiftDate(now.date, -2) }].map((option) => (
-                <button key={option.label} type="button" onClick={() => setDate(option.value)} aria-pressed={date === option.value} className={cn("rounded-full border px-3 py-1 text-xs font-medium transition-colors", date === option.value ? "border-pine bg-pine text-white" : "border-pine/15 text-pine hover:border-pine/35")}>
+                <button key={option.label} type="button" onClick={() => setDate(option.value)} aria-pressed={date === option.value} className={cn("rounded-full border px-3 py-1 text-xs font-medium transition-colors", date === option.value ? "border-primary bg-primary text-white" : "border-pine/15 text-pine hover:border-pine/35")}>
                   {option.label}
                 </button>
               ))}

@@ -27,7 +27,7 @@ interface HistoryEvent {
 }
 
 const TONES = {
-  pine: "bg-pine text-white",
+  pine: "bg-primary text-white",
   sage: "bg-sage text-pine-deep",
   clay: "bg-clay-mist text-clay-deep",
   neutral: "bg-pine-mist text-pine",
@@ -119,7 +119,7 @@ export function ReservationHistory({ transitions, ledger, timeZone }: {
         return (
           <li key={event.key} className="relative flex gap-3">
             {index < events.length - 1 ? <span aria-hidden className="absolute left-3.5 top-8 h-[calc(100%-0.5rem)] w-0.5 bg-sage" /> : null}
-            <span className={cn("relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ring-4 ring-white", TONES[event.tone])}><Icon className="h-3.5 w-3.5" aria-hidden /></span>
+            <span className={cn("relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ring-4 ring-surface", TONES[event.tone])}><Icon className="h-3.5 w-3.5" aria-hidden /></span>
             <div className="min-w-0 flex-1 pt-0.5">
               {event.title}
               {event.detail ? <p className="mt-1 break-words text-sm text-ink/60">{event.detail}</p> : null}

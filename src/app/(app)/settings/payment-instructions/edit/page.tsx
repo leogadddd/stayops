@@ -21,7 +21,7 @@ export default async function EditPaymentInstructionsPage() {
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeading title="Edit payment instructions" description="Tell guests how to pay on their private booking page." backHref="/settings" backLabel="Settings" />
-      <Card className="bg-[#FFFDFA]"><CardBody><PaymentInstructionsForm defaultValue={org.paymentInstructions ?? ""} /></CardBody></Card>
+      <Card className="bg-card"><CardBody><PaymentInstructionsForm defaultValue={org.paymentInstructions ?? ""} /></CardBody></Card>
     </div>
   );
 }

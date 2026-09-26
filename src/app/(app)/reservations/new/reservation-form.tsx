@@ -402,7 +402,7 @@ export function ReservationForm({
 
   if (units.length === 0) {
     return (
-      <div className="rounded-2xl border border-pine/10 bg-white p-6 text-sm text-ink/70">
+      <div className="rounded-2xl border border-pine/10 bg-surface p-6 text-sm text-ink/70">
         No units are accepting bookings yet. Activate a unit first, then come back to place a hold or booking.
       </div>
     );
@@ -419,7 +419,7 @@ export function ReservationForm({
 
     <div className="grid min-w-0 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] 2xl:grid-cols-[minmax(0,1fr)_26rem]">
       <div className="min-w-0">
-        <section className="rounded-2xl border border-pine/10 bg-white p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)] sm:p-6">
+        <section className="rounded-2xl border border-pine/10 bg-surface p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)] sm:p-6">
           {step === "stay" ? (
             <div className="space-y-8">
               <StepHeading title="Where and when" description="Pick the unit, the stay dates, and how many people are staying." />
@@ -472,7 +472,7 @@ export function ReservationForm({
                 </div>
                 <div className="min-w-0">
                   <Label htmlFor="guest-count">Guests</Label>
-                  <div className="flex h-12 items-center rounded-xl border border-pine/20 bg-white">
+                  <div className="flex h-12 items-center rounded-xl border border-pine/20 bg-surface">
                     <button type="button" aria-label="Fewer guests" onClick={() => setGuestCount(guestCount - 1)} disabled={guestCount <= 1} className="flex h-full w-11 items-center justify-center rounded-l-xl text-pine hover:bg-pine-mist/60 disabled:opacity-35"><Minus className="h-4 w-4" aria-hidden /></button>
                     <span id="guest-count" className="flex flex-1 items-center justify-center gap-1.5 text-sm font-medium text-ink"><Users className="h-4 w-4 text-pine/50" aria-hidden />{guestCount}</span>
                     <button type="button" aria-label="More guests" onClick={() => setGuestCount(guestCount + 1)} disabled={guestCount >= capacity} className="flex h-full w-11 items-center justify-center rounded-r-xl text-pine hover:bg-pine-mist/60 disabled:opacity-35"><Plus className="h-4 w-4" aria-hidden /></button>
@@ -779,7 +779,7 @@ function Stepper({ steps, current, firstBlocked, onJump }: { steps: StepId[]; cu
               aria-current={index === current ? "step" : undefined}
               className={cn(
                 "flex min-w-0 flex-1 items-center gap-2.5 rounded-xl border px-2.5 py-2.5 text-left text-sm transition-colors sm:px-3",
-                index === current ? "border-clay bg-white font-medium text-pine shadow-[0_1px_2px_rgba(32,58,53,0.06)]" : done ? "border-pine/10 bg-white text-pine hover:border-pine/30" : "border-transparent text-ink/45",
+                index === current ? "border-clay bg-surface font-medium text-pine shadow-[0_1px_2px_rgba(32,58,53,0.06)]" : done ? "border-pine/10 bg-surface text-pine hover:border-pine/30" : "border-transparent text-ink/45",
               )}
             >
               <span className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium", index === current ? "bg-clay text-white" : done ? "bg-sage/60 text-pine" : "bg-pine/10 text-ink/50")}>
@@ -827,7 +827,7 @@ function AvailabilityBanner({ valid, unitChosen, result, nights, checkIn, checkO
 
 function SegmentButton({ active, disabled, onClick, children }: { active: boolean; disabled?: boolean; onClick: () => void; children: ReactNode }) {
   return (
-    <button type="button" role="radio" aria-checked={active} disabled={disabled} onClick={onClick} className={cn("inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors disabled:opacity-40", active ? "bg-white text-pine shadow-[0_1px_2px_rgba(32,58,53,0.1)]" : "text-ink/55 hover:text-pine")}>
+    <button type="button" role="radio" aria-checked={active} disabled={disabled} onClick={onClick} className={cn("inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors disabled:opacity-40", active ? "bg-surface text-pine shadow-[0_1px_2px_rgba(32,58,53,0.1)]" : "text-ink/55 hover:text-pine")}>
       {children}
     </button>
   );

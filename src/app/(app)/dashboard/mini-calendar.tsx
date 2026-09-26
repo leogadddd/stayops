@@ -25,11 +25,11 @@ export interface MiniCalendarEvent {
 
 // Same palette as the full calendar's bars, reduced to dots.
 const DOT: Record<MiniCalendarTone, string> = {
-  confirmed: "bg-[#8fb09b]",
-  "in-house": "bg-pine",
-  "checked-out": "bg-[#b3c4bb]",
-  hold: "bg-[#b0823f]",
-  blocked: "bg-[#a9ada8]",
+  confirmed: "bg-stay-booked-line",
+  "in-house": "bg-primary",
+  "checked-out": "bg-stay-departed-line",
+  hold: "bg-stay-hold-line",
+  blocked: "bg-stay-blocked-line",
 };
 const TONE_LABEL: Record<MiniCalendarTone, string> = {
   confirmed: "Confirmed",

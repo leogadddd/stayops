@@ -15,5 +15,5 @@ export default async function RegionSettingsPage() {
   if (!membership) return <PermissionDenied />;
   const organization = await db.query.organizations.findFirst({ where: eq(organizations.id, membership.organizationId) });
   if (!organization) notFound();
-  return <div className="min-w-0"><Card className="bg-[#FFFDFA]"><CardBody><RegionForm defaultTimezone={organization.defaultTimezone} /></CardBody></Card></div>;
+  return <div className="min-w-0"><Card className="bg-card"><CardBody><RegionForm defaultTimezone={organization.defaultTimezone} /></CardBody></Card></div>;
 }

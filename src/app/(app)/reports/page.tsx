@@ -175,7 +175,7 @@ export default async function ReportsPage({
         </div>
         <button
           type="submit"
-          className="h-10 rounded-lg bg-pine px-4 text-sm font-medium text-white hover:bg-pine-soft"
+          className="h-10 rounded-lg bg-primary px-4 text-sm font-medium text-white hover:bg-primary-soft"
         >
           Run report
         </button>
@@ -274,10 +274,10 @@ function ReportBody({
           title="Cash movement"
           formatValue={formatPHP}
           items={[
-            { label: "Booking payments", value: summary.bookingCollectedCents, tone: "bg-pine" },
+            { label: "Booking payments", value: summary.bookingCollectedCents, tone: "bg-primary" },
             { label: "Operating expenses", value: summary.operatingExpensesCents, tone: "bg-clay" },
-            { label: "Booking refunds", value: summary.bookingRefundedCents, tone: "bg-[#c88470]" },
-            { label: "Net operating cash", value: summary.netOperatingCashCents, tone: summary.netOperatingCashCents < 0 ? "bg-clay-deep" : "bg-sage-deep" },
+            { label: "Booking refunds", value: summary.bookingRefundedCents, tone: "bg-refund" },
+            { label: "Net operating cash", value: summary.netOperatingCashCents, tone: summary.netOperatingCashCents < 0 ? "bg-clay-strong" : "bg-sage-deep" },
           ]}
         />
         <HorizontalBars

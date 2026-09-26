@@ -138,7 +138,7 @@ export default async function StayShowcasePage({ params, searchParams }: {
         </div>
 
         <aside className="order-2 min-w-0 lg:order-none lg:sticky lg:top-0 lg:col-start-2 lg:row-span-2 lg:row-start-1">
-          <div className="rounded-2xl border border-pine/10 bg-white p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
+          <div className="rounded-2xl border border-pine/10 bg-surface p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
             {search ? (
               <>
                 <StatusBanner status={status!} guestCount={search.guestCount} unitStatus={UNIT_STATUS_LABELS[unit.status]} capacity={unit.capacity} />
@@ -189,7 +189,7 @@ export default async function StayShowcasePage({ params, searchParams }: {
 }
 
 function Fact({ icon: Icon, children }: { icon: typeof Users; children: React.ReactNode }) {
-  return <li className="inline-flex items-center gap-1.5 rounded-full border border-pine/15 bg-white px-3 py-1.5 text-sm text-pine"><Icon className="h-4 w-4 text-pine/55" aria-hidden />{children}</li>;
+  return <li className="inline-flex items-center gap-1.5 rounded-full border border-pine/15 bg-surface px-3 py-1.5 text-sm text-pine"><Icon className="h-4 w-4 text-pine/55" aria-hidden />{children}</li>;
 }
 
 function StatusBanner({ status, guestCount, capacity, unitStatus }: { status: StayStatus; guestCount: number; capacity: number; unitStatus: string }) {

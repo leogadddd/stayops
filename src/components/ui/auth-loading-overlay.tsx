@@ -24,7 +24,7 @@ export function AuthLoadingOverlay({
   const dark = tone === "dark";
   return (
     <div
-      className={`fixed inset-0 z-[100] flex items-center justify-center px-6 ${dark ? "bg-pine-deep/95 text-paper" : "bg-paper/95 text-pine"}`}
+      className={`fixed inset-0 z-[100] flex items-center justify-center px-6 ${dark ? "theme-keep-light bg-pine-deep/95 text-paper" : "bg-paper/95 text-pine"}`}
       role="status"
       aria-live="polite"
       aria-label={label}
@@ -37,7 +37,11 @@ export function AuthLoadingOverlay({
           height={112}
           unoptimized
           priority
+          className={dark ? undefined : "dark:hidden"}
         />
+        {dark ? null : (
+          <Image src={whiteLoader} alt="" width={112} height={112} unoptimized className="hidden dark:block" />
+        )}
         <p className="mt-4 text-sm font-medium">{label}</p>
       </div>
     </div>

@@ -94,7 +94,7 @@ function BookingWindow({ search, previous, next, checkInTime, checkOutTime, turn
   // Longest stay that still ends on or before the next booking starts.
   const maxNights = Math.min(MAX_NIGHTS, next && next.date >= search.checkOut ? listNights(search.checkIn, next.date).length : MAX_NIGHTS);
   return (
-    <section className="overflow-hidden rounded-2xl border border-pine/10 bg-white shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
+    <section className="overflow-hidden rounded-2xl border border-pine/10 bg-surface shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
       <div className="flex flex-wrap items-baseline justify-between gap-2 px-5 pt-5 sm:px-6">
         <h2 className="font-display text-xl text-pine">Booking window</h2>
         <p className="text-sm text-ink/55">Where this stay fits on the unit’s calendar</p>
@@ -150,8 +150,8 @@ function NeighborTile({ heading, neighbor, gap, verb, gapText }: { heading: stri
     </>
   );
   return neighbor?.href
-    ? <Link href={neighbor.href} className="group block min-w-0 bg-white px-5 py-4 transition-colors hover:bg-linen sm:px-6">{body}</Link>
-    : <div className="min-w-0 bg-white px-5 py-4 sm:px-6">{body}</div>;
+    ? <Link href={neighbor.href} className="group block min-w-0 bg-surface px-5 py-4 transition-colors hover:bg-linen sm:px-6">{body}</Link>
+    : <div className="min-w-0 bg-surface px-5 py-4 sm:px-6">{body}</div>;
 }
 
 function DatePicker({ search, today, days, onPick }: {
@@ -185,7 +185,7 @@ function DatePicker({ search, today, days, onPick }: {
   const monthLabel = MONTH_YEAR.format(toDate(addDaysLocal(viewStart, 14)));
 
   return (
-    <section className="rounded-2xl border border-pine/10 bg-white p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)] sm:p-6">
+    <section className="rounded-2xl border border-pine/10 bg-surface p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)] sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-display text-xl text-pine">{search ? "Try other dates" : "Pick dates"}</h2>
@@ -197,8 +197,8 @@ function DatePicker({ search, today, days, onPick }: {
         <div className="flex items-center gap-1.5">
           {anchor ? <button type="button" onClick={() => setAnchor(null)} className="inline-flex h-9 items-center gap-1 rounded-lg px-2.5 text-sm text-clay-deep hover:bg-clay-mist"><X className="h-4 w-4" aria-hidden />Cancel</button> : null}
           <span className="min-w-32 text-center text-sm font-medium text-pine">{monthLabel}</span>
-          <button type="button" aria-label="Earlier weeks" onClick={() => setViewStart((start) => { const value = addDaysLocal(start, -14); return value < first ? first : value; })} disabled={viewStart <= first} className="flex h-9 w-9 items-center justify-center rounded-lg border border-pine/15 bg-white text-pine hover:bg-pine-mist disabled:opacity-35"><ChevronLeft className="h-4 w-4" aria-hidden /></button>
-          <button type="button" aria-label="Later weeks" onClick={() => setViewStart((start) => { const value = addDaysLocal(start, 14); return value > lastStart ? lastStart : value; })} disabled={viewStart >= lastStart} className="flex h-9 w-9 items-center justify-center rounded-lg border border-pine/15 bg-white text-pine hover:bg-pine-mist disabled:opacity-35"><ChevronRight className="h-4 w-4" aria-hidden /></button>
+          <button type="button" aria-label="Earlier weeks" onClick={() => setViewStart((start) => { const value = addDaysLocal(start, -14); return value < first ? first : value; })} disabled={viewStart <= first} className="flex h-9 w-9 items-center justify-center rounded-lg border border-pine/15 bg-surface text-pine hover:bg-pine-mist disabled:opacity-35"><ChevronLeft className="h-4 w-4" aria-hidden /></button>
+          <button type="button" aria-label="Later weeks" onClick={() => setViewStart((start) => { const value = addDaysLocal(start, 14); return value > lastStart ? lastStart : value; })} disabled={viewStart >= lastStart} className="flex h-9 w-9 items-center justify-center rounded-lg border border-pine/15 bg-surface text-pine hover:bg-pine-mist disabled:opacity-35"><ChevronRight className="h-4 w-4" aria-hidden /></button>
         </div>
       </div>
 
@@ -221,10 +221,10 @@ function DatePicker({ search, today, days, onPick }: {
           );
           const className = cn(
             "relative flex h-12 min-w-0 flex-col items-center justify-center rounded-lg text-xs transition sm:h-14",
-            day.kind === "booked" && "bg-pine text-white",
+            day.kind === "booked" && "bg-primary text-white",
             day.kind === "held" && "bg-sage-deep text-pine-deep",
             day.kind === "blocked" && "bg-ink/20 text-ink/70",
-            !occupied && "border border-pine/10 bg-white text-ink/75",
+            !occupied && "border border-pine/10 bg-surface text-ink/75",
             selected && (occupied ? "ring-2 ring-clay ring-offset-1" : "border-transparent bg-clay-mist font-medium text-clay-deep ring-2 ring-clay"),
             anchor === date && "bg-clay text-white",
             departure && !occupied && "outline-2 outline-offset-1 outline-dashed outline-clay/60",
@@ -251,8 +251,8 @@ function DatePicker({ search, today, days, onPick }: {
       </div>
 
       <ul className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs text-ink/60">
-        <Legend className="border border-pine/15 bg-white">Free</Legend>
-        <Legend className="bg-pine">Booked</Legend>
+        <Legend className="border border-pine/15 bg-surface">Free</Legend>
+        <Legend className="bg-primary">Booked</Legend>
         <Legend className="bg-sage-deep">Hold</Legend>
         <Legend className="bg-ink/20">Blocked</Legend>
         {search ? <Legend className="bg-clay-mist ring-2 ring-clay">Selected nights</Legend> : null}
@@ -270,7 +270,7 @@ export function InfoTabs({ tabs }: { tabs: { id: string; label: string; count?: 
   const [active, setActive] = useState(tabs[0]!.id);
   const current = tabs.find((tab) => tab.id === active) ?? tabs[0]!;
   return (
-    <section className="overflow-hidden rounded-2xl border border-pine/10 bg-white shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
+    <section className="overflow-hidden rounded-2xl border border-pine/10 bg-surface shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
       <div role="tablist" aria-label="Unit information" className="flex overflow-hidden border-b border-pine/10 px-2 pt-2 sm:gap-1 sm:px-4 sm:pt-3">
         {tabs.map((tab) => (
           <button

@@ -49,7 +49,7 @@ export default async function GuestStatusPage({
 
   return (
     <div className="min-h-dvh bg-paper">
-      <header className="border-b border-pine/10 bg-white">
+      <header className="border-b border-pine/10 bg-surface">
         <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-4">
           <Logo />
           <span className="text-xs text-ink/50">Booking status</span>

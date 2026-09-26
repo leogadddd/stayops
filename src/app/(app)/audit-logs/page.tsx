@@ -54,7 +54,7 @@ export default async function AuditLogsPage({ searchParams = Promise.resolve({})
     <div className="min-w-0 overflow-hidden">
       <PageHeading title="Audit logs" description={`Recorded activity in your organization. Times shown in ${organization?.defaultTimezone ?? "Asia/Manila"}.`} />
 
-      <form method="get" className="flex flex-wrap items-end gap-3 rounded-2xl border border-pine/10 bg-white p-4 shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
+      <form method="get" className="flex flex-wrap items-end gap-3 rounded-2xl border border-pine/10 bg-surface p-4 shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
         <div className="min-w-48 flex-1"><label htmlFor="audit-action" className="mb-1.5 block text-sm font-medium text-ink">Action</label><Input id="audit-action" name="action" defaultValue={action ?? ""} placeholder="e.g. payment or reservation" /></div>
         <div className="min-w-48 flex-1"><label htmlFor="audit-actor" className="mb-1.5 block text-sm font-medium text-ink">Performed by</label><Input id="audit-actor" name="actor" defaultValue={actor ?? ""} placeholder="Team member name" /></div>
         <div className="w-full sm:w-44"><label htmlFor="audit-start-date" className="mb-1.5 block text-sm font-medium text-ink">Start date</label><DateInput id="audit-start-date" name="startDate" defaultValue={startDate ?? ""} clearable placeholder="Any" /></div>
@@ -63,7 +63,7 @@ export default async function AuditLogsPage({ searchParams = Promise.resolve({})
         {filtered ? <Link href="/audit-logs" className="pb-2.5 text-sm text-pine/70 underline-offset-4 hover:text-pine hover:underline">Clear</Link> : null}
       </form>
 
-      <div className="mt-4 overflow-hidden rounded-2xl border border-pine/10 bg-white shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
+      <div className="mt-4 overflow-hidden rounded-2xl border border-pine/10 bg-surface shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
         <Table aria-label="Audit logs" className="[&_td]:px-2.5 [&_th]:px-2.5 [&_td:first-child]:pl-4 [&_th:first-child]:pl-4">
           <TableHeader><TableRow><TableHead>Time</TableHead><TableHead>Activity</TableHead><TableHead>Target</TableHead><TableHead>Actor</TableHead></TableRow></TableHeader>
           <TableBody>

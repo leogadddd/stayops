@@ -22,7 +22,7 @@ export function SettingsNavigation({ role, permissions }: { role: RoleKey; permi
             aria-current={active ? "page" : undefined}
             className={cn(
               "inline-flex shrink-0 items-center gap-2 rounded-lg px-4 py-3.5 text-sm font-medium transition-colors",
-              active ? "bg-pine text-white" : "text-ink/65 hover:bg-pine-mist hover:text-pine",
+              active ? "bg-primary text-white" : "text-ink/65 hover:bg-pine-mist hover:text-pine",
             )}
           >
             <Icon className="h-4 w-4" aria-hidden />

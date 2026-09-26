@@ -55,7 +55,7 @@ export function Progress({ label, share }: { label: string; share: number }) {
   return (
     <>
       <span className="block text-xs text-ink/60">{label}</span>
-      <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-pine/10" aria-hidden><span className="block h-full rounded-full bg-pine" style={{ width: `${Math.min(1, Math.max(0, share)) * 100}%` }} /></span>
+      <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-pine/10" aria-hidden><span className="block h-full rounded-full bg-primary" style={{ width: `${Math.min(1, Math.max(0, share)) * 100}%` }} /></span>
     </>
   );
 }
@@ -98,7 +98,7 @@ export function AmountField({ id, name, label, value, onChange, base, picks = []
   return (
     <div>
       <Label htmlFor={id}>{label}</Label>
-      <div className={cn("flex h-14 items-center rounded-xl border bg-white focus-within:ring-2 focus-within:ring-sage", invalid ? "border-clay" : "border-pine/20 focus-within:border-pine")}>
+      <div className={cn("flex h-14 items-center rounded-xl border bg-surface focus-within:ring-2 focus-within:ring-sage", invalid ? "border-clay" : "border-pine/20 focus-within:border-pine")}>
         <span className="pl-4 pr-1 font-display text-2xl text-pine/45" aria-hidden>₱</span>
         <Input
           id={id}
@@ -119,7 +119,7 @@ export function AmountField({ id, name, label, value, onChange, base, picks = []
           {options.map((option) => {
             const active = cents === option.cents;
             return (
-              <button key={option.label} type="button" onClick={() => onChange(centavosToPesosInput(option.cents))} aria-pressed={active} className={cn("inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors", active ? "border-pine bg-pine text-white" : "border-pine/15 text-pine hover:border-pine/35")}>
+              <button key={option.label} type="button" onClick={() => onChange(centavosToPesosInput(option.cents))} aria-pressed={active} className={cn("inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors", active ? "border-primary bg-primary text-white" : "border-pine/15 text-pine hover:border-pine/35")}>
                 {option.label}<span className={active ? "text-white/70" : "text-ink/50"}>{formatPHP(option.cents)}</span>
               </button>
             );

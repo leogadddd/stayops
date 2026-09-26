@@ -119,7 +119,7 @@ function Results({ search, cards, tooSmallCount, occupiedCount, showRates }: {
         <ul className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
           {cards.map((card) => (
             <li key={card.id} className="min-w-0">
-              <Link href={`/calendar/availability/${card.id}?${query}`} className="group flex h-full min-h-40 overflow-hidden rounded-2xl border border-pine/10 bg-white shadow-[0_1px_2px_rgba(32,58,53,0.06)] transition-shadow hover:border-pine/20 hover:shadow-[0_8px_24px_rgba(32,58,53,0.10)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage">
+              <Link href={`/calendar/availability/${card.id}?${query}`} className="group flex h-full min-h-40 overflow-hidden rounded-2xl border border-pine/10 bg-surface shadow-[0_1px_2px_rgba(32,58,53,0.06)] transition-shadow hover:border-pine/20 hover:shadow-[0_8px_24px_rgba(32,58,53,0.10)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage">
                 <UnitPhoto src={card.imageUrl} className="w-2/5 max-w-56 shrink-0" imageClassName="transition-transform duration-500 group-hover:scale-[1.04]" />
                 <div className="flex min-w-0 flex-1 flex-col p-4">
                   {card.propertyName ? <p className="truncate text-xs font-medium uppercase tracking-wide text-clay-deep">{card.propertyName}</p> : null}

@@ -33,7 +33,7 @@ export function RouteError({
   const detail = process.env.NODE_ENV === "development" ? error.message : null;
 
   return (
-    <div className="mx-auto flex max-w-xl flex-col items-center rounded-2xl border border-dashed border-pine/25 bg-white/60 px-6 py-16 text-center">
+    <div className="mx-auto flex max-w-xl flex-col items-center rounded-2xl border border-dashed border-pine/25 bg-surface/60 px-6 py-16 text-center">
       <h2 className="font-display text-2xl text-pine">This page couldn’t load</h2>
       <p className="mt-2 max-w-md text-sm leading-relaxed text-ink/60">
         Something went wrong while loading your data. Your work is safe — try

@@ -25,7 +25,7 @@ export function ReservationSummary({ unit, checkIn, checkOut, nights, guestCount
   const paidDeposit = (alreadyPaid?.depositCents ?? 0) + (paymentCents && paymentAllocation === "security_deposit" ? paymentCents : 0);
   const paidTotal = paidBooking + paidDeposit;
   return (
-    <div className="overflow-hidden rounded-2xl border border-pine/10 bg-white shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
+    <div className="overflow-hidden rounded-2xl border border-pine/10 bg-surface shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
       <UnitPhoto src={unit?.imageUrl ?? null} className="aspect-[16/9] w-full" />
       <div className="space-y-4 p-5">
         <div>

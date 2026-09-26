@@ -39,7 +39,7 @@ export function ProfileForm({
       onSubmit={() => setDirty(false)}
       className={saveBarVisible ? "space-y-5" : "space-y-5"}
     >
-      <Card className="min-w-0 bg-[#FFFDFA]">
+      <Card className="min-w-0 bg-card">
         <CardBody>
           <section>
             <h2 className="font-display text-xl text-pine">Profile picture</h2>
@@ -50,7 +50,7 @@ export function ProfileForm({
           </section>
         </CardBody>
       </Card>
-      <Card className="min-w-0 bg-[#FFFDFA]">
+      <Card className="min-w-0 bg-card">
         <CardBody>
           <div>
             <Label htmlFor="name">Name</Label>
@@ -224,7 +224,7 @@ function ProfileImageField({
       </div>
       <dialog
         ref={dialogRef}
-        className="m-auto w-[min(92vw,30rem)] rounded-2xl border border-pine/15 bg-[#FFFDFA] p-0 text-ink shadow-2xl backdrop:bg-ink/55"
+        className="m-auto w-[min(92vw,30rem)] rounded-2xl border border-pine/15 bg-card p-0 text-ink shadow-2xl backdrop:bg-scrim/55"
         onCancel={closeEditor}
       >
         <div className="p-6">

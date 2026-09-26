@@ -71,7 +71,7 @@ function Chip({ href, active, muted, children }: { href: string; active: boolean
       scroll={false}
       className={cn(
         "flex items-center gap-2.5 rounded-xl border py-1.5 pl-1.5 pr-3.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay",
-        active ? "border-pine bg-pine text-white shadow-[0_4px_12px_rgba(32,58,53,0.18)]" : "border-pine/15 bg-white text-pine hover:border-pine/35",
+        active ? "border-primary bg-primary text-white shadow-[0_4px_12px_rgba(32,58,53,0.18)]" : "border-pine/15 bg-surface text-pine hover:border-pine/35",
         muted && !active && "opacity-75",
       )}
     >

@@ -10,7 +10,7 @@ export function Bone({ className, style }: { className?: string; style?: React.C
   return <div aria-hidden className={cn("animate-pulse rounded-md bg-pine/10", className)} style={style} />;
 }
 
-const panel = "rounded-2xl border border-pine/10 bg-white shadow-[0_1px_2px_rgba(32,58,53,0.06)]";
+const panel = "rounded-2xl border border-pine/10 bg-surface shadow-[0_1px_2px_rgba(32,58,53,0.06)]";
 
 /** Mirrors `PageHeading`. */
 function Heading({ back = false, action = false, description = true }: { back?: boolean; action?: boolean; description?: boolean }) {
@@ -281,7 +281,7 @@ export function NarrowFormSkeleton() {
   return (
     <Frame className="mx-auto max-w-2xl">
       <Heading back />
-      <div className="rounded-xl border border-pine/12 bg-white px-6 py-5">
+      <div className="rounded-xl border border-pine/12 bg-surface px-6 py-5">
         <div className="space-y-5">
           {Array.from({ length: 4 }, (_, index) => (
             <div key={index}>

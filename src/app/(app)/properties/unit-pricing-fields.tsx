@@ -85,7 +85,7 @@ export function StayTimesFields({ defaultCheckIn, defaultCheckOut }: { defaultCh
             onClick={() => applyLength(String(length))}
             className={cn(
               "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-              hours === length ? "border-pine bg-pine text-white" : "border-pine/15 text-pine hover:border-pine/35",
+              hours === length ? "border-primary bg-primary text-white" : "border-pine/15 text-pine hover:border-pine/35",
             )}
           >
             {length}h

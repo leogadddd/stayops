@@ -19,7 +19,7 @@ function OptionMark({ option }: { option: SearchableSelectOption }) {
   return (
     <span
       aria-hidden
-      className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md bg-pine font-display text-sm text-paper"
+      className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md bg-primary font-display text-sm text-white"
     >
       {option.imageSrc ? (
         <img src={option.imageSrc} alt="" className="h-full w-full object-cover" />
@@ -114,14 +114,14 @@ export function SearchableSelect({
             setActiveIndex(0);
           }
         }}
-        className="flex h-10 w-full items-center justify-between gap-3 rounded-lg border border-pine/20 bg-white px-3 text-left text-sm text-ink disabled:cursor-not-allowed disabled:bg-linen/50 disabled:text-ink/45 focus:border-pine focus:outline-none focus:ring-2 focus:ring-sage"
+        className="flex h-10 w-full items-center justify-between gap-3 rounded-lg border border-pine/20 bg-surface px-3 text-left text-sm text-ink disabled:cursor-not-allowed disabled:bg-linen/50 disabled:text-ink/45 focus:border-pine focus:outline-none focus:ring-2 focus:ring-sage"
       >
         <OptionMark option={selected ?? { value: "" }} />
         <span className="min-w-0 flex-1 truncate">{selected?.label ?? selected?.value ?? placeholder}</span>
         <ChevronDown className="h-4 w-4 shrink-0 text-pine/55" aria-hidden />
       </button>
       {open ? (
-        <div ref={menuRef} id={`${id}-options`} role="listbox" className={cn("absolute z-20 w-full overflow-hidden rounded-lg border border-pine/15 bg-white shadow-lg", opensUpward ? "bottom-full mb-1" : "mt-1")}>
+        <div ref={menuRef} id={`${id}-options`} role="listbox" className={cn("absolute z-20 w-full overflow-hidden rounded-lg border border-pine/15 bg-surface shadow-lg", opensUpward ? "bottom-full mb-1" : "mt-1")}>
           <div className="border-b border-pine/10 p-2">
             <label className="sr-only" htmlFor={`${id}-search`}>Search options</label>
             <div className="relative">

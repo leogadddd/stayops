@@ -19,7 +19,7 @@ export default async function InviteTeamMemberPage() {
         backHref="/settings/team"
         backLabel="Team"
       />
-      <Card className="bg-[#FFFDFA]"><CardBody><InviteTeamMemberForm /></CardBody></Card>
+      <Card className="bg-card"><CardBody><InviteTeamMemberForm /></CardBody></Card>
     </div>
   );
 }

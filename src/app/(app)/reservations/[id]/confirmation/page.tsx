@@ -49,7 +49,7 @@ export default async function ReservationConfirmationPage({ params }: { params: 
     <div className="min-w-0 overflow-hidden">
       <section className={cn("rounded-2xl border p-6 sm:p-8", isHold ? "border-clay/20 bg-clay-mist/50" : "border-sage-deep/40 bg-sage/40")}>
         <div className="flex flex-wrap items-start gap-4">
-          <span className={cn("flex h-12 w-12 shrink-0 items-center justify-center rounded-full", isHold ? "bg-clay text-white" : "bg-pine text-white")}>
+          <span className={cn("flex h-12 w-12 shrink-0 items-center justify-center rounded-full", isHold ? "bg-clay text-white" : "bg-primary text-white")}>
             {isHold ? <Clock className="h-6 w-6" aria-hidden /> : <CircleCheck className="h-6 w-6" aria-hidden />}
           </span>
           <div className="min-w-0 flex-1">
@@ -70,7 +70,7 @@ export default async function ReservationConfirmationPage({ params }: { params: 
 
       <div className="mt-8 grid min-w-0 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_24rem] 2xl:grid-cols-[minmax(0,1fr)_28rem]">
         <div className="min-w-0 space-y-6">
-          <section className="overflow-hidden rounded-2xl border border-pine/10 bg-white shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
+          <section className="overflow-hidden rounded-2xl border border-pine/10 bg-surface shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
             <div className="grid md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
               <UnitPhoto src={unitOrPropertyPhotoSrc(unit, property)} className="aspect-[16/10] md:aspect-auto md:min-h-64" />
               <div className="min-w-0 p-5 sm:p-6">
@@ -87,7 +87,7 @@ export default async function ReservationConfirmationPage({ params }: { params: 
             </div>
           </section>
 
-          <section className="rounded-2xl border border-pine/10 bg-white p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)] sm:p-6">
+          <section className="rounded-2xl border border-pine/10 bg-surface p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)] sm:p-6">
             <h2 className="font-display text-xl text-pine">Guests</h2>
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <div className="rounded-xl bg-linen p-4">
@@ -105,7 +105,7 @@ export default async function ReservationConfirmationPage({ params }: { params: 
             </div>
           </section>
 
-          <section className="rounded-2xl border border-pine/10 bg-white p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)] sm:p-6">
+          <section className="rounded-2xl border border-pine/10 bg-surface p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)] sm:p-6">
             <h2 className="font-display text-xl text-pine">What’s next</h2>
             <ul className="mt-4 grid gap-3 md:grid-cols-2">
               <NextStep href={reservationHref} title="Send the guest link" description="Share check-in details and let the guest upload payment proof." />
@@ -117,7 +117,7 @@ export default async function ReservationConfirmationPage({ params }: { params: 
         </div>
 
         <aside className="min-w-0 lg:sticky lg:top-0">
-          <section className="rounded-2xl border border-pine/10 bg-white p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
+          <section className="rounded-2xl border border-pine/10 bg-surface p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
             <h2 className="font-display text-xl text-pine">Payment breakdown</h2>
             {canSeeMoney && balances ? (
               <dl className="mt-4 space-y-2 text-sm">

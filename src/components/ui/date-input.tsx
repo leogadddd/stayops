@@ -174,7 +174,7 @@ export function DateInput({
         aria-label={ariaLabel}
         onClick={() => (open ? setOpen(false) : openCalendar())}
         className={cn(
-          "relative flex w-full min-w-0 items-center gap-2.5 border border-pine/20 bg-white pl-3 pr-9 text-left text-sm text-ink transition-colors hover:border-pine/40 focus:border-pine focus:outline-none focus:ring-2 focus:ring-sage",
+          "relative flex w-full min-w-0 items-center gap-2.5 border border-pine/20 bg-surface pl-3 pr-9 text-left text-sm text-ink transition-colors hover:border-pine/40 focus:border-pine focus:outline-none focus:ring-2 focus:ring-sage",
           size === "lg" ? "h-12 rounded-xl" : "h-10 rounded-lg",
         )}
       >
@@ -200,7 +200,7 @@ export function DateInput({
           popover="manual"
           role="dialog"
           aria-label="Choose a date"
-          className="fixed inset-auto m-0 w-72 rounded-xl border border-pine/15 bg-white p-3 text-ink shadow-xl"
+          className="fixed inset-auto m-0 w-72 rounded-xl border border-pine/15 bg-surface p-3 text-ink shadow-xl"
         >
           <div className="mb-2 flex items-center justify-between">
             <button type="button" onClick={() => setMonth(shiftMonth(month, -1))} aria-label="Previous month" className="rounded-md p-1.5 text-pine hover:bg-pine-mist">
@@ -252,7 +252,7 @@ export function DateInput({
                   className={cn(
                     "flex h-9 items-center justify-center rounded-lg text-sm tabular-nums transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-clay",
                     selected
-                      ? "bg-pine font-semibold text-white"
+                      ? "bg-primary font-semibold text-white"
                       : isToday
                         ? "font-semibold text-clay-deep ring-1 ring-inset ring-clay/40 hover:bg-clay-mist"
                         : inMonth

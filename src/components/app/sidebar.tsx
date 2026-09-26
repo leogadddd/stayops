@@ -142,12 +142,12 @@ function Navigation({
               className={cn(
                 "flex items-center gap-3 rounded-lg border-l-2 px-4 py-3 text-sm font-medium transition-colors",
                 active
-                  ? "border-[#d58d74] bg-sage/20 text-white"
+                  ? "border-[#d58d74] bg-sage/20 text-white dark:border-[#c4674d]"
                   : "border-transparent text-paper/80 hover:bg-paper/10 hover:text-white",
               )}
             >
               <Icon
-                className="h-5 w-5 shrink-0"
+                className="h-5 w-5 shrink-0 dark:text-moss"
                 strokeWidth={1.6}
                 aria-hidden
               />
@@ -164,7 +164,7 @@ export function AppSidebar(props: SidebarProps) {
   return (
     <aside
       data-testid="app-sidebar"
-      className="hidden h-full w-60 shrink-0 flex-col bg-pine text-paper lg:flex xl:w-64"
+      className="theme-keep-light hidden h-full w-60 shrink-0 flex-col bg-pine text-paper lg:flex xl:w-64"
     >
       <Link
         href="/dashboard"
@@ -234,7 +234,7 @@ export function AppHeader({
   return (
     <header
       data-testid="app-header"
-      className="z-20 flex h-20 shrink-0 items-center justify-between gap-3 border-b border-pine/12 bg-linen px-4 sm:px-6 lg:px-6"
+      className="z-20 flex h-20 shrink-0 items-center justify-between gap-3 border-b border-pine/12 bg-chrome px-4 sm:px-6 lg:px-6"
     >
       <div className="flex min-w-0 items-center gap-3 lg:gap-0">
         <button
@@ -310,7 +310,7 @@ export function AppHeader({
       <dialog
         ref={mobileNav}
         aria-label="Navigation"
-        className="fixed inset-y-0 left-0 m-0 h-dvh max-h-none w-72 max-w-[85vw] border-0 bg-pine p-0 text-paper backdrop:bg-pine-deep/50"
+        className="fixed inset-y-0 left-0 m-0 h-dvh max-h-none theme-keep-light w-72 max-w-[85vw] border-0 bg-pine p-0 text-paper backdrop:bg-scrim/50"
       >
         <div className="flex h-full flex-col">
           <div className="flex items-center justify-between gap-2 px-5 pb-4 pt-6">

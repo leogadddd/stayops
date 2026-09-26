@@ -28,7 +28,7 @@ export function ViewSwitcher({ view, hrefFor }: { view: CalendarView; hrefFor: (
             aria-current={active ? "page" : undefined}
             className={cn(
               "inline-flex h-9 items-center gap-1.5 px-3 font-medium transition-colors not-first:border-l not-first:border-pine/15 focus-visible:-outline-offset-2",
-              active ? "bg-pine text-paper" : "text-pine hover:bg-pine-mist/60",
+              active ? "bg-primary text-white" : "text-pine hover:bg-pine-mist/60",
             )}
           >
             <Icon className="h-4 w-4" aria-hidden />

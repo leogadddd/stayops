@@ -77,7 +77,7 @@ export function AddDeductionForm({
         <Label htmlFor="deduction-reason">What is it for?</Label>
         <div className="mb-2 flex flex-wrap gap-2" role="group" aria-label="Common reasons">
           {REASONS.map((option) => (
-            <button key={option} type="button" onClick={() => setReason(option)} aria-pressed={reason === option} className={cn("rounded-full border px-3 py-1 text-xs font-medium transition-colors", reason === option ? "border-pine bg-pine text-white" : "border-pine/15 text-pine hover:border-pine/35")}>
+            <button key={option} type="button" onClick={() => setReason(option)} aria-pressed={reason === option} className={cn("rounded-full border px-3 py-1 text-xs font-medium transition-colors", reason === option ? "border-primary bg-primary text-white" : "border-pine/15 text-pine hover:border-pine/35")}>
               {option}
             </button>
           ))}

@@ -102,7 +102,7 @@ export default async function UnitDetailPage({ params }: { params: Promise<{ pro
         {property.name}
       </Link>
 
-      <section className="overflow-hidden rounded-2xl border border-pine/10 bg-white shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
+      <section className="overflow-hidden rounded-2xl border border-pine/10 bg-surface shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
         <div className="grid md:grid-cols-[16rem_minmax(0,1fr)] xl:grid-cols-[20rem_minmax(0,1fr)]">
           <UnitPhoto
             src={unitOrPropertyPhotoSrc(unit, property)}

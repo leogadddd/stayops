@@ -3,17 +3,17 @@ import { BrushCleaning } from "lucide-react";
 import type { DisplayCalendarEvent } from "./month-calendar";
 
 export const HATCH: CSSProperties = {
-  backgroundImage: "repeating-linear-gradient(135deg, #d9dbd7 0 5px, #c6c9c4 5px 10px)",
+  backgroundImage: "repeating-linear-gradient(135deg, var(--color-stay-blocked) 0 5px, var(--color-stay-blocked-alt) 5px 10px)",
 };
 
 // Past stays stay calm but legible; upcoming stays carry the most colour
 // after in-house.
 const TONES = {
-  confirmed: "border border-[#8fb09b] bg-[#b5cfbd] text-pine-deep",
-  inHouse: "border border-pine bg-pine text-paper",
-  checkedOut: "border border-[#b3c4bb] bg-[#d7e1dc] text-pine-soft",
-  hold: "border border-dashed border-[#b0823f] bg-[#f1ddb9] text-[#553a1b]",
-  blocked: "border border-[#a9ada8] text-[#323835]",
+  confirmed: "border border-stay-booked-line bg-stay-booked text-pine-deep",
+  inHouse: "border border-primary bg-primary text-white",
+  checkedOut: "border border-stay-departed-line bg-stay-departed text-pine-soft",
+  hold: "border border-dashed border-stay-hold-line bg-stay-hold text-stay-hold-ink",
+  blocked: "border border-stay-blocked-line text-stay-blocked-ink",
 };
 
 /** Shared by every calendar view so a stay looks the same in each. */

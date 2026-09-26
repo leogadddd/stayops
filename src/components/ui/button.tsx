@@ -1,8 +1,8 @@
 import { cn } from "@/lib/utils";
 
 const variants = {
-  primary: "bg-pine text-white hover:bg-pine-soft",
-  clay: "bg-clay text-white hover:bg-clay-deep",
+  primary: "bg-primary text-white hover:bg-primary-soft",
+  clay: "bg-clay text-white hover:bg-clay-strong",
   outline:
     "border border-pine/25 bg-transparent text-pine hover:border-pine/50 hover:bg-pine-mist/60",
   ghost: "text-pine hover:bg-pine-mist/70",

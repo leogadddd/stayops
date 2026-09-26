@@ -74,7 +74,7 @@ export function ChoiceCards<T extends string>({
             onClick={() => onChange(option.value)}
             className={cn(
               "relative flex min-w-0 items-start gap-3 rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay disabled:cursor-not-allowed disabled:opacity-45",
-              active ? "border-clay bg-clay-mist/40 ring-1 ring-clay" : "border-pine/15 bg-white hover:border-pine/35",
+              active ? "border-clay bg-clay-mist/40 ring-1 ring-clay" : "border-pine/15 bg-surface hover:border-pine/35",
             )}
           >
             {Icon ? (

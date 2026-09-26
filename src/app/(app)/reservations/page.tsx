@@ -101,7 +101,7 @@ export default async function ReservationsPage({
         ))}
       </nav>
 
-      <form method="get" className="mt-4 flex flex-wrap items-end gap-3 rounded-2xl border border-pine/10 bg-white p-4 shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
+      <form method="get" className="mt-4 flex flex-wrap items-end gap-3 rounded-2xl border border-pine/10 bg-surface p-4 shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
         {status ? <input type="hidden" name="status" value={status} /> : null}
         <div className="min-w-56 flex-1">
           <label htmlFor="q" className="mb-1.5 block text-sm font-medium text-ink">Search guest</label>
@@ -136,7 +136,7 @@ export default async function ReservationsPage({
           action={<Link href="/reservations/new" className={buttonClassName("clay", "md")}>New reservation</Link>}
         />
       ) : (
-        <div className="mt-4 overflow-hidden rounded-2xl border border-pine/10 bg-white shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
+        <div className="mt-4 overflow-hidden rounded-2xl border border-pine/10 bg-surface shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
           <Table aria-label="Reservations" className="[&_td]:px-2.5 [&_th]:px-2.5 [&_td:first-child]:pl-4 [&_th:first-child]:pl-4">
             <TableHeader>
               <TableRow>
@@ -204,7 +204,7 @@ function StatusPill({ href, active, label, count, dot }: { href: string; active:
       aria-current={active ? "page" : undefined}
       className={cn(
         "inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors",
-        active ? "border-pine bg-pine text-white" : "border-pine/15 bg-white text-pine hover:border-pine/35",
+        active ? "border-primary bg-primary text-white" : "border-pine/15 bg-surface text-pine hover:border-pine/35",
       )}
     >
       {dot ? <span aria-hidden className={cn("h-2 w-2 rounded-full", dot)} /> : null}

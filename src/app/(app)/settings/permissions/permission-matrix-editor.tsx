@@ -108,7 +108,7 @@ export function PermissionMatrixEditor({
 
   return (
     <form onSubmit={save} className="min-w-0 space-y-6 pb-24">
-      <Card className="overflow-hidden bg-[#FFFDFA]">
+      <Card className="overflow-hidden bg-card">
         <CardHeader className="flex flex-wrap items-start justify-between gap-3">
           <div className="max-w-2xl">
             <h2 className="font-display text-xl text-pine">Role permissions</h2>

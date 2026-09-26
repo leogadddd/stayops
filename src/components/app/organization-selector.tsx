@@ -33,7 +33,7 @@ function OrganizationMark({
       aria-hidden
       className={cn(
         "flex shrink-0 items-center justify-center overflow-hidden rounded-lg font-display",
-        dark ? "bg-paper text-pine" : "bg-pine text-paper",
+        dark ? "bg-paper text-pine" : "bg-primary text-white",
         size === "md" ? "h-10 w-10 text-lg" : "h-8 w-8 text-base",
       )}
     >

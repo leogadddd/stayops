@@ -58,7 +58,7 @@ export function AvailabilityCheckForm({ today, defaults, error, children }: {
 
   return (
     <div className="min-w-0 space-y-8">
-      <section aria-label="Search stays" className="rounded-2xl border border-pine/10 bg-white p-4 shadow-[0_1px_2px_rgba(32,58,53,0.06)] sm:p-5">
+      <section aria-label="Search stays" className="rounded-2xl border border-pine/10 bg-surface p-4 shadow-[0_1px_2px_rgba(32,58,53,0.06)] sm:p-5">
         <form method="get" action="/calendar/availability" onSubmit={search} className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,14rem)_auto] xl:items-end">
           <div className="min-w-0">
             <Label htmlFor="check-in">Check-in</Label>
@@ -70,7 +70,7 @@ export function AvailabilityCheckForm({ today, defaults, error, children }: {
           </div>
           <div className="min-w-0">
             <Label htmlFor="guest-count">Guests</Label>
-            <div className="flex h-12 items-center rounded-xl border border-pine/20 bg-white focus-within:border-pine focus-within:ring-2 focus-within:ring-sage">
+            <div className="flex h-12 items-center rounded-xl border border-pine/20 bg-surface focus-within:border-pine focus-within:ring-2 focus-within:ring-sage">
               <button type="button" aria-label="Fewer guests" onClick={() => setGuestCount((count) => Math.max(1, count - 1))} disabled={guestCount <= 1} className="flex h-full w-11 shrink-0 items-center justify-center rounded-l-xl text-pine hover:bg-pine-mist/60 disabled:opacity-35"><Minus className="h-4 w-4" aria-hidden /></button>
               <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5">
                 <Users className="h-4 w-4 shrink-0 text-pine/50" aria-hidden />
@@ -89,7 +89,7 @@ export function AvailabilityCheckForm({ today, defaults, error, children }: {
           {presets(today).map((preset) => {
             const selected = preset.checkIn === checkIn && preset.checkOut === checkOut;
             return (
-              <button key={preset.label} type="button" onClick={() => { setCheckIn(preset.checkIn); setCheckOut(preset.checkOut); }} aria-pressed={selected} className={cn("rounded-full border px-3 py-1 text-sm transition-colors", selected ? "border-pine bg-pine text-white" : "border-pine/15 text-pine hover:border-pine/40 hover:bg-pine-mist/60")}>
+              <button key={preset.label} type="button" onClick={() => { setCheckIn(preset.checkIn); setCheckOut(preset.checkOut); }} aria-pressed={selected} className={cn("rounded-full border px-3 py-1 text-sm transition-colors", selected ? "border-primary bg-primary text-white" : "border-pine/15 text-pine hover:border-pine/40 hover:bg-pine-mist/60")}>
                 {preset.label}
               </button>
             );
@@ -114,7 +114,7 @@ function ResultsSkeleton() {
       <div className="mb-5 h-8 w-56 animate-pulse rounded-lg bg-pine-mist" />
       <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
         {Array.from({ length: 4 }, (_, index) => (
-          <div key={index} className="flex h-40 overflow-hidden rounded-2xl border border-pine/10 bg-white">
+          <div key={index} className="flex h-40 overflow-hidden rounded-2xl border border-pine/10 bg-surface">
             <div className="w-2/5 shrink-0 animate-pulse bg-sage/30" />
             <div className="flex-1 space-y-3 p-4">
               <div className="h-3 w-24 animate-pulse rounded bg-pine-mist" />

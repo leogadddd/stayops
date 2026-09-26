@@ -36,7 +36,7 @@ export function CopyField({ label, value, hint }: { label: string; value: string
           value={value}
           onFocus={(event) => event.currentTarget.select()}
           aria-describedby={hint ? `${id}-hint` : undefined}
-          className="h-10 min-w-0 flex-1 rounded-lg border border-pine/20 bg-white px-3 font-mono text-sm text-ink focus:border-pine focus:outline-none focus:ring-2 focus:ring-sage"
+          className="h-10 min-w-0 flex-1 rounded-lg border border-pine/20 bg-surface px-3 font-mono text-sm text-ink focus:border-pine focus:outline-none focus:ring-2 focus:ring-sage"
         />
         <Button type="button" variant="outline" onClick={copy} aria-label={`Copy ${label.toLowerCase()}`}>
           {status === "copied" ? <Check className="h-4 w-4" aria-hidden /> : <Copy className="h-4 w-4" aria-hidden />}

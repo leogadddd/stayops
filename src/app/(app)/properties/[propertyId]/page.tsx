@@ -94,7 +94,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
         All properties
       </Link>
 
-      <section className="overflow-hidden rounded-2xl border border-pine/10 bg-white shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
+      <section className="overflow-hidden rounded-2xl border border-pine/10 bg-surface shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
         <div className="grid md:grid-cols-[16rem_minmax(0,1fr)] xl:grid-cols-[20rem_minmax(0,1fr)]">
           <UnitPhoto src={photoSrc("property", property)} className="aspect-[16/9] md:aspect-auto md:h-full md:min-h-56" />
           <div className="@container flex min-w-0 flex-col gap-5 p-5 sm:p-6">

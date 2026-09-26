@@ -129,7 +129,7 @@ export function SelectMenu<T extends string>({
         disabled={disabled}
         onClick={() => (open ? setOpen(false) : openList())}
         className={cn(
-          "flex h-10 w-full min-w-0 items-center gap-2 rounded-lg border bg-white pl-3 pr-2.5 text-left text-sm text-ink transition-colors",
+          "flex h-10 w-full min-w-0 items-center gap-2 rounded-lg border bg-surface pl-3 pr-2.5 text-left text-sm text-ink transition-colors",
           "focus:border-pine focus:outline-none focus:ring-2 focus:ring-sage disabled:cursor-not-allowed disabled:opacity-60",
           open ? "border-pine ring-2 ring-sage" : "border-pine/20 hover:border-pine/40",
         )}
@@ -146,7 +146,7 @@ export function SelectMenu<T extends string>({
           popover="manual"
           role="listbox"
           aria-labelledby={fieldId}
-          className="fixed inset-auto m-0 max-h-72 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-xl border border-pine/15 bg-white p-1.5 text-ink shadow-xl"
+          className="fixed inset-auto m-0 max-h-72 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-xl border border-pine/15 bg-surface p-1.5 text-ink shadow-xl"
         >
           {options.map((option, index) => {
             const Icon = option.icon;
@@ -166,7 +166,7 @@ export function SelectMenu<T extends string>({
                 )}
               >
                 {Icon ? (
-                  <span className={cn("mt-px flex h-7 w-7 shrink-0 items-center justify-center rounded-md", isSelected ? "bg-pine text-paper" : "bg-sage/50 text-pine")}>
+                  <span className={cn("mt-px flex h-7 w-7 shrink-0 items-center justify-center rounded-md", isSelected ? "bg-primary text-white" : "bg-sage/50 text-pine")}>
                     <Icon className="h-3.5 w-3.5" />
                   </span>
                 ) : null}

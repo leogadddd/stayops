@@ -160,7 +160,7 @@ export function TimeInput({
         disabled={disabled}
         onClick={() => setOpen(!open)}
         className={cn(
-          "relative flex w-full min-w-0 items-center gap-2.5 border bg-white px-3 text-left text-sm text-ink transition-colors",
+          "relative flex w-full min-w-0 items-center gap-2.5 border bg-surface px-3 text-left text-sm text-ink transition-colors",
           "focus:border-pine focus:outline-none focus:ring-2 focus:ring-sage disabled:cursor-not-allowed disabled:opacity-60",
           open ? "border-pine ring-2 ring-sage" : "border-pine/20 hover:border-pine/40",
           size === "lg" ? "h-12 rounded-xl" : "h-10 rounded-lg",
@@ -176,7 +176,7 @@ export function TimeInput({
           popover="manual"
           role="dialog"
           aria-label="Choose a time"
-          className="fixed inset-auto m-0 rounded-xl border border-pine/15 bg-white p-1.5 text-ink shadow-xl"
+          className="fixed inset-auto m-0 rounded-xl border border-pine/15 bg-surface p-1.5 text-ink shadow-xl"
         >
           <div className="flex gap-1">
             {columns.map((column, columnIndex) => (
@@ -198,7 +198,7 @@ export function TimeInput({
                     onClick={option.pick}
                     className={cn(
                       "flex h-9 shrink-0 items-center justify-center rounded-lg text-sm tabular-nums transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-clay",
-                      option.selected ? "bg-pine font-semibold text-white" : "text-pine hover:bg-pine-mist",
+                      option.selected ? "bg-primary font-semibold text-white" : "text-pine hover:bg-pine-mist",
                     )}
                   >
                     {option.text}

@@ -184,7 +184,7 @@ function LoginContent() {
       </div>
 
       {demoRequested && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-pine-deep/55 px-6 py-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/55 px-6 py-8">
           <div
             role="dialog"
             aria-modal="true"

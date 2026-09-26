@@ -77,7 +77,7 @@ export function StayRangeCalendar({ unitId, excludeReservationId, checkIn, check
   const selectedNights = !anchor && checkIn && checkOut && checkOut > checkIn ? nightsBetween(checkIn, checkOut) : null;
 
   return (
-    <div className="@container rounded-2xl border border-pine/10 bg-white p-4 sm:p-5">
+    <div className="@container rounded-2xl border border-pine/10 bg-surface p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="flex min-w-0 items-center gap-2 text-sm text-ink/65" aria-live="polite">
           <MousePointerClick className="h-4 w-4 shrink-0 text-pine/50" aria-hidden />
@@ -136,8 +136,8 @@ export function StayRangeCalendar({ unitId, excludeReservationId, checkIn, check
                       >
                         {Number(date.slice(8))}
                       </button>
-                      {isStart && !anchor ? <span className="pointer-events-none absolute -bottom-0.5 left-1/2 flex -translate-x-1/2 items-center gap-0.5 rounded-full bg-white px-1 text-[9px] font-semibold uppercase text-clay-deep shadow-sm"><LogIn className="h-2.5 w-2.5" aria-hidden />In</span> : null}
-                      {isEnd && !anchor ? <span className="pointer-events-none absolute -bottom-0.5 left-1/2 flex -translate-x-1/2 items-center gap-0.5 rounded-full bg-white px-1 text-[9px] font-semibold uppercase text-clay-deep shadow-sm"><LogOut className="h-2.5 w-2.5" aria-hidden />Out</span> : null}
+                      {isStart && !anchor ? <span className="pointer-events-none absolute -bottom-0.5 left-1/2 flex -translate-x-1/2 items-center gap-0.5 rounded-full bg-surface px-1 text-[9px] font-semibold uppercase text-clay-deep shadow-sm"><LogIn className="h-2.5 w-2.5" aria-hidden />In</span> : null}
+                      {isEnd && !anchor ? <span className="pointer-events-none absolute -bottom-0.5 left-1/2 flex -translate-x-1/2 items-center gap-0.5 rounded-full bg-surface px-1 text-[9px] font-semibold uppercase text-clay-deep shadow-sm"><LogOut className="h-2.5 w-2.5" aria-hidden />Out</span> : null}
                     </div>
                   );
                 })}

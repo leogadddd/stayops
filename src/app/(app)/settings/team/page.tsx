@@ -54,7 +54,7 @@ export default async function TeamSettingsPage() {
 
   return (
     <div className="min-w-0 space-y-6">
-      <Card className="overflow-hidden bg-[#FFFDFA]">
+      <Card className="overflow-hidden bg-card">
         <CardHeader className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-display text-xl text-pine">Members</h2>
@@ -89,7 +89,7 @@ export default async function TeamSettingsPage() {
         </Table>
       </Card>
 
-      <Card className="overflow-hidden bg-[#FFFDFA]">
+      <Card className="overflow-hidden bg-card">
         <CardHeader className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-display text-xl text-pine">Pending access requests</h2>

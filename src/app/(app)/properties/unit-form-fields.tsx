@@ -161,7 +161,7 @@ export function UnitForm({
                   key={value}
                   className={cn(
                     "cursor-pointer rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-clay",
-                    status === value ? "border-pine bg-pine text-white" : "border-pine/15 bg-white text-pine hover:border-pine/35",
+                    status === value ? "border-primary bg-primary text-white" : "border-pine/15 bg-surface text-pine hover:border-pine/35",
                   )}
                 >
                   <input

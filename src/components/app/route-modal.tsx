@@ -33,7 +33,7 @@ export function RouteModal({ title, description, unavailable, wide = false, chil
       aria-describedby={descriptionId}
       onClose={() => router.back()}
       onClick={(event) => { if (event.target === event.currentTarget) dialog.current?.close(); }}
-      className={`fixed left-1/2 top-1/2 m-0 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] ${wide ? "max-w-3xl" : "max-w-xl"} -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-pine/15 bg-white p-0 text-ink shadow-2xl backdrop:bg-pine-deep/55`}
+      className={`fixed left-1/2 top-1/2 m-0 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] ${wide ? "max-w-3xl" : "max-w-xl"} -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-pine/15 bg-surface p-0 text-ink shadow-2xl backdrop:bg-scrim/55`}
     >
       <div className="flex items-start gap-4 border-b border-pine/10 px-6 py-5">
         <div className="min-w-0 flex-1">

@@ -19,11 +19,11 @@ export interface EventQuickViewData {
 }
 
 const TONE: Record<EventQuickViewData["tone"], string> = {
-  confirmed: "bg-[#b5cfbd] text-pine-deep",
-  "in-house": "bg-pine text-paper",
-  "checked-out": "bg-[#d7e1dc] text-pine-soft",
-  hold: "border border-dashed border-[#b0823f] bg-[#f1ddb9] text-[#553a1b]",
-  block: "bg-[#d9dbd7] text-[#323835]",
+  confirmed: "bg-stay-booked text-pine-deep",
+  "in-house": "bg-primary text-white",
+  "checked-out": "bg-stay-departed text-pine-soft",
+  hold: "border border-dashed border-stay-hold-line bg-stay-hold text-stay-hold-ink",
+  block: "bg-stay-blocked text-stay-blocked-ink",
 };
 
 const QuickViewContext = createContext<(data: EventQuickViewData) => void>(() => {});
@@ -46,7 +46,7 @@ export function QuickViewProvider({ children }: { children: ReactNode }) {
         ref={dialog}
         aria-labelledby="quick-view-title"
         onClick={(event) => { if (event.target === dialog.current) close(); }}
-        className="m-auto w-[calc(100%-2rem)] max-w-md rounded-2xl bg-paper p-0 text-ink shadow-2xl backdrop:bg-pine-deep/40"
+        className="m-auto w-[calc(100%-2rem)] max-w-md rounded-2xl bg-paper p-0 text-ink shadow-2xl backdrop:bg-scrim/40"
       >
         {data ? (
           <div className="p-6">

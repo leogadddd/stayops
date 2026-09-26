@@ -54,7 +54,7 @@ export function Panel({
   return (
     <section
       className={cn(
-        "overflow-hidden rounded-2xl border border-pine/10 bg-white shadow-[0_1px_2px_rgba(32,58,53,0.06)]",
+        "overflow-hidden rounded-2xl border border-pine/10 bg-surface shadow-[0_1px_2px_rgba(32,58,53,0.06)]",
         className,
       )}
     >
@@ -97,7 +97,7 @@ export function StatTile({
       <span
         className={cn(
           "hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:flex",
-          tone === "clay" ? "bg-clay text-white" : tone === "sage" ? "bg-pine text-white" : "bg-sage/60 text-pine",
+          tone === "clay" ? "bg-clay text-white" : tone === "sage" ? "bg-primary text-white" : "bg-sage/60 text-pine",
         )}
       >
         <Icon className="h-5 w-5" aria-hidden />
@@ -132,10 +132,10 @@ export function SideAction({
 }
 
 const STAY_DOT: Record<StaySegment["status"], string> = {
-  hold: "bg-[#b0823f]",
-  confirmed: "bg-[#8fb09b]",
-  checked_in: "bg-pine",
-  checked_out: "bg-[#b3c4bb]",
+  hold: "bg-stay-hold-line",
+  confirmed: "bg-stay-booked-line",
+  checked_in: "bg-primary",
+  checked_out: "bg-stay-departed-line",
 };
 
 /** One stay in a list: dates, guest and status, linking to the reservation. */
@@ -160,7 +160,7 @@ export function StayRow({ stay, today, suffix }: { stay: StaySegment; today: str
       <span
         className={cn(
           "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
-          now ? "bg-pine text-white" : "bg-pine-mist text-pine",
+          now ? "bg-primary text-white" : "bg-pine-mist text-pine",
         )}
       >
         {now ? "Staying now" : RESERVATION_STATUS_LABELS[stay.status]}
