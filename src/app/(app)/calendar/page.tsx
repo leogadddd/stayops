@@ -27,8 +27,10 @@ import { PageHeading } from "@/components/app/page-heading";
 import { buttonClassName } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { MonthCalendar, type DisplayCalendarEvent } from "./month-calendar";
+import { TimelineCalendar } from "./timeline-calendar";
 import { TodayPanel } from "./today-panel";
 import { UnitFilter } from "./unit-filter";
+import { isCalendarView, ViewSwitcher, type CalendarView } from "./view-switcher";
 
 export const metadata: Metadata = { title: "Calendar" };
 const MONTH_LABEL = new Intl.DateTimeFormat("en-PH", {
@@ -60,7 +62,7 @@ function compactTimeLabel(time: string) {
 export default async function CalendarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ month?: string; unit?: string }>;
+  searchParams: Promise<{ month?: string; unit?: string; view?: string }>;
 }) {
   const membership = await requireMembership();
   const params = await searchParams;
@@ -304,8 +306,24 @@ export default async function CalendarPage({
     ];
   });
 
-  const calendarHref = (targetMonth: string) =>
-    `/calendar?${new URLSearchParams({ month: targetMonth, ...(selectedUnit ? { unit: selectedUnit.id } : {}) })}`;
+  const view: CalendarView = isCalendarView(params.view) ? params.view : "month";
+  // Month, unit, and view all live in the URL so a refresh keeps them.
+  const calendarHref = ({
+    month: targetMonth = month,
+    unitId = selectedUnit?.id ?? null,
+    view: targetView = view,
+  }: { month?: string; unitId?: string | null; view?: CalendarView } = {}) =>
+    `/calendar?${new URLSearchParams({
+      month: targetMonth,
+      ...(unitId ? { unit: unitId } : {}),
+      ...(targetView !== "month" ? { view: targetView } : {}),
+    })}`;
+  const viewSwitcher = (
+    <ViewSwitcher
+      view={view}
+      hrefFor={(targetView) => calendarHref({ view: targetView })}
+    />
+  );
   const newReservationHref = (date: string) =>
     `/reservations/new?${new URLSearchParams({ checkIn: date, checkOut: addDaysLocal(date, 1), ...(selectedUnit?.status === "active" ? { unit: selectedUnit.id } : {}) })}`;
   const canBookVisibleUnit = visibleUnits.some(
@@ -352,7 +370,7 @@ export default async function CalendarPage({
       {allUnits.length > 1 ? (
         <UnitFilter
           selectedId={selectedUnit?.id ?? null}
-          hrefFor={(unitId) => `/calendar?${new URLSearchParams({ month, ...(unitId ? { unit: unitId } : {}) })}`}
+          hrefFor={(unitId) => calendarHref({ unitId })}
           units={allUnits.map((unit) => {
             const property = propertyMap.get(unit.propertyId);
             return {
@@ -369,15 +387,35 @@ export default async function CalendarPage({
 
       <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_19rem] 2xl:grid-cols-[minmax(0,1fr)_21rem]">
         <div className="min-w-0">
-          {visibleUnits.length ? (
+          {visibleUnits.length && view === "timeline" ? (
+            <TimelineCalendar
+              month={month}
+              today={today}
+              monthLabel={monthLabel}
+              units={visibleUnits.map((unit) => ({
+                id: unit.id,
+                name: unit.name,
+                propertyName:
+                  properties.length > 1
+                    ? propertyForUnit(unit.id).name
+                    : null,
+                bookable: unit.status === "active",
+              }))}
+              events={displayEvents}
+              previousHref={calendarHref({ month: shiftMonth(month, -1) })}
+              nextHref={calendarHref({ month: shiftMonth(month, 1) })}
+              todayHref={calendarHref({ month: today.slice(0, 7) })}
+              viewSwitcher={viewSwitcher}
+            />
+          ) : visibleUnits.length ? (
             <MonthCalendar
               month={month}
               today={today}
               monthLabel={monthLabel}
               events={displayEvents}
-              previousHref={calendarHref(shiftMonth(month, -1))}
-              nextHref={calendarHref(shiftMonth(month, 1))}
-              todayHref={calendarHref(today.slice(0, 7))}
+              previousHref={calendarHref({ month: shiftMonth(month, -1) })}
+              nextHref={calendarHref({ month: shiftMonth(month, 1) })}
+              todayHref={calendarHref({ month: today.slice(0, 7) })}
               newReservationHref={
                 canBookVisibleUnit ? newReservationHref : null
               }
@@ -385,6 +423,7 @@ export default async function CalendarPage({
                 selectedUnit?.status === "active" ? selectedUnit.id : undefined
               }
               showUnit={!selectedUnit && allUnits.length > 1}
+              viewSwitcher={viewSwitcher}
             />
           ) : (
             <EmptyState
