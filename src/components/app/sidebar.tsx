@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { Logo } from "@/components/logo";
 import { AccountMenu } from "@/components/app/account-menu";
 import { LiveClock } from "@/components/app/live-clock";
+import { OrganizationSelector, type OrganizationOption } from "@/components/app/organization-selector";
 
 const NAV_ITEMS = [
   {
@@ -60,6 +61,8 @@ type SidebarProps = {
   userEmail: string;
   userImage?: string | null;
   role: "owner" | "staff";
+  organizationId?: string;
+  organizations?: OrganizationOption[];
 };
 
 function Navigation({
@@ -172,6 +175,12 @@ export function AppHeader({
   const pathname = usePathname();
   const mobileNav = useRef<HTMLDialogElement>(null);
   const segments = pathname.split("/").filter(Boolean);
+  const organizations = props.organizations ?? [{
+    id: props.organizationId ?? "current",
+    name: props.organizationName,
+    role: props.role,
+  }];
+  const activeOrganizationId = props.organizationId ?? organizations[0]!.id;
   return (
     <header
       data-testid="app-header"
@@ -231,6 +240,10 @@ export function AppHeader({
             })}
           </ol> */}
         </nav>
+        <OrganizationSelector
+          organizations={organizations}
+          activeOrganizationId={activeOrganizationId}
+        />
       </div>
       <div className="flex shrink-0 items-center gap-5">
         <LiveClock initialNow={initialNow} />

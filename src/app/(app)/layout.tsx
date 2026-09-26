@@ -1,4 +1,4 @@
-import { requireMembership, requireUser } from "@/lib/auth/session";
+import { listMemberships, requireMembership, requireUser } from "@/lib/auth/session";
 import { AppHeader, AppSidebar } from "@/components/app/sidebar";
 
 export default async function AppLayout({
@@ -12,8 +12,15 @@ export default async function AppLayout({
     requireUser(),
     requireMembership(),
   ]);
+  const organizations = await listMemberships(user.id);
   const identity = {
+    organizationId: membership.organizationId,
     organizationName: membership.organizationName,
+    organizations: organizations.map((organization) => ({
+      id: organization.organizationId,
+      name: organization.organizationName,
+      role: organization.role,
+    })),
     userName: user.name,
     userEmail: user.email,
     userImage: user.image?.startsWith(`user/${user.id}/`)

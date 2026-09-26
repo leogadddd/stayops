@@ -1,12 +1,14 @@
 import "server-only";
 
 import { cache } from "react";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { memberships, organizations } from "@/lib/db/schema";
 import { desc, eq } from "drizzle-orm";
+
+export const ACTIVE_ORGANIZATION_COOKIE = "stayops_active_organization_id";
 
 export type Session = NonNullable<
   Awaited<ReturnType<typeof auth.api.getSession>>
@@ -59,20 +61,14 @@ export const requireMembership = cache(async (): Promise<MembershipContext> => {
     redirect("/login");
   }
 
-  const rows = await db
-    .select({
-      organizationId: organizations.id,
-      organizationName: organizations.name,
-      organizationSlug: organizations.slug,
-      role: memberships.role,
-    })
-    .from(memberships)
-    .innerJoin(organizations, eq(memberships.organizationId, organizations.id))
-    .where(eq(memberships.userId, session.user.id))
-    .orderBy(desc(memberships.createdAt))
-    .limit(1);
-
-  const membership = rows[0];
+  const [rows, cookieStore] = await Promise.all([
+    listMemberships(session.user.id),
+    cookies(),
+  ]);
+  // The cookie is only a preference; always resolve it against this user's
+  // current memberships before using it as a tenant boundary.
+  const preferredOrganizationId = cookieStore.get(ACTIVE_ORGANIZATION_COOKIE)?.value;
+  const membership = rows.find((row) => row.organizationId === preferredOrganizationId) ?? rows[0];
   if (!membership) {
     redirect("/onboarding");
   }
@@ -117,5 +113,6 @@ export async function listMemberships(userId: string) {
     })
     .from(memberships)
     .innerJoin(organizations, eq(memberships.organizationId, organizations.id))
-    .where(eq(memberships.userId, userId));
+    .where(eq(memberships.userId, userId))
+    .orderBy(desc(memberships.createdAt));
 }
