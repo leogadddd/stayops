@@ -8,11 +8,11 @@ export default async function AppLayout({
 }) {
   // These share the request-scoped auth cache, and running them together keeps
   // the layout from adding a sequential wait before the page can render.
-  const [user, membership] = await Promise.all([
+  const [user, membership, organizations] = await Promise.all([
     requireUser(),
     requireMembership(),
+    requireUser().then((user) => listMemberships(user.id)),
   ]);
-  const organizations = await listMemberships(user.id);
   const identity = {
     organizationId: membership.organizationId,
     organizationName: membership.organizationName,

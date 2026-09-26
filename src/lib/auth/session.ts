@@ -103,7 +103,8 @@ export function assertOwner(membership: MembershipContext): void {
   }
 }
 
-export async function listMemberships(userId: string) {
+/** Request-scoped, so the layout and `requireMembership` share one query. */
+export const listMemberships = cache(async (userId: string) => {
   return db
     .select({
       organizationId: organizations.id,
@@ -115,4 +116,4 @@ export async function listMemberships(userId: string) {
     .innerJoin(organizations, eq(memberships.organizationId, organizations.id))
     .where(eq(memberships.userId, userId))
     .orderBy(desc(memberships.createdAt));
-}
+});
