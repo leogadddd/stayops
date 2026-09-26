@@ -4,6 +4,7 @@ import { useId, useRef, useState, type AriaRole, type ReactNode } from "react";
 import { AlertTriangle, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { AuthLoadingOverlay } from "@/components/ui/auth-loading-overlay";
 
 export function ConfirmationDialog({
   trigger,
@@ -18,6 +19,7 @@ export function ConfirmationDialog({
   cancelLabel = "Go back",
   onConfirm,
   successMessage,
+  loadingLabel,
 }: {
   trigger: ReactNode;
   triggerVariant?: "primary" | "clay" | "outline" | "ghost";
@@ -31,6 +33,8 @@ export function ConfirmationDialog({
   cancelLabel?: string;
   onConfirm?: () => void | Promise<void>;
   successMessage?: string | null;
+  /** Optional full-screen status displayed while the action is in flight. */
+  loadingLabel?: string;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [pending, setPending] = useState(false);
@@ -108,6 +112,7 @@ export function ConfirmationDialog({
           </Button>
         </div>
       </dialog>
+      {pending && loadingLabel ? <AuthLoadingOverlay label={loadingLabel} tone="dark" /> : null}
     </>
   );
 }

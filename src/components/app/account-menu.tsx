@@ -67,6 +67,7 @@ export function AccountMenu({ userName, userEmail, userImage, role }: {
               description="You will return to the sign-in page. Any unsaved form changes on this page will be lost."
               confirmLabel="Sign out"
               successMessage={null}
+              loadingLabel="Signing you out…"
               onConfirm={signOutAndRedirect}
               trigger={<><LogOut className="h-4 w-4" aria-hidden />Sign out</>}
               triggerRole="menuitem"

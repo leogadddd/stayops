@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { authClient } from "@/lib/auth/client";
 import { Button } from "@/components/ui/button";
 import { PasswordInput } from "@/components/ui/password-input";
+import { AuthLoadingOverlay } from "@/components/ui/auth-loading-overlay";
 import { CircleAlert } from "lucide-react";
 import { Input, Label } from "@/components/ui/input";
 
@@ -219,6 +220,11 @@ function LoginContent() {
           </div>
         </div>
       )}
+      {pending || demoStarting ? (
+        <AuthLoadingOverlay
+          label={demoStarting ? "Opening your demo workspace…" : "Signing you in…"}
+        />
+      ) : null}
     </div>
   );
 }
