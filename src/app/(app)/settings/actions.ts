@@ -62,7 +62,7 @@ export async function saveOrganizationProfile(
     const removeLogo = formData.get("removeLogo") === "true";
     const logo = removeLogo
       ? undefined
-      : imageUploadFromDataUrl(String(formData.get("logoDataUrl") ?? ""));
+      : await imageUploadFromDataUrl(String(formData.get("logoDataUrl") ?? ""));
     const currentLogoUrl = removeLogo
       ? await getOrganizationLogoUrl(membership.organizationId)
       : null;
@@ -70,7 +70,7 @@ export async function saveOrganizationProfile(
     const logoUrl = removeLogo
       ? null
       : logo
-      ? `org/${membership.organizationId}/logo/logo.png`
+      ? `org/${membership.organizationId}/logo/logo.webp`
       : undefined;
     if (logo && logoUrl) {
       await createObjectStorageFromEnvironment().put({ key: logoUrl, ...logo });

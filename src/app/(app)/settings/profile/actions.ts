@@ -24,8 +24,8 @@ export async function saveProfile(
     const removeImage = formData.get("removeProfileImage") === "true";
     const uploadedImage = removeImage
       ? null
-      : imageUploadFromDataUrl(String(formData.get("profileImageDataUrl") ?? ""));
-    const imageKey = `user/${currentUser.id}/profile.png`;
+      : await imageUploadFromDataUrl(String(formData.get("profileImageDataUrl") ?? ""));
+    const imageKey = `user/${currentUser.id}/profile.webp`;
     if (uploadedImage) {
       await createObjectStorageFromEnvironment().put({ key: imageKey, ...uploadedImage });
     }
