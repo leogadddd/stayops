@@ -43,7 +43,6 @@ import {
   CATEGORY_COLORS,
   CHART,
   dayLabel,
-  Eyebrow,
   LegendToggle,
   monthLabel,
   monthYearLabel,
@@ -138,8 +137,7 @@ export function PerformanceSection({ series, today, balances }: { series: Dashbo
     <section aria-labelledby="performance-heading" className="mt-10">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <Eyebrow>Performance</Eyebrow>
-          <h2 id="performance-heading" className="mt-1 font-display text-2xl text-pine sm:text-3xl">How your stays are doing</h2>
+          <h2 id="performance-heading" className="font-display text-2xl text-pine sm:text-3xl">How your stays are doing</h2>
           <p className="mt-1 text-xs text-ink/55">{RANGE_LABELS[range].long} · {dayLabel(windows.current.from)} – {dayLabel(today)}, compared with the {RANGE_LABELS[range].long.replace("Last ", "previous ")}. Cash basis, Manila time.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
