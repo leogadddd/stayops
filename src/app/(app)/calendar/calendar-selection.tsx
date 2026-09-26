@@ -33,7 +33,7 @@ export function CalendarSelection({ days, unitId }: { days: string[]; unitId?: s
   const last = startDate && endDate ? (startDate > endDate ? startDate : endDate) : endDate;
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-0 grid grid-cols-7" aria-hidden="true">
+    <div className="pointer-events-none absolute inset-0 z-0 grid" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }} aria-hidden="true">
       {days.map((day) => {
         const selected = first && last && day >= first && day <= last;
         return (

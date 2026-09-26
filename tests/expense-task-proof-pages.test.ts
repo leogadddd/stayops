@@ -1,6 +1,7 @@
 import * as React from "react";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { requireMembership, requireOwner, type MembershipContext } from "@/lib/auth/session";
+import { requireMembership, requirePermission, type MembershipContext } from "@/lib/auth/session";
+import { permissionGuardFor } from "./helpers/session-mock";
 import { listProperties, listOrgUnits } from "@/server/inventory/service";
 import { listExpenses } from "@/server/expenses/service";
 import { getTaskDetail, markTaskReady, resolveDamageReport, updateTaskNotes } from "@/server/operations/service";
@@ -27,14 +28,17 @@ import NewGuestPaymentProofPage from "@/app/g/[token]/payment-proof/new/page";
 import { SubmitProofForm } from "@/app/g/[token]/submit-proof-form";
 import { submitPaymentProofAction } from "@/app/g/[token]/actions";
 
-vi.mock("@/lib/auth/session", () => ({
-  requireMembership: vi.fn(),
-  requireOwner: vi.fn(),
-  PermissionError: class extends Error {},
-  assertOwner: (membership: MembershipContext) => {
-    if (membership.role !== "owner") throw new Error("Owner only");
-  },
-}));
+vi.mock("@/lib/auth/session", async () => {
+  const { can } = await import("@/lib/permissions");
+  return {
+    requireMembership: vi.fn(),
+    requirePermission: vi.fn(),
+    PermissionError: class extends Error {},
+    assertCan: (membership: MembershipContext, permission: Parameters<typeof can>[1]) => {
+      if (!can(membership, permission)) throw new Error("Owner only");
+    },
+  };
+});
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/navigation", () => ({
   redirect: (url: string) => { throw new Error(`Redirect: ${url}`); },
@@ -95,7 +99,8 @@ afterAll(() => vi.unstubAllGlobals());
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(requireMembership).mockResolvedValue(staff);
-  vi.mocked(requireOwner).mockResolvedValue(null);
+  // Follows requireMembership, like the real guard, unless a test overrides it.
+  vi.mocked(requirePermission).mockImplementation(permissionGuardFor(() => requireMembership()));
   vi.mocked(getTaskDetail).mockResolvedValue(taskFixture());
   vi.mocked(listProperties).mockResolvedValue([]);
   vi.mocked(listOrgUnits).mockResolvedValue([]);
@@ -109,7 +114,7 @@ describe("dedicated expense page", () => {
     expect(listOrgUnits).not.toHaveBeenCalled();
   });
   it("loads owner-scoped options only on the create page", async () => {
-    vi.mocked(requireOwner).mockResolvedValue(owner);
+    vi.mocked(requirePermission).mockResolvedValue(owner);
     vi.mocked(listProperties).mockResolvedValue([{ id: "property-a", name: "Property A" }] as Awaited<ReturnType<typeof listProperties>>);
     const tree = await NewExpensePage();
     expect(hasForm(tree, ExpenseForm)).toBe(true);
@@ -117,7 +122,7 @@ describe("dedicated expense page", () => {
     expect(listOrgUnits).toHaveBeenCalledWith("org-a");
   });
   it("keeps list creation as a link and uses the shared table", async () => {
-    vi.mocked(requireOwner).mockResolvedValue(owner);
+    vi.mocked(requirePermission).mockResolvedValue(owner);
     vi.mocked(listExpenses).mockResolvedValue([{ id: "expense-a", paidDate: "2026-09-01", category: "cleaning", classification: "operating", amountCents: 10000, description: "Cleaning", propertyName: "Property A", unitName: null }] as Awaited<ReturnType<typeof listExpenses>>);
     const tree = await ExpensesPage({ searchParams: Promise.resolve({}) });
     expect(hasForm(tree, ExpenseForm)).toBe(false);
@@ -165,7 +170,7 @@ describe("turnover detail and dedicated editors", () => {
     expect(getTaskDetail).not.toHaveBeenCalled();
   });
   it("rejects damage from another unit or already resolved reports", async () => {
-    vi.mocked(requireOwner).mockResolvedValue(owner);
+    vi.mocked(requirePermission).mockResolvedValue(owner);
     await expect(ResolveTaskDamagePage({ params: Promise.resolve({ id: "task-a", damageReportId: "other-report" }) })).rejects.toThrow("Not found");
     const form = elements(await ResolveTaskDamagePage({ params: resolveParams })).find((element) => element.type === ResolveDamageForm);
     expect(form?.props).toEqual({ taskId: "task-a", damageReportId: "damage-a" });
@@ -174,7 +179,7 @@ describe("turnover detail and dedicated editors", () => {
     expect(hasForm(await TaskReadyPage({ params }), MarkReadyForm)).toBe(false);
     vi.mocked(requireMembership).mockResolvedValue(owner);
     const form = elements(await TaskReadyPage({ params })).find((element) => element.type === MarkReadyForm);
-    expect(form?.props.actorRole).toBe("owner");
+    expect(form?.props.canOverrideDamage).toBe(true);
     vi.mocked(getTaskDetail).mockResolvedValue(taskFixture({ completed: false }));
     expect(hasForm(await TaskReadyPage({ params }), MarkReadyForm)).toBe(false);
   });
@@ -194,9 +199,9 @@ describe("mutation boundaries", () => {
     await resolveDamageReportAction("task-a", "damage-a", {}, new FormData());
     expect(resolveDamageReport).toHaveBeenCalledWith(expect.objectContaining({ organizationId: "org-a", actorUserId: "owner-a", damageReportId: "damage-a" }));
   });
-  it("preserves the authenticated actor role for ready overrides", async () => {
+  it("only lets members who can resolve damage override it when marking ready", async () => {
     await markTaskReadyAction("task-a", {}, new FormData());
-    expect(markTaskReady).toHaveBeenCalledWith(expect.objectContaining({ organizationId: "org-a", actorRole: "staff", taskId: "task-a" }));
+    expect(markTaskReady).toHaveBeenCalledWith(expect.objectContaining({ organizationId: "org-a", canOverrideDamage: false, taskId: "task-a" }));
   });
   it("rejects stale notes edits on ready tasks", async () => {
     vi.mocked(getTaskDetail).mockResolvedValue(taskFixture({ ready: true }));
@@ -213,7 +218,7 @@ describe("public payment reference extraction", () => {
     expect(JSON.stringify(tree)).toContain("This link is not valid");
     expect(getGuestViewByToken).toHaveBeenCalledWith("opaque-token");
     expect(requireMembership).not.toHaveBeenCalled();
-    expect(requireOwner).not.toHaveBeenCalled();
+    expect(requirePermission).not.toHaveBeenCalled();
   });
   it.each(["hold", "confirmed", "checked_in"])("allows %s token holders to use only the dedicated form", async (status) => {
     vi.mocked(getGuestViewByToken).mockResolvedValue(guestFixture(status));

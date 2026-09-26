@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { isLocalDate } from "@/lib/dates";
-import { UNIT_STATUSES } from "@/lib/db/schema";
+import { RESERVATION_FEE_TYPES, UNIT_STATUSES } from "@/lib/db/schema";
 import { isSupportedTimeZone } from "@/lib/timezones";
 
 export class InventoryError extends Error {
@@ -101,12 +101,32 @@ export const unitInputSchema = z.object({
     .min(0.5, "Bathrooms must be at least 0.5.")
     .max(20, "Bathrooms must be 20 or fewer."),
   defaultNightlyRateCents: centavosField("Nightly rate"),
+  // Optional so a partial update (e.g. a status change) keeps the stored rates.
+  dayRates: z
+    .partialRecord(z.enum(["0", "1", "2", "3", "4", "5", "6"]), centavosField("Day rate"))
+    .optional(),
   cleaningFeeCents: centavosField("Cleaning fee").nullable(),
   securityDepositCents: centavosField("Security deposit").nullable(),
+  // Optional so a partial update keeps the stored fee; null clears it.
+  reservationFeeType: z.enum(RESERVATION_FEE_TYPES).nullable().optional(),
+  reservationFeeAmount: z.number().int().nullable().optional(),
   checkInTime: z.string().default("15:00").refine(isValidHmTime, { message: "Use a 24-hour arrival time like 15:00." }),
   checkOutTime: z.string().default("11:00").refine(isValidHmTime, { message: "Use a 24-hour departure time like 11:00." }),
   status: z.enum(UNIT_STATUSES),
   imageUrl: z.string().max(7_000_000, "The image is too large.").optional(),
+}).superRefine((value, ctx) => {
+  if (value.reservationFeeType === undefined) return;
+  const amount = value.reservationFeeAmount ?? null;
+  if (value.reservationFeeType === null) {
+    if (amount !== null) ctx.addIssue({ code: "custom", message: "Choose how the reservation fee is set.", path: ["reservationFeeType"] });
+    return;
+  }
+  if (value.reservationFeeType === "fixed" && (amount === null || amount <= 0)) {
+    ctx.addIssue({ code: "custom", message: "Enter the reservation fee amount.", path: ["reservationFeeAmount"] });
+  }
+  if (value.reservationFeeType === "percent" && (amount === null || amount < 1 || amount > 10_000)) {
+    ctx.addIssue({ code: "custom", message: "Use a percentage between 0.01% and 100%.", path: ["reservationFeeAmount"] });
+  }
 });
 
 export type UnitInput = z.infer<typeof unitInputSchema>;

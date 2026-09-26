@@ -4,6 +4,7 @@ import { useId, useRef, useState, type AriaRole, type ReactNode } from "react";
 import { AlertTriangle, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { AuthLoadingOverlay } from "@/components/ui/auth-loading-overlay";
 
 export function ConfirmationDialog({
   trigger,
@@ -18,6 +19,7 @@ export function ConfirmationDialog({
   cancelLabel = "Go back",
   onConfirm,
   successMessage,
+  loadingLabel,
 }: {
   trigger: ReactNode;
   triggerVariant?: "primary" | "clay" | "outline" | "ghost";
@@ -31,6 +33,8 @@ export function ConfirmationDialog({
   cancelLabel?: string;
   onConfirm?: () => void | Promise<void>;
   successMessage?: string | null;
+  /** Optional full-screen status displayed while the action is in flight. */
+  loadingLabel?: string;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [pending, setPending] = useState(false);
@@ -86,7 +90,7 @@ export function ConfirmationDialog({
         onClick={(event) => {
           if (event.target === event.currentTarget) close();
         }}
-        className="fixed left-1/2 top-1/2 m-0 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-pine/15 bg-linen p-0 text-ink shadow-2xl backdrop:bg-pine-deep/55"
+        className="fixed left-1/2 top-1/2 m-0 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-pine/15 bg-linen p-0 text-ink shadow-2xl backdrop:bg-scrim/55"
       >
         <div className="flex items-start gap-4 p-6">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-clay-mist text-clay-deep">
@@ -108,6 +112,7 @@ export function ConfirmationDialog({
           </Button>
         </div>
       </dialog>
+      {pending && loadingLabel ? <AuthLoadingOverlay label={loadingLabel} tone="dark" /> : null}
     </>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const STEPS = [
@@ -11,6 +11,13 @@ const STEPS = [
   { href: "/onboarding/welcome", label: "Ready" },
 ] as const;
 
+/** Accepting an invitation or joining by code isn't part of the setup steps. */
+function useIsSetupFlow() {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  return !pathname.startsWith("/onboarding/join") && !searchParams.has("invite");
+}
+
 function useCurrentStep() {
   const pathname = usePathname();
   return Math.max(0, STEPS.findLastIndex((step) => pathname.startsWith(step.href)));
@@ -19,6 +26,7 @@ function useCurrentStep() {
 /** "Step 2 of 5" for the header row. */
 export function OnboardingStepCount() {
   const current = useCurrentStep();
+  if (!useIsSetupFlow()) return null;
   return (
     <p className="text-xs tabular-nums text-ink/50">
       Step <span className="font-medium text-pine">{current + 1}</span> of {STEPS.length}
@@ -32,6 +40,7 @@ export function OnboardingStepCount() {
  */
 export function OnboardingProgress() {
   const current = useCurrentStep();
+  if (!useIsSetupFlow()) return null;
   return (
     <ol
       className="grid gap-1.5 sm:gap-2"

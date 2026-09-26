@@ -5,12 +5,15 @@ import Link from "next/link";
 import { ChevronDown, LogOut, UserRound } from "lucide-react";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { signOutAndRedirect } from "@/lib/auth/sign-out";
+import { roleLabel, type RoleKey } from "@/lib/permissions";
 
-export function AccountMenu({ userName, userEmail, userImage, role }: {
+export function AccountMenu({ userName, userEmail, userImage, role, viaL1 = false }: {
   userName: string;
   userEmail: string;
   userImage: string | null;
-  role: "owner" | "staff";
+  role: RoleKey;
+  /** An L1 operator in an organization they aren't a member of. */
+  viaL1?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -46,7 +49,7 @@ export function AccountMenu({ userName, userEmail, userImage, role }: {
         </span>
         <span className="hidden sm:block">
           <span className="block max-w-36 truncate text-sm font-medium text-pine">{userName}</span>
-          <span className="block text-xs text-ink/55">{role === "owner" ? "Owner" : "Staff"}</span>
+          <span className="block text-xs text-ink/55">{viaL1 ? "L1" : roleLabel(role)}</span>
         </span>
         <ChevronDown className={`hidden h-4 w-4 text-ink/45 transition-transform sm:block ${open ? "rotate-180" : ""}`} aria-hidden />
       </button>
@@ -56,7 +59,7 @@ export function AccountMenu({ userName, userEmail, userImage, role }: {
           <div className="border-b border-pine/10 px-4 py-4">
             <p className="truncate text-sm font-semibold text-pine">{userName}</p>
             <p className="mt-1 truncate text-xs text-ink/55" title={userEmail}>{userEmail}</p>
-            <p className="mt-2 inline-flex rounded-full bg-sage/45 px-2 py-1 text-[11px] font-medium text-pine">{role === "owner" ? "Organization owner" : "Team member"}</p>
+            <p className="mt-2 inline-flex rounded-full bg-sage/45 px-2 py-1 text-[11px] font-medium text-pine">{viaL1 ? "L1 · StayOps operator" : role === "owner" ? "Organization owner" : `Team member · ${roleLabel(role)}`}</p>
           </div>
           <div className="p-2">
             <Link href="/settings/profile" role="menuitem" onClick={() => setOpen(false)} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-ink hover:bg-pine-mist hover:text-pine">
@@ -67,6 +70,7 @@ export function AccountMenu({ userName, userEmail, userImage, role }: {
               description="You will return to the sign-in page. Any unsaved form changes on this page will be lost."
               confirmLabel="Sign out"
               successMessage={null}
+              loadingLabel="Signing you out…"
               onConfirm={signOutAndRedirect}
               trigger={<><LogOut className="h-4 w-4" aria-hidden />Sign out</>}
               triggerRole="menuitem"

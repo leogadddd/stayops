@@ -14,12 +14,13 @@ export function MarkReadyForm({
   taskId,
   canMarkReady,
   openDamageCount,
-  actorRole,
+  canOverrideDamage,
 }: {
   taskId: string;
   canMarkReady: boolean;
   openDamageCount: number;
-  actorRole: "owner" | "staff";
+  /** damage.update: may mark ready over open damage with a reason. */
+  canOverrideDamage: boolean;
 }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState<TaskFormState, FormData>(
@@ -53,30 +54,28 @@ export function MarkReadyForm({
     );
   }
 
-  const ownerCanOverride = actorRole === "owner";
-
   return (
     <form action={formAction} className="space-y-3">
       {!canMarkReady ? (
         <div>
           <Label htmlFor="override-reason">
-            {ownerCanOverride
+            {canOverrideDamage
               ? "Damage is still open. Why mark ready anyway?"
-              : "Reason (owner only)"}
+              : "Reason for marking ready anyway"}
           </Label>
           <Textarea
             id="override-reason"
             name="overrideReason"
-            required={ownerCanOverride}
+            required={canOverrideDamage}
             minLength={2}
             maxLength={500}
-            disabled={!ownerCanOverride}
+            disabled={!canOverrideDamage}
             placeholder="e.g. Broken shelf scheduled for repair after the next checkout."
             className="min-h-16"
           />
-          {!ownerCanOverride ? (
+          {!canOverrideDamage ? (
             <p className="mt-1 text-xs text-ink/50">
-              Only the owner can mark a unit ready while damage is open.
+              Your role can’t mark a unit ready while damage is open.
             </p>
           ) : null}
         </div>
@@ -86,7 +85,7 @@ export function MarkReadyForm({
         <Button
           type="submit"
           variant="clay"
-          disabled={pending || (!canMarkReady && !ownerCanOverride)}
+          disabled={pending || (!canMarkReady && !canOverrideDamage)}
         >
           {pending ? "Marking ready…" : canMarkReady ? "Mark unit ready" : "Mark ready anyway"}
         </Button>

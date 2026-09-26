@@ -1,10 +1,14 @@
+import { accommodationLines } from "@/lib/rates";
+import { photoSrc } from "@/lib/photos";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight, Bath, BedDouble, CalendarDays, CircleAlert, CircleCheck, MapPin, Users } from "lucide-react";
 import { z } from "zod";
 import { buttonClassName } from "@/components/ui/button";
-import { requireMembership } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
+import { can } from "@/lib/permissions";
+import { PermissionDenied } from "@/components/app/permission-denied";
 import { UNIT_STATUS_LABELS } from "@/lib/labels";
 import { addDaysLocal, todayInTimeZone } from "@/lib/dates";
 import { formatPHP } from "@/lib/money";
@@ -35,7 +39,8 @@ export default async function StayShowcasePage({ params, searchParams }: {
   params: Promise<{ unitId: string }>;
   searchParams: Promise<StaySearchParams>;
 }) {
-  const membership = await requireMembership();
+  const membership = await requirePermission("reservations.view");
+  if (!membership) return <PermissionDenied />;
   const [{ unitId }, query] = await Promise.all([params, searchParams]);
   if (!z.uuid().safeParse(unitId).success) notFound();
 
@@ -68,14 +73,18 @@ export default async function StayShowcasePage({ params, searchParams }: {
   const resultsHref = searchQuery ? `/calendar/availability?${searchQuery}` : "/calendar/availability";
   const bookHref = `/reservations/new?${new URLSearchParams({ unit: unit.id, ...(search ? { checkIn: search.checkIn, checkOut: search.checkOut, guests: String(search.guestCount) } : {}) })}`;
   const calendarHref = `/calendar?${new URLSearchParams({ unit: unit.id, ...(search ? { month: search.checkIn.slice(0, 7) } : {}) })}`;
-  const showRates = membership.role === "owner";
-  const photos = [...new Set([unit.imageUrl, property.imageUrl].filter((src): src is string => Boolean(src)))];
-  const stayCents = search ? unit.defaultNightlyRateCents * search.nights : 0;
+  const showRates = can(membership, "payments.view");
+  const photos = [...new Set([photoSrc("unit", unit), photoSrc("property", property)].filter((src): src is string => Boolean(src)))];
+  // One line per rate when weekend (or other day) rates apply to these nights.
+  const stayLines = search
+    ? accommodationLines({ checkIn: search.checkIn, nights: search.nights, baseCents: unit.defaultNightlyRateCents, dayRates: unit.dayRates })
+    : [];
+  const stayCents = stayLines.reduce((sum, line) => sum + line.quantity * line.unitAmountCents, 0);
   const totalCents = stayCents + (unit.cleaningFeeCents ?? 0);
   const segments = segmentsByUnit.get(unit.id) ?? [];
   const segmentHref = (segment: { kind: "reservation" | "block"; id: string }) => segment.kind === "reservation"
     ? `/reservations/${segment.id}`
-    : membership.role === "owner" ? `/properties/${property.id}/units/${unit.id}` : undefined;
+    : can(membership, "properties.view") ? `/properties/${property.id}/units/${unit.id}` : undefined;
   const neighbors = search ? findNeighbors(segments, search.checkIn, search.checkOut, segmentHref) : { previous: null, next: null };
   const rules = houseRuleLines(property.houseRules);
   const amenityCount = unitAmenities.length + propertyAmenities.length;
@@ -129,7 +138,7 @@ export default async function StayShowcasePage({ params, searchParams }: {
         </div>
 
         <aside className="order-2 min-w-0 lg:order-none lg:sticky lg:top-0 lg:col-start-2 lg:row-span-2 lg:row-start-1">
-          <div className="rounded-2xl border border-pine/10 bg-white p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
+          <div className="rounded-2xl border border-pine/10 bg-surface p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
             {search ? (
               <>
                 <StatusBanner status={status!} guestCount={search.guestCount} unitStatus={UNIT_STATUS_LABELS[unit.status]} capacity={unit.capacity} />
@@ -141,7 +150,15 @@ export default async function StayShowcasePage({ params, searchParams }: {
                 </dl>
                 {showRates && unit.defaultNightlyRateCents ? (
                   <dl className="mt-4 space-y-2 text-sm">
-                    <div className="flex justify-between gap-3 text-ink/70"><dt>{formatPHP(unit.defaultNightlyRateCents)} × {plural(search.nights, "night")}</dt><dd>{formatPHP(stayCents)}</dd></div>
+                    {stayLines.map((line) => (
+                      <div key={line.description} className="flex justify-between gap-3 text-ink/70">
+                        <dt>
+                          {formatPHP(line.unitAmountCents)} × {plural(line.quantity, "night")}
+                          {stayLines.length > 1 ? <span className="block text-xs text-ink/45">{line.description.replace(/^Accommodation · | \(.*\)$/g, "")}</span> : null}
+                        </dt>
+                        <dd>{formatPHP(line.quantity * line.unitAmountCents)}</dd>
+                      </div>
+                    ))}
                     {unit.cleaningFeeCents ? <div className="flex justify-between gap-3 text-ink/70"><dt>Cleaning fee</dt><dd>{formatPHP(unit.cleaningFeeCents)}</dd></div> : null}
                     <div className="flex justify-between gap-3 border-t border-pine/10 pt-2 font-medium text-pine"><dt>Estimated total</dt><dd className="font-display text-lg">{formatPHP(totalCents)}</dd></div>
                     {unit.securityDepositCents ? <p className="text-xs text-ink/50">Plus a {formatPHP(unit.securityDepositCents)} refundable security deposit.</p> : null}
@@ -172,7 +189,7 @@ export default async function StayShowcasePage({ params, searchParams }: {
 }
 
 function Fact({ icon: Icon, children }: { icon: typeof Users; children: React.ReactNode }) {
-  return <li className="inline-flex items-center gap-1.5 rounded-full border border-pine/15 bg-white px-3 py-1.5 text-sm text-pine"><Icon className="h-4 w-4 text-pine/55" aria-hidden />{children}</li>;
+  return <li className="inline-flex items-center gap-1.5 rounded-full border border-pine/15 bg-surface px-3 py-1.5 text-sm text-pine"><Icon className="h-4 w-4 text-pine/55" aria-hidden />{children}</li>;
 }
 
 function StatusBanner({ status, guestCount, capacity, unitStatus }: { status: StayStatus; guestCount: number; capacity: number; unitStatus: string }) {

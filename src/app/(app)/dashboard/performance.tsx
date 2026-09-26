@@ -43,7 +43,6 @@ import {
   CATEGORY_COLORS,
   CHART,
   dayLabel,
-  Eyebrow,
   LegendToggle,
   monthLabel,
   monthYearLabel,
@@ -138,8 +137,7 @@ export function PerformanceSection({ series, today, balances }: { series: Dashbo
     <section aria-labelledby="performance-heading" className="mt-10">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <Eyebrow>Performance</Eyebrow>
-          <h2 id="performance-heading" className="mt-1 font-display text-2xl text-pine sm:text-3xl">How your stays are doing</h2>
+          <h2 id="performance-heading" className="font-display text-2xl text-pine sm:text-3xl">How your stays are doing</h2>
           <p className="mt-1 text-xs text-ink/55">{RANGE_LABELS[range].long} · {dayLabel(windows.current.from)} – {dayLabel(today)}, compared with the {RANGE_LABELS[range].long.replace("Last ", "previous ")}. Cash basis, Manila time.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -165,7 +163,7 @@ export function PerformanceSection({ series, today, balances }: { series: Dashbo
               )}
             >
               <div className="flex items-start justify-between gap-3">
-                <span className={cn("flex h-9 w-9 items-center justify-center rounded-full transition-colors", active ? "bg-pine text-white" : "bg-pine-mist text-pine")}><Icon className="h-4 w-4" strokeWidth={1.8} aria-hidden /></span>
+                <span className={cn("flex h-9 w-9 items-center justify-center rounded-full transition-colors", active ? "bg-primary text-white" : "bg-pine-mist text-pine")}><Icon className="h-4 w-4" strokeWidth={1.8} aria-hidden /></span>
                 {delta ? (
                   <span className={cn("inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-medium tabular-nums", delta.good ? "bg-sage/60 text-pine" : "bg-clay-mist text-clay-deep")}>
                     {delta.text.startsWith("-") ? <ArrowDownRight className="h-3 w-3" aria-hidden /> : <ArrowUpRight className="h-3 w-3" aria-hidden />}
@@ -234,7 +232,7 @@ export function PerformanceSection({ series, today, balances }: { series: Dashbo
                       ]} /> : null;
                     }}
                   />
-                  <Area animationDuration={450} type="monotone" dataKey="occupancyPct" stroke={CHART.pine} strokeWidth={2} fill="url(#occupancy-fill)" connectNulls activeDot={{ r: 5, fill: CHART.pine, stroke: "#fbfaf7", strokeWidth: 2 }} />
+                  <Area animationDuration={450} type="monotone" dataKey="occupancyPct" stroke={CHART.pine} strokeWidth={2} fill="url(#occupancy-fill)" connectNulls activeDot={{ r: 5, fill: CHART.pine, stroke: "var(--color-linen)", strokeWidth: 2 }} />
                 </AreaChart>
               ) : (
                 <ComposedChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }} barGap={2} onClick={(state) => openReport(buckets[Number(state?.activeTooltipIndex)])} className="cursor-pointer">
@@ -256,7 +254,7 @@ export function PerformanceSection({ series, today, balances }: { series: Dashbo
                   />
                   {!hidden.has("collected") ? <Bar animationDuration={450} dataKey="collected" name="Collected" fill={CHART.pine} fillOpacity={emphasis("collected")} radius={[4, 4, 0, 0]} maxBarSize={28} /> : null}
                   {!hidden.has("expenses") ? <Bar animationDuration={450} dataKey="expenses" name="Operating expenses" fill={CHART.sand} fillOpacity={emphasis("expenses")} radius={[4, 4, 0, 0]} maxBarSize={28} /> : null}
-                  {showNetLine ? <Line animationDuration={450} type="linear" dataKey="net" name="Net" stroke={CHART.clay} strokeOpacity={metric === "net" ? 1 : 0.55} strokeWidth={metric === "net" ? 2.5 : 2} dot={false} activeDot={{ r: 5, fill: CHART.clay, stroke: "#fbfaf7", strokeWidth: 2 }} /> : null}
+                  {showNetLine ? <Line animationDuration={450} type="linear" dataKey="net" name="Net" stroke={CHART.clay} strokeOpacity={metric === "net" ? 1 : 0.55} strokeWidth={metric === "net" ? 2.5 : 2} dot={false} activeDot={{ r: 5, fill: CHART.clay, stroke: "var(--color-linen)", strokeWidth: 2 }} /> : null}
                 </ComposedChart>
               )}
             </ResponsiveContainer>
@@ -335,7 +333,7 @@ export function PerformanceSection({ series, today, balances }: { series: Dashbo
           </Card>
         ) : null}
 
-        <Card aria-labelledby="balances-title" className="bg-pine text-white">
+        <Card aria-labelledby="balances-title" className="theme-keep-light bg-pine text-white">
           <CardBody className="flex h-full flex-col gap-5 p-5 sm:p-6">
             <div className="flex items-center justify-between"><h3 id="balances-title" className="font-display text-lg">Balances</h3><ShieldCheck className="h-5 w-5 text-sage" aria-hidden /></div>
             {balances ? (

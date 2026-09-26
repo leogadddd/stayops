@@ -1,7 +1,7 @@
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { calendarEventsForUnit, layoutMonthBars, layoutMonthEvents, MIN_BAR_WIDTH, monthGridRange, type BarInterval, type CalendarInterval } from "@/lib/calendar";
+import { calendarEventsForUnit, layoutMonthBars, layoutMonthEvents, layoutTimelineBars, MIN_BAR_WIDTH, monthGridRange, type BarInterval, type CalendarInterval } from "@/lib/calendar";
 import { listNights } from "@/lib/dates";
 import { getOccupancySegments, listCalendarActivity, type OccupancySegment } from "@/server/inventory/availability";
 import { listOrgUnits, listProperties } from "@/server/inventory/service";
@@ -10,9 +10,12 @@ import { requireMembership } from "@/lib/auth/session";
 import { useRouter } from "next/navigation";
 import CalendarPage from "@/app/(app)/calendar/page";
 import { MonthCalendar } from "@/app/(app)/calendar/month-calendar";
+import { TimelineCalendar } from "@/app/(app)/calendar/timeline-calendar";
 import { TodayPanel } from "@/app/(app)/calendar/today-panel";
+import { ViewSwitcher } from "@/app/(app)/calendar/view-switcher";
+import { UnitFilter } from "@/app/(app)/calendar/unit-filter";
 
-vi.mock("@/lib/auth/session", () => ({ requireMembership: vi.fn() }));
+vi.mock("@/lib/auth/session", async () => (await import("./helpers/session-mock")).mockSessionModule());
 vi.mock("@/server/inventory/service", () => ({ listOrgUnits: vi.fn(), listProperties: vi.fn() }));
 vi.mock("@/server/inventory/availability", () => ({ getOccupancySegments: vi.fn(), listCalendarActivity: vi.fn() }));
 vi.mock("@/server/operations/service", () => ({ listTasks: vi.fn() }));
@@ -235,6 +238,37 @@ describe("layoutMonthBars", () => {
   });
 });
 
+describe("layoutTimelineBars", () => {
+  const unitBar = (unitId: string, ...args: Parameters<typeof stayBar>) => ({ ...stayBar(...args), unitId });
+
+  it("gives each unit its own row across the month's days", () => {
+    const { days, rows } = layoutTimelineBars("2026-09", ["unit-a", "unit-b"], [
+      unitBar("unit-a", "a", "2026-09-01", "2026-09-03", "12:00", "06:00"),
+      unitBar("unit-b", "b", "2026-09-10", "2026-09-12"),
+    ]);
+    expect(days).toHaveLength(30);
+    expect(rows.map((row) => row.unitId)).toEqual(["unit-a", "unit-b"]);
+    expect(rows[0]!.bars.map((bar) => bar.event.id)).toEqual(["a"]);
+    expect(rows[0]!.bars[0]).toMatchObject({ start: 0.5, end: 2.25, lane: 0 });
+    expect(rows[1]!.bars.map((bar) => bar.event.id)).toEqual(["b"]);
+  });
+
+  it("clips at the month edges and stacks overlaps within a unit", () => {
+    const { rows } = layoutTimelineBars("2026-09", ["unit-a"], [
+      unitBar("unit-a", "across", "2026-08-28", "2026-10-03"),
+      { id: "block", unitId: "unit-a", startDate: "2026-09-05", endDate: "2026-09-07" },
+    ]);
+    const across = rows[0]!.bars.find((bar) => bar.event.id === "across")!;
+    expect(across).toMatchObject({ start: 0, end: 30, continuesBefore: true, continuesAfter: true });
+    expect(rows[0]!.laneCount).toBe(2);
+  });
+
+  it("drops events outside the month", () => {
+    const { rows } = layoutTimelineBars("2026-09", ["unit-a"], [unitBar("unit-a", "old", "2026-08-01", "2026-08-05")]);
+    expect(rows[0]!.bars).toEqual([]);
+  });
+});
+
 function elements(node: React.ReactNode): React.ReactElement<Record<string, unknown>>[] {
   if (Array.isArray(node)) return node.flatMap(elements);
   if (!React.isValidElement<Record<string, unknown>>(node)) return [];
@@ -366,5 +400,32 @@ describe("calendar page data boundaries", () => {
     vi.clearAllMocks();
     await CalendarPage({ searchParams: Promise.resolve({ unit: "other-org-unit" }) });
     expect(getOccupancySegments).toHaveBeenCalledWith("org-a", ["unit-a", "unit-b"], expect.any(String), expect.any(String));
+  });
+
+  it("keeps the chosen view in every calendar link and renders the timeline", async () => {
+    const tree = await CalendarPage({ searchParams: Promise.resolve({ view: "timeline", month: "2026-10" }) });
+    const timeline = propsFor(tree, TimelineCalendar);
+    expect(elements(tree).some((node) => node.type === MonthCalendar)).toBe(false);
+    expect(timeline.units.map((unit) => [unit.id, unit.bookable])).toEqual([["unit-a", true], ["unit-b", false]]);
+    expect(timeline.nextHref).toBe("/calendar?month=2026-11&view=timeline");
+    expect(propsFor(tree, UnitFilter).hrefFor("unit-b")).toBe("/calendar?month=2026-10&unit=unit-b&view=timeline");
+    const switcher = propsFor(timeline.viewSwitcher, ViewSwitcher);
+    expect(switcher.view).toBe("timeline");
+    expect(switcher.hrefFor("month")).toBe("/calendar?month=2026-10");
+  });
+
+  it("falls back to the month view for an unknown view", async () => {
+    const tree = await CalendarPage({ searchParams: Promise.resolve({ view: "bogus" }) });
+    expect(propsFor(tree, MonthCalendar).nextHref).toBe("/calendar?month=2026-10");
+  });
+
+  it("renders timeline rows with bars and drag-to-book only on bookable units", async () => {
+    vi.mocked(getOccupancySegments).mockResolvedValue(new Map([["unit-a", [reservation("2026-09-03", "2026-09-06")]]]));
+    const tree = await CalendarPage({ searchParams: Promise.resolve({ view: "timeline" }) });
+    const html = renderToStaticMarkup(React.createElement(TimelineCalendar, propsFor(tree, TimelineCalendar)));
+    expect(html).toContain('aria-label="Apartment 01"');
+    expect(html).toContain("Santos");
+    expect(html).toContain("Not bookable");
+    expect(html).toContain('aria-current="page"');
   });
 });

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { requireOwner } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
 import { todayInTimeZone } from "@/lib/dates";
 import { listOrgUnits, listProperties } from "@/server/inventory/service";
 import { PageHeading } from "@/components/app/page-heading";
@@ -11,7 +11,7 @@ import { ExpenseForm } from "../expense-form";
 export const metadata: Metadata = { title: "Record expense" };
 
 export default async function NewExpensePage() {
-  const membership = await requireOwner();
+  const membership = await requirePermission("expenses.create");
   if (!membership) return <PermissionDenied description="Only the organization owner can record expenses." />;
 
   const [properties, units] = await Promise.all([

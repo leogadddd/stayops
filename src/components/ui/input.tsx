@@ -3,11 +3,11 @@ import { cn } from "@/lib/utils";
 export function Input({
   className,
   ...props
-}: React.InputHTMLAttributes<HTMLInputElement>) {
+}: React.ComponentProps<"input">) {
   return (
     <input
       className={cn(
-        "h-10 w-full rounded-lg border border-pine/20 bg-white px-3 text-sm",
+        "h-10 w-full rounded-lg border border-pine/20 bg-surface px-3 text-sm",
         "placeholder:text-ink/35",
         "focus:border-pine focus:outline-none focus:ring-2 focus:ring-sage",
         "disabled:cursor-not-allowed disabled:opacity-60",
@@ -31,7 +31,7 @@ export function Label({
 }
 
 const selectClassName =
-  "h-10 w-full rounded-lg border border-pine/20 bg-white px-3 text-sm " +
+  "h-10 w-full rounded-lg border border-pine/20 bg-surface px-3 text-sm " +
   "focus:border-pine focus:outline-none focus:ring-2 focus:ring-sage " +
   "disabled:cursor-not-allowed disabled:opacity-60";
 
@@ -49,7 +49,7 @@ export function Textarea({
   return (
     <textarea
       className={cn(
-        "min-h-24 w-full rounded-lg border border-pine/20 bg-white px-3 py-2 text-sm",
+        "min-h-24 w-full rounded-lg border border-pine/20 bg-surface px-3 py-2 text-sm",
         "placeholder:text-ink/35",
         "focus:border-pine focus:outline-none focus:ring-2 focus:ring-sage",
         "disabled:cursor-not-allowed disabled:opacity-60",

@@ -1,5 +1,6 @@
 import type { ChargeType } from "@/lib/db/schema";
 import { assertIntegerCentavos } from "@/lib/money";
+import { accommodationLines, type DayRates } from "@/lib/rates";
 
 /**
  * Pure helpers for the agreed charge snapshot shared by the reservation form
@@ -22,21 +23,34 @@ export interface ChargeLineValues {
   unitAmountCents: number;
 }
 
-/** Default charge lines for a stay, built from the unit's current defaults. */
+/**
+ * Default charge lines for a stay, built from the unit's current defaults.
+ * With day-of-week rates and a check-in date, accommodation splits into one
+ * line per rate (see accommodationLines).
+ */
 export function buildDefaultCharges(input: {
   nightlyRateCents: number;
   cleaningFeeCents: number | null;
   securityDepositCents: number | null;
   nights: number;
+  checkIn?: string;
+  dayRates?: DayRates | null;
 }): ChargeLineValues[] {
-  const lines: ChargeLineValues[] = [
-    {
-      type: "accommodation",
-      description: `Accommodation (${input.nights} ${input.nights === 1 ? "night" : "nights"})`,
-      quantity: input.nights,
-      unitAmountCents: input.nightlyRateCents,
-    },
-  ];
+  const lines: ChargeLineValues[] = input.checkIn
+    ? accommodationLines({
+        checkIn: input.checkIn,
+        nights: input.nights,
+        baseCents: input.nightlyRateCents,
+        dayRates: input.dayRates,
+      }).map((line) => ({ type: "accommodation" as const, ...line }))
+    : [
+        {
+          type: "accommodation",
+          description: `Accommodation (${input.nights} ${input.nights === 1 ? "night" : "nights"})`,
+          quantity: input.nights,
+          unitAmountCents: input.nightlyRateCents,
+        },
+      ];
   if (input.cleaningFeeCents !== null) {
     lines.push({
       type: "cleaning",

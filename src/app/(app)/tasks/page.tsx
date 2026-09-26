@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { requireMembership } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
+import { PermissionDenied } from "@/components/app/permission-denied";
 import { TASK_STATUS_LABELS } from "@/lib/labels";
 import { listTasks } from "@/server/operations/service";
 import { PageHeading } from "@/components/app/page-heading";
@@ -21,7 +22,8 @@ const STATUS_TONE: Record<string, "sage" | "clay" | "neutral"> = { open: "clay",
 export default async function TasksPage({ searchParams }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const membership = await requireMembership();
+  const membership = await requirePermission("tasks.view");
+  if (!membership) return <PermissionDenied />;
   const params = await searchParams;
   const statusParam = params["status"];
   const statusFilter = statusParam === "open" || statusParam === "ready" ? statusParam : undefined;

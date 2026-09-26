@@ -1,8 +1,9 @@
 "use client";
 
+import { DateInput } from "@/components/ui/date-input";
 import { useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, Minus, Plus, Search, Users } from "lucide-react";
+import { Minus, Plus, Search, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FieldError, Label } from "@/components/ui/input";
 import { addDaysLocal, nightsBetween } from "@/lib/dates";
@@ -57,7 +58,7 @@ export function AvailabilityCheckForm({ today, defaults, error, children }: {
 
   return (
     <div className="min-w-0 space-y-8">
-      <section aria-label="Search stays" className="rounded-2xl border border-pine/10 bg-white p-4 shadow-[0_1px_2px_rgba(32,58,53,0.06)] sm:p-5">
+      <section aria-label="Search stays" className="rounded-2xl border border-pine/10 bg-surface p-4 shadow-[0_1px_2px_rgba(32,58,53,0.06)] sm:p-5">
         <form method="get" action="/calendar/availability" onSubmit={search} className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,14rem)_auto] xl:items-end">
           <div className="min-w-0">
             <Label htmlFor="check-in">Check-in</Label>
@@ -69,7 +70,7 @@ export function AvailabilityCheckForm({ today, defaults, error, children }: {
           </div>
           <div className="min-w-0">
             <Label htmlFor="guest-count">Guests</Label>
-            <div className="flex h-12 items-center rounded-xl border border-pine/20 bg-white focus-within:border-pine focus-within:ring-2 focus-within:ring-sage">
+            <div className="flex h-12 items-center rounded-xl border border-pine/20 bg-surface focus-within:border-pine focus-within:ring-2 focus-within:ring-sage">
               <button type="button" aria-label="Fewer guests" onClick={() => setGuestCount((count) => Math.max(1, count - 1))} disabled={guestCount <= 1} className="flex h-full w-11 shrink-0 items-center justify-center rounded-l-xl text-pine hover:bg-pine-mist/60 disabled:opacity-35"><Minus className="h-4 w-4" aria-hidden /></button>
               <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5">
                 <Users className="h-4 w-4 shrink-0 text-pine/50" aria-hidden />
@@ -88,7 +89,7 @@ export function AvailabilityCheckForm({ today, defaults, error, children }: {
           {presets(today).map((preset) => {
             const selected = preset.checkIn === checkIn && preset.checkOut === checkOut;
             return (
-              <button key={preset.label} type="button" onClick={() => { setCheckIn(preset.checkIn); setCheckOut(preset.checkOut); }} aria-pressed={selected} className={cn("rounded-full border px-3 py-1 text-sm transition-colors", selected ? "border-pine bg-pine text-white" : "border-pine/15 text-pine hover:border-pine/40 hover:bg-pine-mist/60")}>
+              <button key={preset.label} type="button" onClick={() => { setCheckIn(preset.checkIn); setCheckOut(preset.checkOut); }} aria-pressed={selected} className={cn("rounded-full border px-3 py-1 text-sm transition-colors", selected ? "border-primary bg-primary text-white" : "border-pine/15 text-pine hover:border-pine/40 hover:bg-pine-mist/60")}>
                 {preset.label}
               </button>
             );
@@ -104,12 +105,7 @@ export function AvailabilityCheckForm({ today, defaults, error, children }: {
 }
 
 function DateField({ id, name, value, min, onChange }: { id: string; name: string; value: string; min: string; onChange: (value: string) => void }) {
-  return (
-    <div className="relative">
-      <CalendarDays className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-pine/50" aria-hidden />
-      <input id={id} name={name} type="date" value={value} min={min} onChange={(event) => onChange(event.target.value)} required className="h-12 w-full min-w-0 rounded-xl border border-pine/20 bg-white pl-10 pr-3 text-sm text-ink focus:border-pine focus:outline-none focus:ring-2 focus:ring-sage" />
-    </div>
-  );
+  return <DateInput id={id} name={name} value={value} min={min} onChange={onChange} required size="lg" />;
 }
 
 function ResultsSkeleton() {
@@ -118,7 +114,7 @@ function ResultsSkeleton() {
       <div className="mb-5 h-8 w-56 animate-pulse rounded-lg bg-pine-mist" />
       <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
         {Array.from({ length: 4 }, (_, index) => (
-          <div key={index} className="flex h-40 overflow-hidden rounded-2xl border border-pine/10 bg-white">
+          <div key={index} className="flex h-40 overflow-hidden rounded-2xl border border-pine/10 bg-surface">
             <div className="w-2/5 shrink-0 animate-pulse bg-sage/30" />
             <div className="flex-1 space-y-3 p-4">
               <div className="h-3 w-24 animate-pulse rounded bg-pine-mist" />

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { requireOwner } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
 import { EXPENSE_CATEGORY_LABELS } from "@/lib/labels";
 import { formatPHP } from "@/lib/money";
 import { listExpenses } from "@/server/expenses/service";
@@ -34,10 +34,10 @@ export default async function ExpensesPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const membership = await requireOwner();
+  const membership = await requirePermission("expenses.view");
   if (!membership) {
     return (
-      <PermissionDenied description="Expenses are limited to the organization owner. Staff members can use the calendar, reservations, guests and tasks pages." />
+      <PermissionDenied description="Expenses are limited to the organization owner. Other team members can use the calendar, reservations, guests and tasks pages." />
     );
   }
   const params = await searchParams;

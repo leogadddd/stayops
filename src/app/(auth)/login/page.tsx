@@ -7,7 +7,9 @@ import { toast } from "sonner";
 import { authClient } from "@/lib/auth/client";
 import { Button } from "@/components/ui/button";
 import { PasswordInput } from "@/components/ui/password-input";
-import { CircleAlert } from "lucide-react";
+import { AuthLoadingOverlay } from "@/components/ui/auth-loading-overlay";
+import { CircleAlert, MailCheck } from "lucide-react";
+import { afterAuthPath, inviteQuery } from "@/lib/auth/invite-redirect";
 import { Input, Label } from "@/components/ui/input";
 
 const SESSION_RETRY_MS = 5000;
@@ -68,6 +70,7 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const demoRequested = searchParams.get("demo") === "1";
+  const invite = searchParams.get("invite");
   useSessionRecovery(searchParams.get("session") === "unavailable");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -90,7 +93,7 @@ function LoginContent() {
       return false;
     }
     toast.success("Welcome back.");
-    router.push("/");
+    router.push(afterAuthPath(invite, "/"));
     router.refresh();
     return true;
   }
@@ -116,6 +119,7 @@ function LoginContent() {
       <p className="mt-2 text-sm text-ink/60">
         Sign in to your StayOps account.
       </p>
+      {invite ? <InvitationNotice /> : null}
 
       <form
         onSubmit={onSubmit}
@@ -165,7 +169,7 @@ function LoginContent() {
       <p className="mt-8 text-center text-sm text-ink/60">
         Don&apos;t have an account?{" "}
         <Link
-          href="/register"
+          href={`/register${inviteQuery(invite)}`}
           className="font-medium text-pine underline underline-offset-4 hover:text-pine-soft"
         >
           Create one
@@ -180,7 +184,7 @@ function LoginContent() {
       </div>
 
       {demoRequested && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-pine-deep/55 px-6 py-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/55 px-6 py-8">
           <div
             role="dialog"
             aria-modal="true"
@@ -219,7 +223,21 @@ function LoginContent() {
           </div>
         </div>
       )}
+      {pending || demoStarting ? (
+        <AuthLoadingOverlay
+          label={demoStarting ? "Opening your demo workspace…" : "Signing you in…"}
+        />
+      ) : null}
     </div>
+  );
+}
+
+function InvitationNotice() {
+  return (
+    <p className="mt-6 flex items-start gap-2 rounded-xl border border-pine/15 bg-sage/35 px-4 py-3 text-sm text-pine">
+      <MailCheck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+      <span>Sign in with the email address your invitation was sent to. You’ll review it before joining.</span>
+    </p>
   );
 }
 

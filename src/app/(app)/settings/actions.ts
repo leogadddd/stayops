@@ -1,10 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireMembership, assertOwner, PermissionError } from "@/lib/auth/session";
+import { requireMembership, assertCan, PermissionError } from "@/lib/auth/session";
 import {
   inviteStaff,
+  changeMemberRole,
+  createOrganizationJoinCode,
   OrgError,
+  reviewOrganizationJoinRequest,
   removeStaff,
   updateOrganizationProfile,
   updateOrganizationRegion,
@@ -13,6 +16,8 @@ import {
   getOrganizationLogoUrl,
 } from "@/server/orgs/service";
 import { unexpectedErrorMessage } from "@/lib/errors";
+import { INVITABLE_ROLE_KEYS, canManagePermissions, type InvitableRoleKey, type RoleKey } from "@/lib/permissions";
+import { updateRolePermissions } from "@/server/orgs/permissions";
 import { imageUploadFromDataUrl } from "@/server/inventory/image-upload";
 import { InventoryError } from "@/server/inventory/validation";
 import { createObjectStorageFromEnvironment, StorageError } from "@/server/storage/service";
@@ -20,6 +25,9 @@ import { createObjectStorageFromEnvironment, StorageError } from "@/server/stora
 export interface OrgFormState {
   error?: string;
   success?: boolean;
+  invitationCode?: string;
+  invitationExpiresAt?: string;
+  joinCode?: string;
 }
 
 function toFormError(error: unknown): OrgFormState {
@@ -37,7 +45,7 @@ export async function renameOrganization(
   formData: FormData,
 ): Promise<OrgFormState> {
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "organization.update");
   const name = String(formData.get("name") ?? "");
   try {
     await updateOrganizationName({
@@ -57,12 +65,12 @@ export async function saveOrganizationProfile(
   formData: FormData,
 ): Promise<OrgFormState> {
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "organization.update");
   try {
     const removeLogo = formData.get("removeLogo") === "true";
     const logo = removeLogo
       ? undefined
-      : imageUploadFromDataUrl(String(formData.get("logoDataUrl") ?? ""));
+      : await imageUploadFromDataUrl(String(formData.get("logoDataUrl") ?? ""));
     const currentLogoUrl = removeLogo
       ? await getOrganizationLogoUrl(membership.organizationId)
       : null;
@@ -70,7 +78,7 @@ export async function saveOrganizationProfile(
     const logoUrl = removeLogo
       ? null
       : logo
-      ? `org/${membership.organizationId}/logo/logo.png`
+      ? `org/${membership.organizationId}/logo/logo.webp`
       : undefined;
     if (logo && logoUrl) {
       await createObjectStorageFromEnvironment().put({ key: logoUrl, ...logo });
@@ -105,6 +113,9 @@ export async function saveOrganizationProfile(
   revalidatePath("/settings/organization");
   revalidatePath("/settings/organization/edit");
   revalidatePath("/dashboard");
+  // The app layout owns the header organization selector, so invalidate it
+  // along with the settings pages when its logo may have changed.
+  revalidatePath("/", "layout");
   return { success: true };
 }
 
@@ -113,7 +124,7 @@ export async function saveOrganizationRegion(
   formData: FormData,
 ): Promise<OrgFormState> {
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "organization.update");
   try {
     await updateOrganizationRegion({
       organizationId: membership.organizationId,
@@ -134,7 +145,7 @@ export async function savePaymentInstructions(
   formData: FormData,
 ): Promise<OrgFormState> {
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "organization.update");
   try {
     await updatePaymentInstructions({
       organizationId: membership.organizationId,
@@ -153,27 +164,91 @@ export async function inviteStaffAction(
   formData: FormData,
 ): Promise<OrgFormState> {
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "team.create");
   try {
-    await inviteStaff({
+    const invitation = await inviteStaff({
       organizationId: membership.organizationId,
       actorUserId: membership.userId,
       email: String(formData.get("email") ?? ""),
+      role: (String(formData.get("role") ?? "staff") || "staff") as "admin" | "operations_manager" | "staff",
+    });
+    revalidatePath("/settings");
+    return { success: true, invitationCode: invitation.code, invitationExpiresAt: invitation.expiresAt.toISOString() };
+  } catch (error) {
+    return toFormError(error);
+  }
+}
+
+/** Returns a shareable code once; it is never stored in plaintext. */
+export async function createOrganizationJoinCodeAction(): Promise<OrgFormState> {
+  const membership = await requireMembership();
+  assertCan(membership, "team.create");
+  try {
+    const joinCode = await createOrganizationJoinCode({ organizationId: membership.organizationId, actorUserId: membership.userId });
+    return { success: true, joinCode: joinCode.code };
+  } catch (error) {
+    return toFormError(error);
+  }
+}
+
+export async function reviewOrganizationJoinRequestAction(requestId: string, approve: boolean): Promise<OrgFormState> {
+  const membership = await requireMembership();
+  assertCan(membership, "team.update");
+  try {
+    await reviewOrganizationJoinRequest({ organizationId: membership.organizationId, actorUserId: membership.userId, requestId, approve });
+    revalidatePath("/settings");
+    return { success: true };
+  } catch (error) {
+    return toFormError(error);
+  }
+}
+
+export async function changeMemberRoleAction(membershipId: string, role: InvitableRoleKey): Promise<OrgFormState> {
+  const membership = await requireMembership();
+  assertCan(membership, "team.update");
+  if (!(INVITABLE_ROLE_KEYS as readonly string[]).includes(role)) return { error: "Choose a valid role." };
+  try {
+    await changeMemberRole({ organizationId: membership.organizationId, actorUserId: membership.userId, membershipId, role });
+    revalidatePath("/settings/team");
+    return { success: true };
+  } catch (error) {
+    return toFormError(error);
+  }
+}
+
+/** Owners and admins only; the service also limits which roles each may edit. */
+export async function saveRolePermissionsAction(role: RoleKey, permissions: string[]): Promise<OrgFormState> {
+  const membership = await requireMembership();
+  if (!canManagePermissions(membership.role)) {
+    return { error: "Only owners and admins can change permissions." };
+  }
+  try {
+    await updateRolePermissions({
+      organizationId: membership.organizationId,
+      actorUserId: membership.userId,
+      actorRole: membership.role,
+      role,
+      permissions,
     });
   } catch (error) {
     return toFormError(error);
   }
-  revalidatePath("/settings");
+  revalidatePath("/", "layout");
   return { success: true };
 }
 
-export async function removeStaffAction(membershipId: string): Promise<void> {
+export async function removeStaffAction(membershipId: string): Promise<OrgFormState> {
   const membership = await requireMembership();
-  assertOwner(membership);
-  await removeStaff({
-    organizationId: membership.organizationId,
-    actorUserId: membership.userId,
-    membershipId,
-  });
-  revalidatePath("/settings");
+  assertCan(membership, "team.delete");
+  try {
+    await removeStaff({
+      organizationId: membership.organizationId,
+      actorUserId: membership.userId,
+      membershipId,
+    });
+  } catch (error) {
+    return toFormError(error);
+  }
+  revalidatePath("/settings/team");
+  return { success: true };
 }

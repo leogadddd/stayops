@@ -3,18 +3,18 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-/** Brand palette for charts (see globals.css). Recharts needs literal colors. */
+/** Brand palette for charts, as theme variables so they follow dark mode (see globals.css). */
 export const CHART = {
-  pine: "#203a35",
-  pineSoft: "#2c4a44",
-  moss: "#6f927e",
-  sage: "#cfddd3",
-  sageDeep: "#9fb8a9",
-  clay: "#a64e37",
-  sand: "#c49a6c",
-  mist: "#e3eae7",
-  grid: "rgba(32, 58, 53, 0.08)",
-  axis: "rgba(34, 49, 45, 0.5)",
+  pine: "var(--color-chart-primary)",
+  pineSoft: "var(--color-pine-soft)",
+  moss: "var(--color-moss)",
+  sage: "var(--color-sage)",
+  sageDeep: "var(--color-sage-deep)",
+  clay: "var(--color-clay)",
+  sand: "var(--color-sand-deep)",
+  mist: "var(--color-pine-mist)",
+  grid: "color-mix(in oklab, var(--color-pine) 8%, transparent)",
+  axis: "color-mix(in oklab, var(--color-ink) 50%, transparent)",
   font: "var(--font-inter), ui-sans-serif, system-ui, sans-serif",
 } as const;
 
@@ -26,8 +26,8 @@ export const CATEGORY_COLORS: Record<string, string> = {
   maintenance: CHART.sand,
   internet: CHART.pineSoft,
   platform_fees: CHART.clay,
-  renovation: "#8c6a4a",
-  other: "#b9b2a5",
+  renovation: "var(--color-chart-renovation)",
+  other: "var(--color-chart-other)",
 };
 
 export const axisTick = { fill: CHART.axis, fontSize: 11, fontFamily: CHART.font };
@@ -101,7 +101,7 @@ export function Segmented<T extends string>({ label, options, value, onChange, s
             className={cn(
               "rounded-full font-medium transition-colors",
               size === "sm" ? "px-2.5 py-1 text-[11px]" : "px-3.5 py-1.5 text-xs",
-              active ? "bg-pine text-white shadow-sm" : "text-pine/70 hover:bg-pine-mist hover:text-pine",
+              active ? "bg-primary text-white shadow-sm" : "text-pine/70 hover:bg-pine-mist hover:text-pine",
             )}
           >
             {option.label}
@@ -122,7 +122,7 @@ export function LegendToggle({ label, color, active, onClick, shape = "square" }
 }) {
   return (
     <button type="button" aria-pressed={active} onClick={onClick} className={cn("inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] transition", active ? "text-ink/70 hover:bg-pine-mist/70" : "text-ink/35 line-through hover:bg-pine-mist/40")}>
-      <span className={shape === "line" ? "h-0.5 w-3.5 rounded-full" : "h-2.5 w-2.5 rounded-sm"} style={{ background: active ? color : "#b9b2a5" }} aria-hidden />
+      <span className={shape === "line" ? "h-0.5 w-3.5 rounded-full" : "h-2.5 w-2.5 rounded-sm"} style={{ background: active ? color : "var(--color-chart-other)" }} aria-hidden />
       {label}
     </button>
   );

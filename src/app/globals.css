@@ -1,8 +1,22 @@
 @import "tailwindcss";
 
+/* `data-theme` on <html> is the saved preference (src/lib/theme.ts);
+   `system` follows the OS without any script. */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where([data-theme="system"], [data-theme="system"] *) {
+      @slot;
+    }
+  }
+}
+
 @theme {
   /* StayOps brand palette — from the brand sheet:
-     Pine #203A35 · Paper #F6F3ED · Sage #CFDDD3 · Clay #A64E37 */
+     Pine #203A35 · Paper #F6F3ED · Sage #CFDDD3 · Clay #A64E37
+     Dark values live in the `:root` block below; add both when adding a color. */
   --color-pine: #203a35;
   --color-pine-deep: #162925;
   --color-pine-soft: #2c4a44;
@@ -26,8 +40,144 @@
 
   --color-ink: #22312d;
 
+  /* Roles that do not simply invert in dark mode. `pine` is text there, so
+     filled pine surfaces (buttons, active pills) use `primary`. */
+  --color-primary: #203a35;
+  --color-primary-soft: #2c4a44;
+  --color-clay-strong: #8c3f2c;
+  --color-surface: #ffffff;
+  --color-card: #fffdfa;
+  /* App header; matches the sidebar in dark mode. */
+  --color-chrome: #fbfaf7;
+  --color-scrim: #162925;
+
+  /* Calendar stay states. */
+  --color-stay-booked: #b5cfbd;
+  --color-stay-booked-line: #8fb09b;
+  --color-stay-departed: #d7e1dc;
+  --color-stay-departed-line: #b3c4bb;
+  --color-stay-hold: #f1ddb9;
+  --color-stay-hold-line: #b0823f;
+  --color-stay-hold-ink: #553a1b;
+  --color-stay-blocked: #d9dbd7;
+  --color-stay-blocked-alt: #c6c9c4;
+  --color-stay-blocked-line: #a9ada8;
+  --color-stay-blocked-ink: #323835;
+  --color-stay-turnover: #f4ebdc;
+  --color-stay-turnover-line: #c7a574;
+  --color-stay-turnover-ink: #7a5a36;
+  --color-refund: #c88470;
+  --color-chart-primary: #203a35;
+  --color-chart-renovation: #8c6a4a;
+  --color-chart-other: #b9b2a5;
+
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
+}
+
+:root {
+  @variant dark {
+    color-scheme: dark;
+
+    /* Near-black page and chrome; cards, chips and accents carry the brand green. */
+    --color-pine: #ededed;
+    --color-pine-deep: #fafafa;
+    --color-pine-soft: #c4c4c4;
+    --color-pine-mist: #1b2622;
+
+    --color-paper: #0e0e0e;
+    --color-cream: #17201c;
+    --color-linen: #121916;
+
+    --color-sage: #21352c;
+    --color-sage-deep: #3f6152;
+    --color-moss: #7fae95;
+
+    --color-clay: #c4674d;
+    --color-clay-deep: #eb9f85;
+    --color-clay-mist: #2e1f1a;
+
+    --color-sand: #23211e;
+    --color-sand-deep: #a8957c;
+    --color-bark: #cbb9a2;
+
+    --color-ink: #d6d6d6;
+
+    --color-primary: #2f5d50;
+    --color-primary-soft: #3a6b5d;
+    --color-clay-strong: #ad563f;
+    --color-surface: #18211d;
+    --color-card: #131b18;
+    --color-chrome: #141414;
+    --color-scrim: #000000;
+
+    --color-stay-booked: #1f3a2f;
+    --color-stay-booked-line: #3f6b57;
+    --color-stay-departed: #222222;
+    --color-stay-departed-line: #424242;
+    --color-stay-hold: #342d22;
+    --color-stay-hold-line: #8d7652;
+    --color-stay-hold-ink: #e2d4bb;
+    --color-stay-blocked: #1c1c1c;
+    --color-stay-blocked-alt: #262626;
+    --color-stay-blocked-line: #505050;
+    --color-stay-blocked-ink: #bdbdbd;
+    --color-stay-turnover: #2e2922;
+    --color-stay-turnover-line: #857258;
+    --color-stay-turnover-ink: #d9c9ae;
+    --color-refund: #d08c78;
+    --color-chart-primary: #8cbba3;
+    --color-chart-renovation: #9c8570;
+    --color-chart-other: #6e6e6e;
+
+    /* Warning callouts use Tailwind's amber; flip the shades in use, muted. */
+    --color-amber-50: #211d15;
+    --color-amber-100: #2a2418;
+    --color-amber-300: #665638;
+    --color-amber-800: #e0cea6;
+    --color-amber-900: #eadcbd;
+  }
+}
+
+/* Areas drawn paper-on-pine (sidebar, auth panel, dark overlays) keep the
+   light palette; in dark mode their pine becomes near-black (below). */
+.theme-keep-light {
+  color-scheme: light;
+
+  --color-pine: #203a35;
+  --color-pine-deep: #162925;
+  --color-pine-soft: #2c4a44;
+  --color-pine-mist: #e3eae7;
+  --color-paper: #f6f3ed;
+  --color-cream: #efe9de;
+  --color-linen: #fbfaf7;
+  --color-sage: #cfddd3;
+  --color-sage-deep: #9fb8a9;
+  --color-moss: #6f927e;
+  --color-clay: #a64e37;
+  --color-clay-deep: #8c3f2c;
+  --color-clay-mist: #f3e4de;
+  --color-sand: #eee6d9;
+  --color-bark: #624a32;
+  --color-ink: #22312d;
+  --color-primary: #203a35;
+  --color-primary-soft: #2c4a44;
+  --color-clay-strong: #8c3f2c;
+  --color-surface: #ffffff;
+  --color-card: #fffdfa;
+  --color-scrim: #162925;
+}
+
+.theme-keep-light {
+  @variant dark {
+    --color-pine: #141414;
+    --color-pine-deep: #0a0a0a;
+    --color-pine-soft: #1f1f1f;
+    --color-sage: #3a3a3a;
+    --color-sage-deep: #555555;
+    --color-moss: #7fae95;
+    --color-clay: #c4674d;
+  }
 }
 
 @layer base {
@@ -51,7 +201,7 @@
 @layer utilities {
   .app-scroll {
     scrollbar-gutter: stable;
-    scrollbar-color: #9fb8a9 #f6f3ed;
+    scrollbar-color: var(--color-sage-deep) var(--color-paper);
     scrollbar-width: thin;
   }
 
@@ -85,9 +235,9 @@
 }
 
 .stayops-toaster [data-sonner-toast].stayops-toast {
-  --normal-bg: #fbfaf7;
-  --normal-border: rgba(32, 58, 53, 0.16);
-  --normal-text: #203a35;
+  --normal-bg: var(--color-linen);
+  --normal-border: color-mix(in oklab, var(--color-pine) 16%, transparent);
+  --normal-text: var(--color-pine);
   gap: 12px;
   padding: 14px 16px;
   border-radius: 14px;
@@ -96,15 +246,15 @@
 }
 
 .stayops-toaster [data-sonner-toast][data-type="success"] {
-  border-left-color: #6f927e;
+  border-left-color: var(--color-moss);
 }
 
 .stayops-toaster [data-sonner-toast][data-type="error"] {
-  border-left-color: #a64e37;
+  border-left-color: var(--color-clay);
 }
 
 .stayops-toaster [data-sonner-toast][data-type="info"] {
-  border-left-color: #2c4a44;
+  border-left-color: var(--color-pine-soft);
 }
 
 .stayops-toaster [data-sonner-toast][data-type="warning"] {
@@ -112,15 +262,15 @@
 }
 
 .stayops-toaster [data-sonner-toast] [data-icon] {
-  color: #203a35;
+  color: var(--color-pine);
 }
 
 .stayops-toaster [data-sonner-toast][data-type="error"] [data-icon] {
-  color: #a64e37;
+  color: var(--color-clay);
 }
 
 .stayops-toaster .stayops-toast-title {
-  color: #203a35;
+  color: var(--color-pine);
   font-size: 0.875rem;
   font-weight: 650;
   line-height: 1.3;
@@ -128,13 +278,13 @@
 
 .stayops-toaster .stayops-toast-description {
   margin-top: 3px;
-  color: rgba(34, 49, 45, 0.68) !important;
+  color: color-mix(in oklab, var(--color-ink) 68%, transparent) !important;
   font-size: 0.8rem;
   line-height: 1.45;
 }
 
 .stayops-toaster .stayops-toast-close {
-  border-color: rgba(32, 58, 53, 0.14) !important;
-  background: #f6f3ed !important;
-  color: #203a35 !important;
+  border-color: color-mix(in oklab, var(--color-pine) 14%, transparent) !important;
+  background: var(--color-paper) !important;
+  color: var(--color-pine) !important;
 }

@@ -17,6 +17,11 @@ export interface CalendarEvent extends CalendarInterval {
   expiresAt?: Date | null;
   guestCount?: number;
   actualCheckoutAt?: Date | null;
+  platform?: { name: string; logoUrl: string | null; color: string | null } | null;
+  platformReference?: string | null;
+  guestId?: string;
+  guestEmail?: string | null;
+  guestPhone?: string | null;
   startTime?: string;
   endTime?: string;
 }
@@ -75,6 +80,11 @@ export function calendarEventsForUnit(
       expiresAt: segment.expiresAt,
       guestCount: segment.guestCount,
       actualCheckoutAt: segment.actualCheckoutAt,
+      platform: segment.platform ?? null,
+      platformReference: segment.platformReference ?? null,
+      guestId: segment.guestId,
+      guestEmail: segment.guestEmail ?? null,
+      guestPhone: segment.guestPhone ?? null,
     };
     return [stay];
   });
@@ -208,4 +218,63 @@ export function layoutMonthBars<T extends BarInterval>(month: string, events: re
     weeks.push({ start: days[offset]!, days: days.slice(offset, offset + 7), bars, laneCount: laneEnds.length });
   }
   return weeks;
+}
+
+export interface TimelineBar<T extends BarInterval> {
+  event: T;
+  start: number; // Days from the first of the month, fractional.
+  end: number;
+  lane: number;
+  continuesBefore: boolean;
+  continuesAfter: boolean;
+}
+
+/**
+ * Gantt layout: one row per unit across the month's days, with the same
+ * time-accurate edges as the month grid. Overlaps within a unit stack in lanes.
+ */
+export function layoutTimelineBars<T extends BarInterval & { unitId: string }>(
+  month: string,
+  unitIds: readonly string[],
+  events: readonly T[],
+) {
+  const range = monthNightRange(month);
+  const days = listNights(range.start, range.end);
+  const total = days.length;
+  const rows = unitIds.map((unitId) => {
+    const candidates = events
+      .filter((event) => event.unitId === unitId)
+      .map((event) => {
+        let start = daysFrom(range.start, event.startDate);
+        let end = daysFrom(range.start, event.endDate);
+        if (event.timed) {
+          start += dayFraction(event.startTime);
+          end = Math.max(end + dayFraction(event.endTime), start + MIN_TIMED_WIDTH);
+        }
+        return { event, start, end };
+      })
+      .filter(({ start, end }) => start < end && start < total && end > 0)
+      .map(({ event, start, end }) => {
+        const continuesBefore = start < 0;
+        const continuesAfter = end > total;
+        let shownStart = Math.max(start, 0);
+        let shownEnd = Math.min(end, total);
+        if (shownEnd - shownStart < MIN_BAR_WIDTH) {
+          if (continuesAfter && !continuesBefore) shownStart = Math.max(0, shownEnd - MIN_BAR_WIDTH);
+          else shownEnd = Math.min(total, shownStart + MIN_BAR_WIDTH);
+          if (shownEnd - shownStart < MIN_BAR_WIDTH) shownStart = shownEnd - MIN_BAR_WIDTH;
+        }
+        return { event, start: shownStart, end: shownEnd, continuesBefore, continuesAfter };
+      })
+      .sort((a, b) => a.start - b.start || b.end - a.end || a.event.id.localeCompare(b.event.id));
+    const laneEnds: number[] = [];
+    const bars: TimelineBar<T>[] = candidates.map((bar) => {
+      let lane = laneEnds.findIndex((lastEnd) => lastEnd <= bar.start);
+      if (lane === -1) lane = laneEnds.length;
+      laneEnds[lane] = bar.end;
+      return { ...bar, lane };
+    });
+    return { unitId, bars, laneCount: laneEnds.length };
+  });
+  return { days, rows };
 }

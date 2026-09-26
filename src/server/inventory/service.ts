@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, eq, gt, inArray, isNull, lt, or } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull, lt, ne, or } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { auditEvents, properties, reservations, unitBlocks, units } from "@/lib/db/schema";
 import {
@@ -483,6 +483,82 @@ export async function addUnitBlock(input: {
       },
     });
     return block;
+  });
+}
+
+export async function getUnitBlockOrThrow(organizationId: string, unitId: string, blockId: string) {
+  const [block] = await db
+    .select()
+    .from(unitBlocks)
+    .where(
+      and(
+        eq(unitBlocks.id, blockId),
+        eq(unitBlocks.unitId, unitId),
+        eq(unitBlocks.organizationId, organizationId),
+      ),
+    )
+    .limit(1);
+  if (!block) {
+    throw new InventoryError("Block not found.", "blockId");
+  }
+  return block;
+}
+
+/** Change a block's dates or reason. The same overlap rule as adding applies, ignoring the block itself. */
+export async function updateUnitBlock(input: {
+  organizationId: string;
+  actorUserId: string;
+  unitId: string;
+  blockId: string;
+  data: UnitBlockInput;
+}) {
+  const data = unitBlockInputSchema.parse(input.data);
+  const existing = await getUnitBlockOrThrow(input.organizationId, input.unitId, input.blockId);
+
+  const overlapping = await db
+    .select({ id: unitBlocks.id })
+    .from(unitBlocks)
+    .where(
+      and(
+        eq(unitBlocks.unitId, input.unitId),
+        eq(unitBlocks.organizationId, input.organizationId),
+        ne(unitBlocks.id, input.blockId),
+        lt(unitBlocks.startDate, data.endDate),
+        gt(unitBlocks.endDate, data.startDate),
+      ),
+    )
+    .limit(1);
+  if (overlapping.length > 0) {
+    throw new InventoryError(
+      "Those dates overlap another out-of-service block on this unit.",
+      "startDate",
+    );
+  }
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(unitBlocks)
+      .set({ startDate: data.startDate, endDate: data.endDate, reason: data.reason })
+      .where(
+        and(
+          eq(unitBlocks.id, input.blockId),
+          eq(unitBlocks.organizationId, input.organizationId),
+        ),
+      );
+    await recordAudit(tx, {
+      organizationId: input.organizationId,
+      actorUserId: input.actorUserId,
+      entity: "unit_block",
+      entityId: input.blockId,
+      action: "unit_block.updated",
+      metadata: {
+        unitId: input.unitId,
+        from: { startDate: existing.startDate, endDate: existing.endDate, reason: existing.reason },
+        startDate: data.startDate,
+        endDate: data.endDate,
+        reason: data.reason,
+      },
+    });
   });
 }
 

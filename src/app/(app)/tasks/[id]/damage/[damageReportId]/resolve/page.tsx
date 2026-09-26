@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { requireOwner } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
 import { getTaskDetail } from "@/server/operations/service";
 import { PageHeading } from "@/components/app/page-heading";
 import { PermissionDenied } from "@/components/app/permission-denied";
@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Resolve damage" };
 export default async function ResolveTaskDamagePage({ params }: {
   params: Promise<{ id: string; damageReportId: string }>;
 }) {
-  const membership = await requireOwner();
+  const membership = await requirePermission("damage.update");
   if (!membership) return <PermissionDenied description="Only the organization owner can resolve damage reports." />;
 
   const { id, damageReportId } = await params;

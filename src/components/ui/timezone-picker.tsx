@@ -9,7 +9,26 @@ export type SearchableSelectOption = {
   value: string;
   label?: string;
   description?: string;
+  /** Supply a mark to render an image or initial alongside this option. */
+  mark?: string;
+  imageSrc?: string | null;
 };
+
+function OptionMark({ option }: { option: SearchableSelectOption }) {
+  if (!option.mark) return null;
+  return (
+    <span
+      aria-hidden
+      className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md bg-primary font-display text-sm text-white"
+    >
+      {option.imageSrc ? (
+        <img src={option.imageSrc} alt="" className="h-full w-full object-cover" />
+      ) : (
+        option.mark.trim().slice(0, 1).toUpperCase()
+      )}
+    </span>
+  );
+}
 
 export function SearchableSelect({
   id,
@@ -20,6 +39,7 @@ export function SearchableSelect({
   searchPlaceholder,
   emptyMessage,
   disabled = false,
+  className,
   onValueChange,
 }: {
   id: string;
@@ -30,6 +50,7 @@ export function SearchableSelect({
   searchPlaceholder: string;
   emptyMessage: string;
   disabled?: boolean;
+  className?: string;
   onValueChange: (value: string) => void;
 }) {
   const [query, setQuery] = useState("");
@@ -68,7 +89,7 @@ export function SearchableSelect({
   };
 
   return (
-    <div className="relative" onBlur={(event) => {
+    <div className={cn("relative", className)} onBlur={(event) => {
       if (!event.currentTarget.contains(event.relatedTarget)) close();
     }}>
       <input type="hidden" name={name} value={value} />
@@ -93,13 +114,14 @@ export function SearchableSelect({
             setActiveIndex(0);
           }
         }}
-        className="flex h-10 w-full items-center justify-between gap-3 rounded-lg border border-pine/20 bg-white px-3 text-left text-sm text-ink disabled:cursor-not-allowed disabled:bg-linen/50 disabled:text-ink/45 focus:border-pine focus:outline-none focus:ring-2 focus:ring-sage"
+        className="flex h-10 w-full items-center justify-between gap-3 rounded-lg border border-pine/20 bg-surface px-3 text-left text-sm text-ink disabled:cursor-not-allowed disabled:bg-linen/50 disabled:text-ink/45 focus:border-pine focus:outline-none focus:ring-2 focus:ring-sage"
       >
-        <span className="min-w-0 truncate">{selected?.label ?? selected?.value ?? placeholder}</span>
+        <OptionMark option={selected ?? { value: "" }} />
+        <span className="min-w-0 flex-1 truncate">{selected?.label ?? selected?.value ?? placeholder}</span>
         <ChevronDown className="h-4 w-4 shrink-0 text-pine/55" aria-hidden />
       </button>
       {open ? (
-        <div ref={menuRef} id={`${id}-options`} role="listbox" className={cn("absolute z-20 w-full overflow-hidden rounded-lg border border-pine/15 bg-white shadow-lg", opensUpward ? "bottom-full mb-1" : "mt-1")}>
+        <div ref={menuRef} id={`${id}-options`} role="listbox" className={cn("absolute z-20 w-full overflow-hidden rounded-lg border border-pine/15 bg-surface shadow-lg", opensUpward ? "bottom-full mb-1" : "mt-1")}>
           <div className="border-b border-pine/10 p-2">
             <label className="sr-only" htmlFor={`${id}-search`}>Search options</label>
             <div className="relative">
@@ -148,10 +170,13 @@ export function SearchableSelect({
                 aria-selected={option.value === value}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => choose(option.value)}
-                className={cn("block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-pine-mist", option.value === value && "bg-pine-mist text-pine", index === activeIndex && "bg-sage/35 ring-1 ring-inset ring-sage")}
+                className={cn("flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm hover:bg-pine-mist", option.value === value && "bg-pine-mist text-pine", index === activeIndex && "bg-sage/35 ring-1 ring-inset ring-sage")}
               >
-                <span className="block font-medium">{option.label ?? option.value}</span>
-                {option.description ? <span className="block text-xs text-ink/55">{option.description}</span> : null}
+                <OptionMark option={option} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{option.label ?? option.value}</span>
+                  {option.description ? <span className="block text-xs text-ink/55">{option.description}</span> : null}
+                </span>
               </button>
             )) : <p className="px-3 py-2 text-sm text-ink/55">{emptyMessage}</p>}
           </div>

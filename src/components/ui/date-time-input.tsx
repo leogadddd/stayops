@@ -1,7 +1,9 @@
 "use client";
 
 import { useId, useState, useSyncExternalStore } from "react";
-import { CalendarDays, Clock, TriangleAlert } from "lucide-react";
+import { Clock, TriangleAlert } from "lucide-react";
+import { DateInput } from "@/components/ui/date-input";
+import { TimeInput } from "@/components/ui/time-input";
 import { cn } from "@/lib/utils";
 
 /** Local date ("YYYY-MM-DD") and time ("HH:mm") of an instant in a time zone. */
@@ -37,7 +39,7 @@ const noMinute = () => null;
 /**
  * A "when did this happen" field. "Right now" is the default and submits an
  * empty value (the server stamps the time). Unticking it reveals separate,
- * native date and time inputs in the given time zone; the form receives one
+ * date and time pickers in the given time zone; the form receives one
  * `YYYY-MM-DDTHH:mm` value under `name`.
  */
 export function DateTimeInput({ name, label, timeZone, nowLabel = "Right now", hint, allowFuture = false, className }: {
@@ -95,23 +97,17 @@ export function DateTimeInput({ name, label, timeZone, nowLabel = "Right now", h
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="min-w-0">
               <label htmlFor={`${id}-date`} className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink/50">Date</label>
-              <div className="relative">
-                <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-pine/45" aria-hidden />
-                <input id={`${id}-date`} type="date" required value={date} max={allowFuture ? undefined : now?.date} onChange={(event) => setDate(event.target.value)} className="h-11 w-full min-w-0 rounded-lg border border-pine/20 bg-white pl-9 pr-3 text-sm text-ink focus:border-pine focus:outline-none focus:ring-2 focus:ring-sage" />
-              </div>
+              <DateInput id={`${id}-date`} value={date} today={now?.date} max={allowFuture ? undefined : now?.date} onChange={setDate} />
             </div>
             <div className="min-w-0">
               <label htmlFor={`${id}-time`} className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink/50">Time</label>
-              <div className="relative">
-                <Clock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-pine/45" aria-hidden />
-                <input id={`${id}-time`} type="time" required value={time} onChange={(event) => setTime(event.target.value)} className="h-11 w-full min-w-0 rounded-lg border border-pine/20 bg-white pl-9 pr-3 text-sm text-ink focus:border-pine focus:outline-none focus:ring-2 focus:ring-sage" />
-              </div>
+              <TimeInput id={`${id}-time`} value={time} onChange={setTime} />
             </div>
           </div>
           {now ? (
             <div className="flex flex-wrap gap-2" role="group" aria-label="Quick dates">
               {[{ label: "Today", value: now.date }, { label: "Yesterday", value: shiftDate(now.date, -1) }, { label: "2 days ago", value: shiftDate(now.date, -2) }].map((option) => (
-                <button key={option.label} type="button" onClick={() => setDate(option.value)} aria-pressed={date === option.value} className={cn("rounded-full border px-3 py-1 text-xs font-medium transition-colors", date === option.value ? "border-pine bg-pine text-white" : "border-pine/15 text-pine hover:border-pine/35")}>
+                <button key={option.label} type="button" onClick={() => setDate(option.value)} aria-pressed={date === option.value} className={cn("rounded-full border px-3 py-1 text-xs font-medium transition-colors", date === option.value ? "border-primary bg-primary text-white" : "border-pine/15 text-pine hover:border-pine/35")}>
                   {option.label}
                 </button>
               ))}

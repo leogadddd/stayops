@@ -18,6 +18,7 @@ import {
 import { user } from "./auth";
 import { organizations } from "./orgs";
 import { DEFAULT_CHECKLIST, type ChecklistTemplateItem } from "@/lib/turnover";
+import type { DayRates } from "@/lib/rates";
 
 export const UNIT_STATUSES = [
   "renovating",
@@ -31,6 +32,17 @@ export const UNIT_STATUSES = [
 export type UnitStatus = (typeof UNIT_STATUSES)[number];
 
 export const unitStatus = pgEnum("unit_status", UNIT_STATUSES);
+
+/**
+ * How a unit's reservation fee (the down payment that secures a booking) is
+ * set: a fixed amount or a share of the booking total. See
+ * src/lib/reservation-fee.ts.
+ */
+export const RESERVATION_FEE_TYPES = ["fixed", "percent"] as const;
+
+export type ReservationFeeType = (typeof RESERVATION_FEE_TYPES)[number];
+
+export const reservationFeeType = pgEnum("reservation_fee_type", RESERVATION_FEE_TYPES);
 
 export const properties = pgTable(
   "properties",
@@ -100,8 +112,16 @@ export const units = pgTable(
     defaultNightlyRateCents: integer("default_nightly_rate_cents")
       .notNull()
       .default(0),
+    // Nightly rates that differ by weekday ("5": Friday); other nights use
+    // defaultNightlyRateCents. See src/lib/rates.ts.
+    dayRates: jsonb("day_rates").$type<DayRates>().notNull().default({}),
     cleaningFeeCents: integer("cleaning_fee_cents"),
     securityDepositCents: integer("security_deposit_cents"),
+    // Required before a booking from the team's own channels is confirmed;
+    // null means none. Amount is centavos for "fixed", basis points for
+    // "percent" (1000 = 10%).
+    reservationFeeType: reservationFeeType("reservation_fee_type"),
+    reservationFeeAmount: integer("reservation_fee_amount"),
     checkInTime: text("check_in_time").notNull().default("15:00"),
     checkOutTime: text("check_out_time").notNull().default("11:00"),
     status: unitStatus("status").notNull().default("renovating"),
@@ -136,6 +156,12 @@ export const units = pgTable(
       sql`${table.defaultNightlyRateCents} >= 0
         AND (${table.cleaningFeeCents} IS NULL OR ${table.cleaningFeeCents} >= 0)
         AND (${table.securityDepositCents} IS NULL OR ${table.securityDepositCents} >= 0)`,
+    ),
+    check(
+      "units_reservation_fee_check",
+      sql`(${table.reservationFeeType} IS NULL AND ${table.reservationFeeAmount} IS NULL)
+        OR (${table.reservationFeeType} = 'fixed' AND ${table.reservationFeeAmount} > 0)
+        OR (${table.reservationFeeType} = 'percent' AND ${table.reservationFeeAmount} BETWEEN 1 AND 10000)`,
     ),
     check(
       "units_capacity_positive",

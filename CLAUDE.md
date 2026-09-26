@@ -45,6 +45,29 @@ history.
 Each organization has its own amenity catalog (`amenities`, scoped
 `property` or `unit`). Defaults live in `src/lib/amenities.ts`; new
 organizations get them in `createOrganization`, and
-`npm run db:seed-amenities` backfills existing organizations (idempotent).
+`npm run seed:amenities` backfills existing organizations (idempotent).
 Adding a default means updating that list, its icon in
 `amenity-icons.tsx`, and rerunning the seed.
+
+## Booking platforms
+
+Each organization has its own list of booking platforms (`booking_platforms`:
+Direct, Airbnb, Booking.com, …); a reservation's `platform_id` says where it
+came from. Defaults live in `src/lib/platforms.ts` with logos in
+`public/platforms/` (same-origin only: the production CSP blocks external
+images). New organizations get them in `createOrganization`, and
+`npm run seed:platforms` backfills existing organizations (idempotent).
+Retire a platform with `is_active = false` instead of deleting it; past
+reservations still reference it.
+Teams manage their list at Settings → Booking platforms (`platforms.*`
+permissions): built-in or used platforms are archived there, only unused
+custom ones are deleted. `collects_payment` marks platforms that take the
+guest's payment (Airbnb, Agoda); the unit's reservation fee
+(`src/lib/reservation-fee.ts`) only applies to the others.
+
+## L1 operators
+
+`system_admins` lists L1 operators, who get owner access to every
+organization without a membership (`listAccessibleOrganizations`). Manage
+them with `npm run l1 -- list | grant <email> | revoke <email>`; there is no
+UI for it by design.

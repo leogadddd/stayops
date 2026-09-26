@@ -1,5 +1,6 @@
 "use client";
 
+import { DateInput } from "@/components/ui/date-input";
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -98,13 +99,7 @@ export function ExpenseForm({
             </div>
             <div>
               <Label htmlFor="expense-date">Date paid</Label>
-              <Input
-                id="expense-date"
-                name="paidDate"
-                type="date"
-                defaultValue={defaultPaidDate}
-                required
-              />
+              <DateInput id="expense-date" name="paidDate" defaultValue={defaultPaidDate} required />
             </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">

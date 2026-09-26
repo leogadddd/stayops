@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { ZodError } from "zod";
-import { requireMembership, assertOwner, PermissionError } from "@/lib/auth/session";
+import { requireMembership, assertCan, PermissionError } from "@/lib/auth/session";
 import { createExpense, ExpenseError } from "@/server/expenses/service";
 import { unexpectedErrorMessage } from "@/lib/errors";
 
@@ -34,7 +34,7 @@ export async function createExpenseAction(
   formData: FormData,
 ): Promise<ExpenseFormState> {
   const membership = await requireMembership();
-  assertOwner(membership);
+  assertCan(membership, "expenses.create");
   try {
     await createExpense({
       organizationId: membership.organizationId,

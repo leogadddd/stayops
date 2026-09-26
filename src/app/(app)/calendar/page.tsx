@@ -1,7 +1,10 @@
+import { unitOrPropertyPhotoSrc } from "@/lib/photos";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { CalendarCheck, Plus } from "lucide-react";
-import { requireMembership } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
+import { can } from "@/lib/permissions";
+import { PermissionDenied } from "@/components/app/permission-denied";
 import {
   calendarEventsForUnit,
   monthGridRange,
@@ -22,12 +25,16 @@ import {
 } from "@/server/inventory/availability";
 import { listOrgUnits, listProperties } from "@/server/inventory/service";
 import { listTasks } from "@/server/operations/service";
+import { getReservationBalances } from "@/server/payments/service";
+import { formatPHP } from "@/lib/money";
 import { PageHeading } from "@/components/app/page-heading";
 import { buttonClassName } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { MonthCalendar, type DisplayCalendarEvent } from "./month-calendar";
+import { TimelineCalendar } from "./timeline-calendar";
 import { TodayPanel } from "./today-panel";
 import { UnitFilter } from "./unit-filter";
+import { isCalendarView, ViewSwitcher, type CalendarView } from "./view-switcher";
 
 export const metadata: Metadata = { title: "Calendar" };
 const MONTH_LABEL = new Intl.DateTimeFormat("en-PH", {
@@ -59,9 +66,10 @@ function compactTimeLabel(time: string) {
 export default async function CalendarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ month?: string; unit?: string }>;
+  searchParams: Promise<{ month?: string; unit?: string; view?: string }>;
 }) {
-  const membership = await requireMembership();
+  const membership = await requirePermission("reservations.view");
+  if (!membership) return <PermissionDenied />;
   const params = await searchParams;
   const [properties, allUnits] = await Promise.all([
     listProperties(membership.organizationId),
@@ -75,12 +83,12 @@ export default async function CalendarPage({
         <EmptyState
           title="No properties yet"
           description={
-            membership.role === "owner"
+            can(membership, "properties.create")
               ? "Add a property and its first unit to start planning your stays."
-              : "Ask the owner to add a property and its first unit."
+              : "Ask an owner or admin to add a property and its first unit."
           }
           action={
-            membership.role === "owner" ? (
+            can(membership, "properties.create") ? (
               <Link
                 href="/properties"
                 className={buttonClassName("clay", "md")}
@@ -132,6 +140,18 @@ export default async function CalendarPage({
     listCalendarActivity(membership.organizationId, unitDays),
     listTasks(membership.organizationId, { status: "open" }),
   ]);
+  // Money for the quick view, only for people who may see it.
+  const showMoney = can(membership, "payments.view");
+  const balances = showMoney
+    ? await getReservationBalances(
+        membership.organizationId,
+        [...segmentsByUnit.values()].flat().flatMap((segment) => (segment.kind === "reservation" ? [segment.id] : [])),
+      )
+    : new Map();
+  const canStays = can(membership, "stays.update");
+  const canConfirm = can(membership, "reservations.update");
+  const canRecordPayment = can(membership, "payments.create");
+  const canSeeGuests = can(membership, "guests.view");
 
   const unitLabel = (unitId: string) => {
     const unit = unitMap.get(unitId)!;
@@ -194,7 +214,7 @@ export default async function CalendarPage({
         : undefined;
     const href = event.reservationId
       ? `/reservations/${event.reservationId}`
-      : membership.role === "owner"
+      : can(membership, "properties.view")
         ? `/properties/${unit.propertyId}/units/${unit.id}`
         : undefined;
     const title =
@@ -274,12 +294,41 @@ export default async function CalendarPage({
         unitLabel: unitLabel(event.unitId),
         detail,
         href,
-        accessibleLabel: `${event.title} · ${unitLabel(event.unitId)} · ${detail} · check-in ${checkInLabel} · check-out ${checkOutLabel}${turnover ? ` · ${turnover.description}` : ""}`,
+        accessibleLabel: `${event.title} · ${unitLabel(event.unitId)} · ${detail}${event.platform ? ` · via ${event.platform.name}` : ""} · check-in ${checkInLabel} · check-out ${checkOutLabel}${turnover ? ` · ${turnover.description}` : ""}`,
         quickView: {
           kindLabel,
           tone,
           title: event.title,
+          reference: event.reservationId ? `#${event.reservationId.slice(0, 8).toUpperCase()}` : undefined,
+          platform: event.platform ?? undefined,
+          platformReference: event.platformReference ?? undefined,
           unitLabel: unitLabel(event.unitId),
+          propertyName: propertyForUnit(event.unitId).name,
+          timing: stayTiming(event.status!, event.startDate, endDate, todayByUnit.get(event.unitId) ?? today),
+          guest: {
+            email: event.guestEmail ?? undefined,
+            phone: event.guestPhone ?? undefined,
+            href: canSeeGuests && event.guestId ? `/guests/${event.guestId}` : undefined,
+          },
+          money: (() => {
+            const balance = event.reservationId ? balances.get(event.reservationId) : undefined;
+            if (!balance) return undefined;
+            const paid = balance.paidBookingCents - balance.refundedBookingCents;
+            return {
+              total: formatPHP(balance.bookingTotalCents),
+              paid: formatPHP(paid),
+              balance: formatPHP(Math.max(0, balance.bookingBalanceCents)),
+              due: balance.bookingBalanceCents > 0,
+              paidShare: balance.bookingTotalCents ? Math.min(1, Math.max(0, paid / balance.bookingTotalCents)) : 1,
+              depositHeld: balance.depositHeldCents ? formatPHP(balance.depositHeldCents) : undefined,
+            };
+          })(),
+          actions: [
+            ...(event.status === "hold" && canConfirm ? [{ label: "Confirm hold", href: `${href}/confirm` }] : []),
+            ...(event.status === "confirmed" && canStays && event.startDate <= (todayByUnit.get(event.unitId) ?? today) ? [{ label: "Check in", href: `${href}/check-in` }] : []),
+            ...(event.status === "checked_in" && canStays ? [{ label: "Check out", href: `${href}/check-out` }] : []),
+            ...(canRecordPayment && event.status !== "checked_out" && (balances.get(event.reservationId ?? "")?.bookingBalanceCents ?? 0) > 0 ? [{ label: "Record payment", href: `${href}/payments/new` }] : []),
+          ],
           checkIn: {
             date: dayLabel(event.startDate),
             time: timeLabel(unit.checkInTime),
@@ -303,8 +352,24 @@ export default async function CalendarPage({
     ];
   });
 
-  const calendarHref = (targetMonth: string) =>
-    `/calendar?${new URLSearchParams({ month: targetMonth, ...(selectedUnit ? { unit: selectedUnit.id } : {}) })}`;
+  const view: CalendarView = isCalendarView(params.view) ? params.view : "month";
+  // Month, unit, and view all live in the URL so a refresh keeps them.
+  const calendarHref = ({
+    month: targetMonth = month,
+    unitId = selectedUnit?.id ?? null,
+    view: targetView = view,
+  }: { month?: string; unitId?: string | null; view?: CalendarView } = {}) =>
+    `/calendar?${new URLSearchParams({
+      month: targetMonth,
+      ...(unitId ? { unit: unitId } : {}),
+      ...(targetView !== "month" ? { view: targetView } : {}),
+    })}`;
+  const viewSwitcher = (
+    <ViewSwitcher
+      view={view}
+      hrefFor={(targetView) => calendarHref({ view: targetView })}
+    />
+  );
   const newReservationHref = (date: string) =>
     `/reservations/new?${new URLSearchParams({ checkIn: date, checkOut: addDaysLocal(date, 1), ...(selectedUnit?.status === "active" ? { unit: selectedUnit.id } : {}) })}`;
   const canBookVisibleUnit = visibleUnits.some(
@@ -351,14 +416,14 @@ export default async function CalendarPage({
       {allUnits.length > 1 ? (
         <UnitFilter
           selectedId={selectedUnit?.id ?? null}
-          hrefFor={(unitId) => `/calendar?${new URLSearchParams({ month, ...(unitId ? { unit: unitId } : {}) })}`}
+          hrefFor={(unitId) => calendarHref({ unitId })}
           units={allUnits.map((unit) => {
             const property = propertyMap.get(unit.propertyId);
             return {
               id: unit.id,
               name: unit.name,
               propertyName: property?.name ?? null,
-              imageUrl: unit.imageUrl ?? property?.imageUrl ?? null,
+              imageUrl: unitOrPropertyPhotoSrc(unit, property),
               bedrooms: unit.bedrooms,
               statusLabel: unit.status === "active" ? null : UNIT_STATUS_LABELS[unit.status],
             };
@@ -368,15 +433,35 @@ export default async function CalendarPage({
 
       <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_19rem] 2xl:grid-cols-[minmax(0,1fr)_21rem]">
         <div className="min-w-0">
-          {visibleUnits.length ? (
+          {visibleUnits.length && view === "timeline" ? (
+            <TimelineCalendar
+              month={month}
+              today={today}
+              monthLabel={monthLabel}
+              units={visibleUnits.map((unit) => ({
+                id: unit.id,
+                name: unit.name,
+                propertyName:
+                  properties.length > 1
+                    ? propertyForUnit(unit.id).name
+                    : null,
+                bookable: unit.status === "active",
+              }))}
+              events={displayEvents}
+              previousHref={calendarHref({ month: shiftMonth(month, -1) })}
+              nextHref={calendarHref({ month: shiftMonth(month, 1) })}
+              todayHref={calendarHref({ month: today.slice(0, 7) })}
+              viewSwitcher={viewSwitcher}
+            />
+          ) : visibleUnits.length ? (
             <MonthCalendar
               month={month}
               today={today}
               monthLabel={monthLabel}
               events={displayEvents}
-              previousHref={calendarHref(shiftMonth(month, -1))}
-              nextHref={calendarHref(shiftMonth(month, 1))}
-              todayHref={calendarHref(today.slice(0, 7))}
+              previousHref={calendarHref({ month: shiftMonth(month, -1) })}
+              nextHref={calendarHref({ month: shiftMonth(month, 1) })}
+              todayHref={calendarHref({ month: today.slice(0, 7) })}
               newReservationHref={
                 canBookVisibleUnit ? newReservationHref : null
               }
@@ -384,13 +469,14 @@ export default async function CalendarPage({
                 selectedUnit?.status === "active" ? selectedUnit.id : undefined
               }
               showUnit={!selectedUnit && allUnits.length > 1}
+              viewSwitcher={viewSwitcher}
             />
           ) : (
             <EmptyState
               title="No units to show"
               description="Add a unit to your property to see stays and availability here."
               action={
-                membership.role === "owner" ? (
+                can(membership, "properties.create") ? (
                   <Link
                     href="/properties"
                     className={buttonClassName("outline", "md")}
@@ -419,4 +505,16 @@ export default async function CalendarPage({
       </div>
     </div>
   );
+}
+
+/** "Arrives tomorrow", "Leaves in 3 days", "Left Sep 23"…, from the unit's today. */
+function stayTiming(status: string, startDate: string, endDate: string, today: string): string {
+  const days = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+  const inDays = (n: number) => (n === 0 ? "today" : n === 1 ? "tomorrow" : `in ${n} days`);
+  const short = (date: string) => new Intl.DateTimeFormat("en-PH", { month: "short", day: "numeric", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`));
+  if (status === "checked_out") return `Checked out ${short(endDate)}`;
+  if (status === "checked_in") return `Staying now · leaves ${inDays(Math.max(0, days(today, endDate)))}`;
+  const untilArrival = days(today, startDate);
+  if (untilArrival < 0) return `Was due ${short(startDate)} · not checked in yet`;
+  return `Arrives ${inDays(untilArrival)}`;
 }

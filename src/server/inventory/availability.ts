@@ -2,7 +2,7 @@ import "server-only";
 
 import { and, eq, gt, inArray, lt, or } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { guests, properties, reservations, turnoverBlocks, unitBlocks, units } from "@/lib/db/schema";
+import { bookingPlatforms, guests, properties, reservations, turnoverBlocks, unitBlocks, units } from "@/lib/db/schema";
 import { addDaysLocal, listNights, utcToLocalDateTimeParts } from "@/lib/dates";
 import { expireStaleHolds } from "@/server/reservations/holds";
 
@@ -41,6 +41,12 @@ export type OccupancySegment =
       expiresAt: Date | null;
       guestCount?: number;
       actualCheckoutAt?: Date | null;
+      /** Where the booking came from; null before platforms were recorded. */
+      platform?: { name: string; logoUrl: string | null; color: string | null } | null;
+      platformReference?: string | null;
+      guestId?: string;
+      guestEmail?: string | null;
+      guestPhone?: string | null;
     };
 
 export type NightStatus =
@@ -117,9 +123,16 @@ export async function getOccupancySegments(
       endDate: reservations.checkOutDate,
       status: reservations.status,
       guestName: guests.name,
+      guestId: guests.id,
+      guestEmail: guests.email,
+      guestPhone: guests.phone,
       expiresAt: reservations.expiresAt,
       guestCount: reservations.guestCount,
       actualCheckoutAt: reservations.actualCheckoutAt,
+      platformName: bookingPlatforms.name,
+      platformLogoUrl: bookingPlatforms.logoUrl,
+      platformColor: bookingPlatforms.color,
+      platformReference: reservations.platformReference,
     })
     .from(reservations)
     .innerJoin(
@@ -127,6 +140,13 @@ export async function getOccupancySegments(
       and(
         eq(reservations.guestId, guests.id),
         eq(reservations.organizationId, guests.organizationId),
+      ),
+    )
+    .leftJoin(
+      bookingPlatforms,
+      and(
+        eq(reservations.platformId, bookingPlatforms.id),
+        eq(reservations.organizationId, bookingPlatforms.organizationId),
       ),
     )
     .where(
@@ -200,6 +220,11 @@ export async function getOccupancySegments(
       expiresAt: row.expiresAt,
       guestCount: row.guestCount,
       actualCheckoutAt: row.actualCheckoutAt,
+      platform: row.platformName ? { name: row.platformName, logoUrl: row.platformLogoUrl, color: row.platformColor } : null,
+      platformReference: row.platformReference,
+      guestId: row.guestId,
+      guestEmail: row.guestEmail,
+      guestPhone: row.guestPhone,
     });
   }
   for (const row of turnoverRows) {

@@ -1,5 +1,12 @@
-import { requireMembership, requireUser } from "@/lib/auth/session";
+import {
+  isL1,
+  listMemberships,
+  requireMembership,
+  requireUser,
+} from "@/lib/auth/session";
+import { resolvePermissions } from "@/lib/permissions";
 import { AppHeader, AppSidebar } from "@/components/app/sidebar";
+import { getOrganizationLogoUrl } from "@/server/orgs/service";
 
 export default async function AppLayout({
   children,
@@ -8,18 +15,56 @@ export default async function AppLayout({
 }) {
   // These share the request-scoped auth cache, and running them together keeps
   // the layout from adding a sequential wait before the page can render.
-  const [user, membership] = await Promise.all([
+  const [user, membership, memberOf, l1] = await Promise.all([
     requireUser(),
     requireMembership(),
+    requireUser().then((user) => listMemberships(user.id)),
+    requireUser().then((user) => isL1(user.id)),
   ]);
+  // An L1 operator's picker searches the rest; only their own organizations
+  // and the one they're in are sent down.
+  const organizations = [
+    ...memberOf.map((row) => ({ ...row, viaL1: false })),
+    ...(membership.viaL1 ? [{ ...membership, viaL1: true }] : []),
+  ];
+  const organizationLogoUrls = await Promise.all(
+    organizations.map((organization) =>
+      getOrganizationLogoUrl(organization.organizationId),
+    ),
+  );
+  const organizationLogoUrl = organizationLogoUrls[
+    organizations.findIndex(
+      (organization) => organization.organizationId === membership.organizationId,
+    )
+  ] ?? null;
   const identity = {
+    organizationId: membership.organizationId,
     organizationName: membership.organizationName,
+    organizationImage: organizationLogoUrl?.startsWith("data:")
+      ? organizationLogoUrl
+      : organizationLogoUrl
+        ? `/api/orgs/${membership.organizationId}/logo`
+        : null,
+    organizations: organizations.map((organization, index) => ({
+      id: organization.organizationId,
+      name: organization.organizationName,
+      role: organization.role,
+      viaL1: organization.viaL1,
+      imageSrc: organizationLogoUrls[index]?.startsWith("data:")
+        ? organizationLogoUrls[index]
+        : organizationLogoUrls[index]
+          ? `/api/orgs/${organization.organizationId}/logo`
+          : null,
+    })),
     userName: user.name,
     userEmail: user.email,
     userImage: user.image?.startsWith(`user/${user.id}/`)
       ? `/api/users/${user.id}/profile-image`
-      : user.image ?? null,
+      : (user.image ?? null),
     role: membership.role,
+    viaL1: membership.viaL1 ?? false,
+    l1,
+    permissions: membership.permissions ?? resolvePermissions(membership.role),
   };
   return (
     <div className="flex h-dvh overflow-hidden bg-paper">

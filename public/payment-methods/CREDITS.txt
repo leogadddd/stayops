@@ -1,0 +1,17 @@
+Brand icons used to label payment methods and booking platforms
+(public/payment-methods and public/platforms). Each is the brand's mark
+placed on a 64x64 rounded tile. Trademarks belong to their owners and are
+used only to identify the service.
+
+GCash, GoTyme Bank, BDO Unibank, UnionBank, Metrobank, Agoda
+  Wikimedia Commons, public domain (text logos / simple geometry).
+Maya — "Maya logo.svg", Wikimedia Commons, © Maya Bank, Inc. / PayMaya
+  Philippines, Inc., CC BY 4.0 https://creativecommons.org/licenses/by/4.0
+BPI — "Official BPI Logo.svg", Wikimedia Commons, © Bank of the Philippine
+  Islands, CC BY 4.0 https://creativecommons.org/licenses/by/4.0
+MariBank — the app icon from maribank.ph.
+Airbnb, Booking.com, Expedia, Facebook, Instagram, Shopee (ShopeePay),
+Grab (GrabPay), Visa — Simple Icons (https://simpleicons.org), CC0.
+Mastercard — drawn from the brand's published circle colors.
+Cash, bank transfer, card, direct, walk-in, referral — Lucide
+  (https://lucide.dev), ISC license.

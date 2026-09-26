@@ -2,8 +2,8 @@ import { ShieldAlert } from "lucide-react";
 import { Card, CardBody } from "@/components/ui/card";
 
 export function PermissionDenied({
-  title = "Owner access only",
-  description = "This area is limited to the organization owner. Ask the owner to grant you access or switch accounts.",
+  title = "You don’t have access",
+  description = "Your role doesn’t include this area. Ask an owner or admin to update your permissions, or switch organizations.",
 }: {
   title?: string;
   description?: string;

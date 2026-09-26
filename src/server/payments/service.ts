@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   auditEvents,
@@ -111,6 +111,53 @@ export async function getReservationLedger(
     proofs,
     balances: computeBalances({ charges, payments, refunds, deductions }),
   };
+}
+
+/**
+ * Balances for many reservations at once (for the calendar's quick view),
+ * with the same arithmetic as getReservationLedger but four grouped queries
+ * instead of a ledger per reservation.
+ */
+export async function getReservationBalances(
+  organizationId: string,
+  reservationIds: readonly string[],
+): Promise<Map<string, BalanceSummary>> {
+  const ids = [...new Set(reservationIds)];
+  if (!ids.length) return new Map();
+  const [charges, payments, refunds, deductions] = await Promise.all([
+    db
+      .select({
+        reservationId: reservationCharges.reservationId,
+        type: reservationCharges.type,
+        description: reservationCharges.description,
+        quantity: reservationCharges.quantity,
+        unitAmountCents: reservationCharges.unitAmountCents,
+      })
+      .from(reservationCharges)
+      .where(and(eq(reservationCharges.organizationId, organizationId), inArray(reservationCharges.reservationId, ids))),
+    db
+      .select({ reservationId: paymentEntries.reservationId, allocation: paymentEntries.allocation, amountCents: sql<number>`sum(${paymentEntries.amountCents})`.mapWith(Number) })
+      .from(paymentEntries)
+      .where(and(eq(paymentEntries.organizationId, organizationId), inArray(paymentEntries.reservationId, ids)))
+      .groupBy(paymentEntries.reservationId, paymentEntries.allocation),
+    db
+      .select({ reservationId: refundEntries.reservationId, allocation: refundEntries.allocation, amountCents: sql<number>`sum(${refundEntries.amountCents})`.mapWith(Number) })
+      .from(refundEntries)
+      .where(and(eq(refundEntries.organizationId, organizationId), inArray(refundEntries.reservationId, ids)))
+      .groupBy(refundEntries.reservationId, refundEntries.allocation),
+    db
+      .select({ reservationId: depositDeductions.reservationId, amountCents: sql<number>`sum(${depositDeductions.amountCents})`.mapWith(Number) })
+      .from(depositDeductions)
+      .where(and(eq(depositDeductions.organizationId, organizationId), inArray(depositDeductions.reservationId, ids)))
+      .groupBy(depositDeductions.reservationId),
+  ]);
+  const of = <T extends { reservationId: string }>(rows: T[], id: string) => rows.filter((row) => row.reservationId === id);
+  return new Map(ids.map((id) => [id, computeBalances({
+    charges: of(charges, id),
+    payments: of(payments, id),
+    refunds: of(refunds, id),
+    deductions: of(deductions, id),
+  })]));
 }
 
 // ---------------------------------------------------------------------------

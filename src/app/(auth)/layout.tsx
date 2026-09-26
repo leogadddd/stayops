@@ -12,7 +12,7 @@ export default function AuthLayout({
 }) {
   return (
     <div className="grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
-      <aside className="relative hidden flex-col justify-between overflow-hidden bg-pine p-10 text-paper lg:flex">
+      <aside className="relative hidden flex-col justify-between theme-keep-light overflow-hidden bg-pine p-10 text-paper lg:flex">
         <Link href="/" aria-label="StayOps home" className="relative z-10">
           <Logo className="text-paper" />
         </Link>

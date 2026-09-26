@@ -1,11 +1,12 @@
 import Link from "next/link";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { BrushCleaning, ChevronLeft, ChevronRight, Wrench } from "lucide-react";
 import { buttonClassName } from "@/components/ui/button";
 import { layoutMonthBars, type BarInterval, type CalendarEvent } from "@/lib/calendar";
-import { addDaysLocal, monthNightRange } from "@/lib/dates";
+import { barStyle, CalendarLegend } from "./calendar-legend";
 import { CalendarSelection } from "./calendar-selection";
 import { EventTrigger, QuickViewProvider, type EventQuickViewData } from "./event-quick-view";
+import { PlatformLogo } from "@/components/app/platform-badge";
 
 export interface DisplayCalendarEvent extends CalendarEvent, BarInterval {
   unitLabel: string;
@@ -28,36 +29,6 @@ const FULL_DATE_LABEL = new Intl.DateTimeFormat("en-PH", {
 // Bars are one line; weeks show MAX_LANES rows until expanded.
 const LANE_HEIGHT = 34;
 const MAX_LANES = 3;
-const HATCH: CSSProperties = {
-  backgroundImage: "repeating-linear-gradient(135deg, #d9dbd7 0 5px, #c6c9c4 5px 10px)",
-};
-
-// Past stays stay calm but legible; upcoming stays carry the most colour
-// after in-house.
-const TONES = {
-  confirmed: "border border-[#8fb09b] bg-[#b5cfbd] text-pine-deep",
-  inHouse: "border border-pine bg-pine text-paper",
-  checkedOut: "border border-[#b3c4bb] bg-[#d7e1dc] text-pine-soft",
-  hold: "border border-dashed border-[#b0823f] bg-[#f1ddb9] text-[#553a1b]",
-  blocked: "border border-[#a9ada8] text-[#323835]",
-};
-
-function barStyle(event: DisplayCalendarEvent): { className: string; style?: CSSProperties } {
-  if (event.kind === "hold") return { className: TONES.hold };
-  if (event.kind === "block" || event.kind === "unavailable") return { className: TONES.blocked, style: HATCH };
-  if (event.status === "checked_in") return { className: TONES.inHouse };
-  if (event.status === "checked_out") return { className: TONES.checkedOut };
-  return { className: TONES.confirmed };
-}
-
-const LEGEND: { label: string; swatch: ReturnType<typeof barStyle> }[] = [
-  { label: "Confirmed", swatch: { className: TONES.confirmed } },
-  { label: "In-house", swatch: { className: TONES.inHouse } },
-  { label: "Checked out", swatch: { className: TONES.checkedOut } },
-  { label: "Hold", swatch: { className: TONES.hold } },
-  { label: "Blocked", swatch: { className: TONES.blocked, style: HATCH } },
-];
-
 function dateLabel(date: string) {
   return DATE_LABEL.format(new Date(`${date}T00:00:00Z`));
 }
@@ -65,7 +36,7 @@ function dateLabel(date: string) {
 const pct = (days: number) => `${(days / 7) * 100}%`;
 
 export function MonthCalendar({
-  month, today, monthLabel, events, previousHref, nextHref, todayHref, newReservationHref, reservationUnitId, showUnit = false,
+  month, today, monthLabel, events, previousHref, nextHref, todayHref, newReservationHref, reservationUnitId, showUnit = false, viewSwitcher,
 }: {
   month: string;
   today: string;
@@ -77,13 +48,9 @@ export function MonthCalendar({
   newReservationHref: ((date: string) => string) | null;
   reservationUnitId?: string;
   showUnit?: boolean;
+  viewSwitcher?: ReactNode;
 }) {
   const weeks = layoutMonthBars(month, events);
-  const range = monthNightRange(month);
-  const agenda = events
-    .filter((event) => event.startDate < range.end && event.endDate > range.start)
-    .sort((a, b) => a.startDate.localeCompare(b.startDate) || a.id.localeCompare(b.id));
-
   return (
     <QuickViewProvider>
       <section aria-labelledby="calendar-month" className="overflow-hidden rounded-lg border border-pine/15 bg-linen shadow-[0_1px_3px_rgba(32,58,53,0.03)]">
@@ -97,9 +64,12 @@ export function MonthCalendar({
             </Link>
           </nav>
           <h2 id="calendar-month" className="font-display text-2xl tracking-tight text-pine sm:text-[1.75rem]">{monthLabel}</h2>
-          <Link href={todayHref} className={buttonClassName("outline", "sm", "ml-auto")}>Today</Link>
+          <div className="ml-auto flex items-center gap-2">
+            {viewSwitcher}
+            <Link href={todayHref} className={buttonClassName("outline", "sm")}>Today</Link>
+          </div>
         </div>
-        <p id="calendar-scroll-help" className="border-b border-pine/10 px-4 py-2 text-xs text-ink/60 md:hidden">Swipe across the month, or read the agenda below.</p>
+        <p id="calendar-scroll-help" className="border-b border-pine/10 px-4 py-2 text-xs text-ink/60 md:hidden">Swipe across the month to view all dates.</p>
         <div tabIndex={0} role="region" aria-label={`${monthLabel} month calendar`} className="overflow-x-auto focus-visible:-outline-offset-2">
           <div className="min-w-[630px]">
             <div className="grid grid-cols-7 border-b border-pine/15">
@@ -125,7 +95,7 @@ export function MonthCalendar({
                       return (
                         <div key={day} className="px-1.5 pt-1.5">
                           {newReservationHref ? (
-                            <Link href={newReservationHref(day)} aria-label={`New reservation starting ${label}`} aria-current={currentDay ? "date" : undefined} className={`${numberClass} ${currentDay ? "hover:bg-clay-deep" : "hover:bg-sage/60"}`}>
+                            <Link href={newReservationHref(day)} aria-label={`New reservation starting ${label}`} aria-current={currentDay ? "date" : undefined} className={`${numberClass} ${currentDay ? "hover:bg-clay-strong" : "hover:bg-sage/60"}`}>
                               <time dateTime={day}>{Number(day.slice(-2))}</time>
                             </Link>
                           ) : <time dateTime={day} aria-label={label} aria-current={currentDay ? "date" : undefined} className={numberClass}>{Number(day.slice(-2))}</time>}
@@ -157,6 +127,7 @@ export function MonthCalendar({
                             style={style}
                           >
                             {event.kind === "block" ? <Wrench className="h-3.5 w-3.5 shrink-0" aria-hidden /> : null}
+                            {event.platform ? <PlatformLogo platform={event.platform} className="h-3.5 w-3.5 rounded-[3px]" /> : null}
                             <span className="truncate font-semibold">{event.kind === "block" ? event.description ?? event.title : event.title}</span>
                             {event.timeLabel && end - start >= 1.7 ? <span className="shrink-0 tabular-nums opacity-70">{event.timeLabel}</span> : null}
                             {showUnit && end - start >= 3.2 ? <span className="truncate opacity-75">· {event.unitLabel}</span> : null}
@@ -189,37 +160,8 @@ export function MonthCalendar({
         </div>
       </section>
 
-      <ul aria-label="Calendar legend" className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-ink/75">
-        {LEGEND.map(({ label, swatch }) => (
-          <li key={label} className="inline-flex items-center gap-2"><span aria-hidden className={`h-3 w-6 rounded-full ${swatch.className}`} style={swatch.style} />{label}</li>
-        ))}
-        <li className="inline-flex items-center gap-2">
-          <span aria-hidden className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-clay/30 bg-clay-mist text-clay-deep"><BrushCleaning className="h-3 w-3" /></span>
-          Turnover
-        </li>
-      </ul>
-      {agenda.length === 0 ? <p className="mt-4 rounded-lg border border-dashed border-pine/20 p-4 text-sm text-ink/60">No stays or blocks this month. Your calendar is clear.</p> : null}
+      <CalendarLegend />
 
-      <section aria-labelledby="calendar-agenda" className="mt-6 md:hidden">
-        <h3 id="calendar-agenda" className="mb-3 font-display text-xl text-pine">{monthLabel} at a glance</h3>
-        <ul className="space-y-2">
-          {agenda.map((event) => {
-            const { className, style } = barStyle(event);
-            const lastDay = event.timed ? event.endDate : addDaysLocal(event.endDate, -1);
-            return (
-              <li key={event.id}>
-                <EventTrigger quickView={event.quickView} href={event.href} aria-label={event.accessibleLabel} className={`block w-full rounded-lg px-3 py-3 ${className}`} style={style}>
-                  <div className="flex items-start justify-between gap-3">
-                    <span className="min-w-0 break-words text-sm font-medium">{event.title}</span>
-                    <span className="shrink-0 text-xs">{dateLabel(event.startDate)}{lastDay !== event.startDate ? ` – ${dateLabel(lastDay)}` : ""}</span>
-                  </div>
-                  <p className="mt-1 break-words text-xs">{event.unitLabel} · {event.detail}{event.timeLabel ? ` · ${event.timeLabel}` : ""}</p>
-                </EventTrigger>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
     </QuickViewProvider>
   );
 }

@@ -1,11 +1,12 @@
+import { DateInput } from "@/components/ui/date-input";
 import type { Metadata } from "next";
 import { PermissionDenied } from "@/components/app/permission-denied";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Input, Label, Select } from "@/components/ui/input";
+import { Label, Select } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { requireOwner } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
 import { addDaysLocal, monthNightRange, todayInTimeZone } from "@/lib/dates";
 import { formatPHP } from "@/lib/money";
 import type { ReportSummary } from "@/lib/reporting";
@@ -86,10 +87,10 @@ export default async function ReportsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const membership = await requireOwner();
+  const membership = await requirePermission("reports.view");
   if (!membership) {
     return (
-      <PermissionDenied description="Reports are limited to the organization owner. Staff members can use the calendar, reservations, guests and tasks pages." />
+      <PermissionDenied description="Reports are limited to the organization owner. Other team members can use the calendar, reservations, guests and tasks pages." />
     );
   }
 
@@ -166,27 +167,15 @@ export default async function ReportsPage({
         </div>
         <div>
           <Label htmlFor="filter-from">From</Label>
-          <Input
-            id="filter-from"
-            name="from"
-            type="date"
-            defaultValue={from}
-            className="w-40"
-          />
+          <DateInput id="filter-from" name="from" defaultValue={from} className="w-56" />
         </div>
         <div>
           <Label htmlFor="filter-to">To (exclusive)</Label>
-          <Input
-            id="filter-to"
-            name="to"
-            type="date"
-            defaultValue={to}
-            className="w-40"
-          />
+          <DateInput id="filter-to" name="to" defaultValue={to} className="w-56" />
         </div>
         <button
           type="submit"
-          className="h-10 rounded-lg bg-pine px-4 text-sm font-medium text-white hover:bg-pine-soft"
+          className="h-10 rounded-lg bg-primary px-4 text-sm font-medium text-white hover:bg-primary-soft"
         >
           Run report
         </button>
@@ -285,10 +274,10 @@ function ReportBody({
           title="Cash movement"
           formatValue={formatPHP}
           items={[
-            { label: "Booking payments", value: summary.bookingCollectedCents, tone: "bg-pine" },
+            { label: "Booking payments", value: summary.bookingCollectedCents, tone: "bg-primary" },
             { label: "Operating expenses", value: summary.operatingExpensesCents, tone: "bg-clay" },
-            { label: "Booking refunds", value: summary.bookingRefundedCents, tone: "bg-[#c88470]" },
-            { label: "Net operating cash", value: summary.netOperatingCashCents, tone: summary.netOperatingCashCents < 0 ? "bg-clay-deep" : "bg-sage-deep" },
+            { label: "Booking refunds", value: summary.bookingRefundedCents, tone: "bg-refund" },
+            { label: "Net operating cash", value: summary.netOperatingCashCents, tone: summary.netOperatingCashCents < 0 ? "bg-clay-strong" : "bg-sage-deep" },
           ]}
         />
         <HorizontalBars

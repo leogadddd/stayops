@@ -551,7 +551,8 @@ export async function updateTaskNotes(input: {
 export async function markTaskReady(input: {
   organizationId: string;
   actorUserId: string;
-  actorRole: "owner" | "staff";
+  /** Whether the actor holds `damage.update`, which allows marking ready over open damage. */
+  canOverrideDamage: boolean;
   taskId: string;
   data: unknown;
 }) {
@@ -608,13 +609,13 @@ export async function markTaskReady(input: {
       // Open damage: owner may override with an audited reason; staff may not.
       if (!data.overrideReason) {
         throw new OperationsError(
-          "Damage needs attention. Resolve the reports below, or as the owner give a reason to mark ready anyway.",
+          "Damage needs attention. Resolve the reports below, or give a reason to mark ready anyway.",
           "overrideReason",
         );
       }
-      if (input.actorRole !== "owner") {
+      if (!input.canOverrideDamage) {
         throw new OperationsError(
-          "Only the owner can mark a unit ready while damage is open.",
+          "Your role can’t mark a unit ready while damage is open. Ask someone who can resolve damage.",
           "overrideReason",
         );
       }

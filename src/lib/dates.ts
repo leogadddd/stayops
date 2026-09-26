@@ -174,3 +174,21 @@ export function monthNightRange(month: string): {
 } {
   return { start: `${month}-01`, end: shiftMonth(month, 1) + "-01" };
 }
+
+const WITH_WEEKDAY = new Intl.DateTimeFormat("en-PH", { weekday: "short", month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+const WITHOUT_WEEKDAY = new Intl.DateTimeFormat("en-PH", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+
+/**
+ * A date as people read it: "Today, Sep 24, 2026", "Tomorrow, Sep 25, 2026",
+ * "Yesterday, Sep 23, 2026", otherwise "Mon, Sep 28, 2026". Without `today`
+ * (e.g. while rendering on the server) it always shows the weekday form.
+ */
+export function readableDate(date: string, today?: string | null): string {
+  const value = new Date(`${date}T00:00:00Z`);
+  if (today) {
+    const relative =
+      date === today ? "Today" : date === addDaysLocal(today, 1) ? "Tomorrow" : date === addDaysLocal(today, -1) ? "Yesterday" : null;
+    if (relative) return `${relative}, ${WITHOUT_WEEKDAY.format(value)}`;
+  }
+  return WITH_WEEKDAY.format(value);
+}

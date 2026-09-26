@@ -126,7 +126,7 @@ describe("stay lifecycle (hold → payment → confirm → stay → turnover)", 
     const ready = await markTaskReady({
       organizationId: org.id,
       actorUserId: owner.id,
-      actorRole: "owner",
+      canOverrideDamage: true,
       taskId: task.id,
       data: {},
     });

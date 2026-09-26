@@ -6,6 +6,7 @@ import {
   ArrowRightLeft,
   BrushCleaning,
   CalendarCheck,
+  CalendarDays,
   CircleCheck,
   Clock3,
   Plus,
@@ -16,29 +17,35 @@ import { buttonClassName } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireMembership } from "@/lib/auth/session";
+import { can } from "@/lib/permissions";
+import { calendarEventsForUnit, monthGridRange } from "@/lib/calendar";
 import { seriesStart } from "@/lib/dashboard-series";
 import {
   addDaysLocal,
-  listNights,
   monthNightRange,
+  nightsBetween,
   todayInTimeZone,
 } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import {
-  buildNightStatusMap,
   getOccupancySegments,
   listCalendarActivity,
 } from "@/server/inventory/availability";
 import { listOrgUnits, listProperties } from "@/server/inventory/service";
 import { listTasks } from "@/server/operations/service";
-import { getDashboardSeries } from "@/server/reports/dashboard";
+import { getDashboardPlatformBreakdown, getDashboardSeries } from "@/server/reports/dashboard";
 import { getReport } from "@/server/reports/service";
-import { OutlookChart, type OutlookNight } from "./outlook";
+import { MiniCalendar, type MiniCalendarEvent } from "./mini-calendar";
 import { PerformanceSection } from "./performance";
+import { PlatformBreakdown } from "./platform-breakdown";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
-const OUTLOOK_DAYS = 30;
+const MONTH_LABEL = new Intl.DateTimeFormat("en-PH", {
+  month: "long",
+  year: "numeric",
+  timeZone: "UTC",
+});
 
 const DATE_LABEL = new Intl.DateTimeFormat("en-PH", {
   weekday: "long",
@@ -97,35 +104,38 @@ export default async function DashboardPage() {
   const todayByUnit = new Map(
     unitDays.map((item) => [item.unitId, item.today]),
   );
-  const activeUnitIds = units
-    .filter((unit) => unit.status === "active")
-    .map((unit) => unit.id);
-  const outlookEnd = addDaysLocal(today, OUTLOOK_DAYS);
   const month = today.slice(0, 7);
-  const isOwner = membership.role === "owner";
+  const monthRange = monthNightRange(month);
+  // Revenue and balances are report figures.
+  const showPerformance = can(membership, "reports.view");
+  const monthGrid = monthGridRange(month);
 
-  const [activity, openTasks, segmentsByUnit, series, monthReport] =
+  const [activity, openTasks, monthSegmentsByUnit, series, monthReport, platformBreakdown] =
     await Promise.all([
       listCalendarActivity(membership.organizationId, unitDays),
       listTasks(membership.organizationId, { status: "open" }),
       getOccupancySegments(
         membership.organizationId,
-        activeUnitIds,
-        today,
-        outlookEnd,
+        units.map((unit) => unit.id),
+        monthGrid.start,
+        monthGrid.end,
       ),
-      isOwner
+      showPerformance
         ? getDashboardSeries(membership.organizationId, {
             from: seriesStart(today),
             to: addDaysLocal(today, 1),
           }).catch(logAndSkip("performance series"))
         : null,
-      isOwner
+      showPerformance
         ? getReport(membership.organizationId, {
-            from: monthNightRange(month).start,
-            to: monthNightRange(month).end,
+            from: monthRange.start,
+            to: monthRange.end,
           }).catch(logAndSkip("month balances"))
         : null,
+      getDashboardPlatformBreakdown(membership.organizationId, {
+        from: monthRange.start,
+        to: monthRange.end,
+      }).catch(logAndSkip("platform breakdown")),
     ]);
 
   const arrivals = activity.filter(
@@ -187,33 +197,66 @@ export default async function DashboardPage() {
         ),
   );
 
-  const outlook: OutlookNight[] = listNights(today, outlookEnd).map((date) => ({
-    date,
-    booked: 0,
-    held: 0,
-    blocked: 0,
-    free: 0,
-    arrivals: [],
-  }));
-  const outlookByDate = new Map(outlook.map((night) => [night.date, night]));
-  for (const unitId of activeUnitIds) {
-    const segments = segmentsByUnit.get(unitId) ?? [];
-    const nights = buildNightStatusMap(today, outlookEnd, segments);
-    for (const night of outlook) {
-      const kind = nights.get(night.date)?.kind ?? "available";
-      night[kind === "available" ? "free" : kind] += 1;
-    }
-    for (const segment of segments) {
-      if (segment.kind !== "reservation") continue;
-      outlookByDate
-        .get(segment.startDate)
-        ?.arrivals.push(
-          segment.status === "hold"
-            ? `${segment.guestName} (hold)`
-            : segment.guestName,
-        );
-    }
-  }
+  // Confirmed stays (not holds) checking in this month, and their nights in it.
+  const monthBookings = [...monthSegmentsByUnit.values()]
+    .flat()
+    .filter(
+      (segment) =>
+        segment.kind === "reservation" &&
+        segment.status !== "hold" &&
+        segment.startDate >= monthRange.start &&
+        segment.startDate < monthRange.end,
+    );
+  const monthBookedNights = monthBookings.reduce(
+    (sum, segment) =>
+      sum +
+      nightsBetween(
+        segment.startDate,
+        segment.endDate < monthRange.end ? segment.endDate : monthRange.end,
+      ),
+    0,
+  );
+
+  const needsAttention = watchTasks.length > 0 || holds.length > 0;
+  const unitLabel = (unitId: string) => {
+    const unit = unitById.get(unitId);
+    return properties.length > 1
+      ? `${propertyForUnit(unitId)?.name} · ${unit?.name}`
+      : (unit?.name ?? "");
+  };
+  // Stays, holds and blocks for this month's grid; turnovers stay on the full calendar.
+  const miniCalendarEvents: MiniCalendarEvent[] = units.flatMap((unit) =>
+    calendarEventsForUnit(
+      unit.id,
+      monthSegmentsByUnit.get(unit.id) ?? [],
+    ).flatMap((event): MiniCalendarEvent[] => {
+      if (event.kind === "turnover") return [];
+      const blocked = event.kind === "block" || event.kind === "unavailable";
+      return [
+        {
+          id: event.id,
+          startDate: event.startDate,
+          endDate: event.endDate,
+          title: blocked ? (event.description ?? event.title) : event.title,
+          unitLabel: unitLabel(unit.id),
+          tone: blocked
+            ? "blocked"
+            : event.kind === "hold"
+              ? "hold"
+              : event.status === "checked_in"
+                ? "in-house"
+                : event.status === "checked_out"
+                  ? "checked-out"
+                  : "confirmed",
+          href: event.reservationId
+            ? `/reservations/${event.reservationId}`
+            : can(membership, "properties.view")
+              ? `/properties/${unit.propertyId}/units/${unit.id}`
+              : undefined,
+        },
+      ];
+    }),
+  );
 
   const tiles: {
     label: string;
@@ -223,6 +266,16 @@ export default async function DashboardPage() {
     tone: string;
     href: string;
   }[] = [
+    {
+      label: "Bookings this month",
+      value: monthBookings.length,
+      helper: monthBookings.length
+        ? `${monthBookedNights} night${monthBookedNights === 1 ? "" : "s"} booked`
+        : "No bookings yet this month",
+      icon: CalendarDays,
+      tone: "bg-sage/55 text-pine",
+      href: `/calendar?month=${month}`,
+    },
     {
       label: "Arrivals today",
       value: arrivals.length,
@@ -305,12 +358,12 @@ export default async function DashboardPage() {
         <EmptyState
           title="Your operations dashboard is ready"
           description={
-            isOwner
+            can(membership, "properties.create")
               ? "Add your first property and unit to start tracking arrivals, cleaning work, occupancy and cash movement."
-              : "Ask the owner to add the first property and unit."
+              : "Ask an owner or admin to add the first property and unit."
           }
           action={
-            isOwner ? (
+            can(membership, "properties.create") ? (
               <Link
                 href="/properties/new"
                 className={buttonClassName("clay", "md")}
@@ -324,7 +377,7 @@ export default async function DashboardPage() {
         <>
           <section
             aria-label="Today at a glance"
-            className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2 xl:grid-cols-4"
+            className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
           >
             {tiles.map(({ label, value, helper, icon: Icon, tone, href }) => (
               <Link
@@ -359,226 +412,239 @@ export default async function DashboardPage() {
             ))}
           </section>
 
-          <section className="mt-5 grid grid-cols-[minmax(0,1fr)] items-stretch gap-5 xl:grid-cols-[minmax(0,1.25fr)_minmax(20rem,0.75fr)]">
-            <Card className="flex flex-col">
-              <CardHeader className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h2 className="font-display text-xl text-pine">
-                    Today&apos;s schedule
-                  </h2>
-                  <p className="mt-1 text-xs text-ink/50">
-                    Check-outs first, then arrivals, in the order they happen.
-                  </p>
-                </div>
-                <Badge tone="neutral">
-                  {schedule.length} event{schedule.length === 1 ? "" : "s"}
-                </Badge>
-              </CardHeader>
-              <CardBody className="flex flex-1 flex-col p-0">
-                {schedule.length ? (
-                  <ol className="relative px-5 py-3">
-                    {schedule.map(({ kind, reservation }, index) => {
-                      const property = propertyForUnit(reservation.unitId);
-                      const unit = unitById.get(reservation.unitId);
-                      const arrival = kind === "arrival";
-                      const time = arrival
-                        ? property?.checkInTime
-                        : property?.checkOutTime;
-                      return (
-                        <li
-                          key={`${kind}:${reservation.id}`}
-                          className="relative flex gap-4"
-                        >
-                          <div className="flex w-20 shrink-0 flex-col items-end pt-4 text-right">
-                            <span className="text-xs font-semibold tabular-nums text-pine">
-                              {time ? localTimeLabel(time) : "—"}
-                            </span>
-                            <span className="whitespace-nowrap text-[10px] uppercase tracking-wider text-ink/40">
-                              {arrival ? "Check-in" : "Check-out"}
-                            </span>
-                          </div>
-                          <div className="relative flex flex-col items-center">
-                            <span
-                              className={cn(
-                                "mt-4 flex h-8 w-8 items-center justify-center rounded-full ring-4 ring-linen",
-                                arrival
-                                  ? "bg-sage text-pine"
-                                  : "bg-clay-mist text-clay-deep",
-                              )}
-                            >
-                              {arrival ? (
-                                <ArrowDownToLine
-                                  className="h-3.5 w-3.5"
-                                  aria-hidden
-                                />
-                              ) : (
-                                <ArrowRightLeft
-                                  className="h-3.5 w-3.5"
-                                  aria-hidden
-                                />
-                              )}
-                            </span>
-                            {index < schedule.length - 1 ? (
-                              <span
-                                className="w-px flex-1 bg-pine/12"
+          <Card className="mt-5 flex flex-col">
+            <CardHeader className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="font-display text-xl text-pine">
+                  Today&apos;s schedule
+                </h2>
+                <p className="mt-1 text-xs text-ink/50">
+                  Check-outs first, then arrivals, in the order they happen.
+                </p>
+              </div>
+              <Badge tone="neutral">
+                {schedule.length} event{schedule.length === 1 ? "" : "s"}
+              </Badge>
+            </CardHeader>
+            <CardBody className="flex flex-1 flex-col p-0">
+              {schedule.length ? (
+                <ol className="relative px-5 py-3">
+                  {schedule.map(({ kind, reservation }, index) => {
+                    const property = propertyForUnit(reservation.unitId);
+                    const unit = unitById.get(reservation.unitId);
+                    const arrival = kind === "arrival";
+                    const time = arrival
+                      ? property?.checkInTime
+                      : property?.checkOutTime;
+                    return (
+                      <li
+                        key={`${kind}:${reservation.id}`}
+                        className="relative flex gap-4"
+                      >
+                        <div className="flex w-20 shrink-0 flex-col items-end pt-4 text-right">
+                          <span className="text-xs font-semibold tabular-nums text-pine">
+                            {time ? localTimeLabel(time) : "—"}
+                          </span>
+                          <span className="whitespace-nowrap text-[10px] uppercase tracking-wider text-ink/40">
+                            {arrival ? "Check-in" : "Check-out"}
+                          </span>
+                        </div>
+                        <div className="relative flex flex-col items-center">
+                          <span
+                            className={cn(
+                              "mt-4 flex h-8 w-8 items-center justify-center rounded-full ring-4 ring-linen",
+                              arrival
+                                ? "bg-sage text-pine"
+                                : "bg-clay-mist text-clay-deep",
+                            )}
+                          >
+                            {arrival ? (
+                              <ArrowDownToLine
+                                className="h-3.5 w-3.5"
                                 aria-hidden
                               />
-                            ) : null}
-                          </div>
-                          <Link
-                            href={`/reservations/${reservation.id}`}
-                            className="my-2 flex min-w-0 flex-1 items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-pine-mist/45"
-                          >
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate text-sm font-medium text-pine">
-                                {reservation.guestName}
-                              </span>
-                              <span className="mt-0.5 block truncate text-xs text-ink/55">
-                                {property?.name} · {unit?.name} ·{" "}
-                                {reservation.guestCount} guest
-                                {reservation.guestCount === 1 ? "" : "s"}
-                              </span>
-                            </span>
-                            <ArrowRight
-                              className="h-4 w-4 shrink-0 text-ink/30"
+                            ) : (
+                              <ArrowRightLeft
+                                className="h-3.5 w-3.5"
+                                aria-hidden
+                              />
+                            )}
+                          </span>
+                          {index < schedule.length - 1 ? (
+                            <span
+                              className="w-px flex-1 bg-pine/12"
                               aria-hidden
                             />
-                          </Link>
-                        </li>
-                      );
-                    })}
-                  </ol>
-                ) : (
-                  <div className="flex flex-1 flex-col items-center justify-center px-5 py-10 text-center">
-                    <CircleCheck
-                      className="h-7 w-7 text-sage-deep"
-                      aria-hidden
-                    />
-                    <p className="mt-2 text-sm text-ink/60">
-                      No arrivals or departures today.
-                    </p>
-                    <p className="mt-1 max-w-sm text-xs text-ink/45">
-                      Use the quiet window to clear turnover work and follow up
-                      on active holds.
-                    </p>
-                  </div>
-                )}
-              </CardBody>
-            </Card>
-
-            <Card className="flex flex-col">
-              <CardHeader className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="font-display text-xl text-pine">
-                    Needs attention
-                  </h2>
-                  <p className="mt-1 text-xs text-ink/50">
-                    Turnovers and holds waiting on you.
+                          ) : null}
+                        </div>
+                        <Link
+                          href={`/reservations/${reservation.id}`}
+                          className="my-2 flex min-w-0 flex-1 items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-pine-mist/45"
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-medium text-pine">
+                              {reservation.guestName}
+                            </span>
+                            <span className="mt-0.5 block truncate text-xs text-ink/55">
+                              {property?.name} · {unit?.name} ·{" "}
+                              {reservation.guestCount} guest
+                              {reservation.guestCount === 1 ? "" : "s"}
+                            </span>
+                          </span>
+                          <ArrowRight
+                            className="h-4 w-4 shrink-0 text-ink/30"
+                            aria-hidden
+                          />
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ol>
+              ) : (
+                <div className="flex flex-1 flex-col items-center justify-center px-5 py-10 text-center">
+                  <CircleCheck
+                    className="h-7 w-7 text-sage-deep"
+                    aria-hidden
+                  />
+                  <p className="mt-2 text-sm text-ink/60">
+                    No arrivals or departures today.
+                  </p>
+                  <p className="mt-1 max-w-sm text-xs text-ink/45">
+                    Use the quiet window to clear turnover work and follow up
+                    on active holds.
                   </p>
                 </div>
-                <Link
-                  href="/tasks?status=open"
-                  className="text-xs font-medium text-clay-deep hover:underline"
-                >
-                  All tasks
-                </Link>
-              </CardHeader>
-              <CardBody className="space-y-5">
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink/45">
-                    Turnovers
-                  </p>
-                  {watchTasks.length ? (
-                    <ul className="mt-2 space-y-2">
-                      {watchTasks.slice(0, 4).map((task) => {
-                        const progress = task.totalItems
-                          ? task.doneItems / task.totalItems
-                          : 0;
-                        return (
-                          <li key={task.id}>
-                            <Link
-                              href={`/tasks/${task.id}`}
-                              className="block rounded-lg border border-pine/8 bg-paper/60 px-3 py-2.5 transition hover:border-pine/20 hover:bg-pine-mist/40"
-                            >
-                              <span className="flex items-center justify-between gap-3 text-xs">
-                                <span className="min-w-0 truncate font-medium text-pine">
-                                  {task.propertyName} · {task.unitName}
-                                </span>
-                                {arrivalUnitIds.has(task.unitId) ? (
-                                  <Badge tone="clay">Arrival today</Badge>
-                                ) : (
-                                  <span className="tabular-nums text-ink/50">
-                                    {task.doneItems}/{task.totalItems}
-                                  </span>
-                                )}
-                              </span>
-                              <span
-                                className="mt-2 block h-1.5 overflow-hidden rounded-full bg-pine-mist"
-                                aria-hidden
+              )}
+            </CardBody>
+          </Card>
+
+          <section className="mt-5 grid grid-cols-[minmax(0,1fr)] items-stretch gap-5 xl:grid-cols-[minmax(20rem,0.75fr)_minmax(0,1.25fr)]">
+            {needsAttention ? (
+              <Card className="flex flex-col">
+                <CardHeader className="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="font-display text-xl text-pine">
+                      Needs attention
+                    </h2>
+                    <p className="mt-1 text-xs text-ink/50">
+                      Turnovers and holds waiting on you.
+                    </p>
+                  </div>
+                  <Link
+                    href="/tasks?status=open"
+                    className="text-xs font-medium text-clay-deep hover:underline"
+                  >
+                    All tasks
+                  </Link>
+                </CardHeader>
+                <CardBody className="space-y-5">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink/45">
+                      Turnovers
+                    </p>
+                    {watchTasks.length ? (
+                      <ul className="mt-2 space-y-2">
+                        {watchTasks.slice(0, 4).map((task) => {
+                          const progress = task.totalItems
+                            ? task.doneItems / task.totalItems
+                            : 0;
+                          return (
+                            <li key={task.id}>
+                              <Link
+                                href={`/tasks/${task.id}`}
+                                className="block rounded-lg border border-pine/8 bg-paper/60 px-3 py-2.5 transition hover:border-pine/20 hover:bg-pine-mist/40"
                               >
+                                <span className="flex items-center justify-between gap-3 text-xs">
+                                  <span className="min-w-0 truncate font-medium text-pine">
+                                    {task.propertyName} · {task.unitName}
+                                  </span>
+                                  {arrivalUnitIds.has(task.unitId) ? (
+                                    <Badge tone="clay">Arrival today</Badge>
+                                  ) : (
+                                    <span className="tabular-nums text-ink/50">
+                                      {task.doneItems}/{task.totalItems}
+                                    </span>
+                                  )}
+                                </span>
                                 <span
-                                  className="block h-full rounded-full bg-moss"
-                                  style={{ width: `${progress * 100}%` }}
-                                />
+                                  className="mt-2 block h-1.5 overflow-hidden rounded-full bg-pine-mist"
+                                  aria-hidden
+                                >
+                                  <span
+                                    className="block h-full rounded-full bg-moss"
+                                    style={{ width: `${progress * 100}%` }}
+                                  />
+                                </span>
+                              </Link>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    ) : (
+                      <p className="mt-2 text-xs text-ink/55">
+                        Every unit is ready for its next guest.
+                      </p>
+                    )}
+                  </div>
+                  <div className="border-t border-pine/10 pt-4">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink/45">
+                      Holds
+                    </p>
+                    {holds.length ? (
+                      <ul className="mt-2 divide-y divide-pine/8">
+                        {holds.slice(0, 4).map((hold) => (
+                          <li key={hold.id}>
+                            <Link
+                              href={`/reservations/${hold.id}`}
+                              className="flex items-center justify-between gap-3 py-2 text-xs hover:text-clay-deep"
+                            >
+                              <span className="min-w-0 truncate">
+                                <span className="font-medium text-pine">
+                                  {hold.guestName}
+                                </span>
+                                <span className="text-ink/50">
+                                  {" "}
+                                  · {unitById.get(hold.unitId)?.name}
+                                </span>
+                              </span>
+                              <span className="shrink-0 tabular-nums text-clay-deep">
+                                {hold.expiresAt
+                                  ? `Expires ${expiryLabel.format(hold.expiresAt)}`
+                                  : "No expiry"}
                               </span>
                             </Link>
                           </li>
-                        );
-                      })}
-                    </ul>
-                  ) : (
-                    <p className="mt-2 text-xs text-ink/55">
-                      Every unit is ready for its next guest.
-                    </p>
-                  )}
-                </div>
-                <div className="border-t border-pine/10 pt-4">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink/45">
-                    Holds
-                  </p>
-                  {holds.length ? (
-                    <ul className="mt-2 divide-y divide-pine/8">
-                      {holds.slice(0, 4).map((hold) => (
-                        <li key={hold.id}>
-                          <Link
-                            href={`/reservations/${hold.id}`}
-                            className="flex items-center justify-between gap-3 py-2 text-xs hover:text-clay-deep"
-                          >
-                            <span className="min-w-0 truncate">
-                              <span className="font-medium text-pine">
-                                {hold.guestName}
-                              </span>
-                              <span className="text-ink/50">
-                                {" "}
-                                · {unitById.get(hold.unitId)?.name}
-                              </span>
-                            </span>
-                            <span className="shrink-0 tabular-nums text-clay-deep">
-                              {hold.expiresAt
-                                ? `Expires ${expiryLabel.format(hold.expiresAt)}`
-                                : "No expiry"}
-                            </span>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="mt-2 text-xs text-ink/55">
-                      No holds waiting for payment.
-                    </p>
-                  )}
-                </div>
-              </CardBody>
-            </Card>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-2 text-xs text-ink/55">
+                        No holds waiting for payment.
+                      </p>
+                    )}
+                  </div>
+                </CardBody>
+              </Card>
+            ) : (
+              <MiniCalendar
+                month={month}
+                today={today}
+                monthLabel={MONTH_LABEL.format(
+                  new Date(`${month}-01T00:00:00Z`),
+                )}
+                gridStart={monthGrid.start}
+                gridEnd={monthGrid.end}
+                events={miniCalendarEvents}
+              />
+            )}
+
+            <PlatformBreakdown
+              className="flex flex-col"
+              monthLabel={MONTH_LABEL.format(new Date(`${month}-01T00:00:00Z`))}
+              platforms={platformBreakdown}
+            />
           </section>
 
-          {activeUnitIds.length > 0 ? (
-            <section aria-label="Upcoming occupancy" className="mt-5">
-              <OutlookChart nights={outlook} unitCount={activeUnitIds.length} />
-            </section>
-          ) : null}
-
-          {isOwner ? (
+          {showPerformance ? (
             series ? (
               <PerformanceSection
                 series={series}

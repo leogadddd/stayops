@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { requireOwner } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
 import { PermissionDenied } from "@/components/app/permission-denied";
 import { ReservationActionPage, loadActionReservation } from "../action-page";
 import { CancelReservationForm } from "../cancel-reservation-form";
@@ -7,7 +7,7 @@ import { CancelReservationForm } from "../cancel-reservation-form";
 export const metadata: Metadata = { title: "Cancel reservation" };
 
 export default async function CancelReservationPage({ params }: { params: Promise<{ id: string }> }) {
-  const membership = await requireOwner();
+  const membership = await requirePermission("reservations.delete");
   if (!membership) return <PermissionDenied />;
   const { id } = await params;
   const { reservation, guest, unit } = await loadActionReservation(membership.organizationId, id);

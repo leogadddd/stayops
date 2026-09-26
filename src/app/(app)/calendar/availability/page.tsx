@@ -1,10 +1,14 @@
+import { accommodationTotal } from "@/lib/rates";
+import { unitOrPropertyPhotoSrc } from "@/lib/photos";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Bath, BedDouble, CalendarSearch, ChevronRight, Users } from "lucide-react";
 import { PageHeading } from "@/components/app/page-heading";
 import { buttonClassName } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { requireMembership } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
+import { can } from "@/lib/permissions";
+import { PermissionDenied } from "@/components/app/permission-denied";
 import { todayInTimeZone } from "@/lib/dates";
 import { formatPHP } from "@/lib/money";
 import { listOrgUnits, listProperties } from "@/server/inventory/service";
@@ -27,7 +31,8 @@ interface ResultCard {
 }
 
 export default async function AvailabilityPage({ searchParams }: { searchParams: Promise<StaySearchParams> }) {
-  const membership = await requireMembership();
+  const membership = await requirePermission("reservations.view");
+  if (!membership) return <PermissionDenied />;
   const params = await searchParams;
   const [properties, units] = await Promise.all([
     listProperties(membership.organizationId),
@@ -36,7 +41,7 @@ export default async function AvailabilityPage({ searchParams }: { searchParams:
   // Quick date picks start from the first property's local today, like the calendar.
   const today = todayInTimeZone(properties[0]?.timezone ?? "Asia/Manila");
   const { search, error } = parseStaySearch(params);
-  const showRates = membership.role === "owner";
+  const showRates = can(membership, "payments.view");
 
   const activeUnits = units.filter((unit) => unit.status === "active");
   let results: { cards: ResultCard[]; tooSmallCount: number; occupiedCount: number } | null = null;
@@ -50,12 +55,14 @@ export default async function AvailabilityPage({ searchParams }: { searchParams:
         id: unit.id,
         name: unit.name,
         propertyName: property?.name ?? null,
-        imageUrl: unit.imageUrl ?? property?.imageUrl ?? null,
+        imageUrl: unitOrPropertyPhotoSrc(unit, property),
         capacity: unit.capacity,
         bedrooms: unit.bedrooms,
         bathrooms: unit.bathrooms,
         nightlyRateCents: unit.defaultNightlyRateCents,
-        estimatedTotalCents: unit.defaultNightlyRateCents * search.nights + (unit.cleaningFeeCents ?? 0),
+        estimatedTotalCents:
+          accommodationTotal({ checkIn: search.checkIn, nights: search.nights, baseCents: unit.defaultNightlyRateCents, dayRates: unit.dayRates }) +
+          (unit.cleaningFeeCents ?? 0),
       };
     });
     // Closest fit first, so a couple isn't offered the six-bed villa before the studio.
@@ -79,8 +86,8 @@ export default async function AvailabilityPage({ searchParams }: { searchParams:
       ) : (
         <EmptyState
           title="No units to check"
-          description={membership.role === "owner" ? "Add a property and unit before checking stay dates." : "Ask the owner to add a property and unit."}
-          action={membership.role === "owner" ? <Link href="/properties" className={buttonClassName("clay", "md")}>Manage properties</Link> : undefined}
+          description={can(membership, "properties.create") ? "Add a property and unit before checking stay dates." : "Ask an owner or admin to add a property and unit."}
+          action={can(membership, "properties.create") ? <Link href="/properties" className={buttonClassName("clay", "md")}>Manage properties</Link> : undefined}
         />
       )}
     </div>
@@ -112,7 +119,7 @@ function Results({ search, cards, tooSmallCount, occupiedCount, showRates }: {
         <ul className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
           {cards.map((card) => (
             <li key={card.id} className="min-w-0">
-              <Link href={`/calendar/availability/${card.id}?${query}`} className="group flex h-full min-h-40 overflow-hidden rounded-2xl border border-pine/10 bg-white shadow-[0_1px_2px_rgba(32,58,53,0.06)] transition-shadow hover:border-pine/20 hover:shadow-[0_8px_24px_rgba(32,58,53,0.10)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage">
+              <Link href={`/calendar/availability/${card.id}?${query}`} className="group flex h-full min-h-40 overflow-hidden rounded-2xl border border-pine/10 bg-surface shadow-[0_1px_2px_rgba(32,58,53,0.06)] transition-shadow hover:border-pine/20 hover:shadow-[0_8px_24px_rgba(32,58,53,0.10)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage">
                 <UnitPhoto src={card.imageUrl} className="w-2/5 max-w-56 shrink-0" imageClassName="transition-transform duration-500 group-hover:scale-[1.04]" />
                 <div className="flex min-w-0 flex-1 flex-col p-4">
                   {card.propertyName ? <p className="truncate text-xs font-medium uppercase tracking-wide text-clay-deep">{card.propertyName}</p> : null}

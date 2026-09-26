@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, Bath, BedDouble, CalendarCheck, Check, CircleAlert, CircleCheck, Clock, LoaderCircle, Minus, Pencil, Plus, RotateCcw, ShieldCheck, Trash2, UserPlus, UserRound, Users, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Banknote, Bath, BedDouble, CalendarCheck, Check, CircleAlert, CircleCheck, Clock, Landmark, LoaderCircle, Minus, Pencil, Plus, Receipt, RotateCcw, ShieldCheck, Smartphone, Sparkles, Tag, Trash2, Users, X } from "lucide-react";
 import type { ChargeType } from "@/lib/db/schema";
 import { CHARGE_TYPES } from "@/lib/db/schema";
 import { PAYMENT_ALLOCATION_LABELS, PAYMENT_METHOD_LABELS } from "@/lib/labels";
@@ -13,6 +13,7 @@ import {
   computeTotals,
   type ChargeLineValues,
 } from "@/lib/charges";
+import type { DayRates } from "@/lib/rates";
 import { addDaysLocal, nightsBetween } from "@/lib/dates";
 import {
   centavosToPesosInput,
@@ -22,12 +23,21 @@ import {
 import { cn } from "@/lib/utils";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { FieldError, Input, Label, Select } from "@/components/ui/input";
+import { SelectMenu, type SelectMenuOption } from "@/components/ui/select-menu";
+import { ChoiceCards, type ChoiceCardOption } from "@/components/ui/choice-cards";
 import { createReservationAction, updateReservationAction, type ReservationFormState } from "../actions";
 import { checkStayAvailabilityAction, type StayAvailability } from "./actions";
 import { useActionFeedback } from "@/hooks/use-action-feedback";
 import { dayLabel, plural, timeLabel, UnitPhoto } from "../../calendar/availability/stay-display";
 import { ReservationSummary } from "./reservation-summary";
 import { StayRangeCalendar } from "./stay-range-calendar";
+import { DateInput } from "@/components/ui/date-input";
+import { TimeInput } from "@/components/ui/time-input";
+import { PlatformLogo, type PlatformDisplay } from "@/components/app/platform-badge";
+import { PLATFORMS_WITHOUT_REFERENCE } from "@/lib/platforms";
+import { describeReservationFee, reservationFeeCents, type ReservationFeeRule } from "@/lib/reservation-fee";
+import { PAYMENT_METHOD_LOGOS } from "@/components/app/payment-method-logo";
+import { GuestPicker } from "./guest-picker";
 
 export interface UnitOption {
   id: string;
@@ -41,8 +51,12 @@ export interface UnitOption {
   checkInTime: string;
   checkOutTime: string;
   nightlyRateCents: number | null;
+  /** Weekday rates that differ from the nightly rate; owners only. */
+  dayRates: DayRates | null;
   cleaningFeeCents: number | null;
   securityDepositCents: number | null;
+  /** The down payment that confirms a booking from the team's own channels; owners only. */
+  reservationFee: ReservationFeeRule | null;
 }
 
 interface ChargeDraft {
@@ -99,11 +113,45 @@ const HOLD_OPTIONS = [
   { value: "1440", label: "24 hours" },
 ];
 const PAYMENT_METHODS = ["gcash", "maya", "bank_transfer", "cash"] as const;
+type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+type PaymentAllocation = "booking" | "security_deposit";
+
+const CHARGE_TYPE_OPTIONS: SelectMenuOption<ChargeType>[] = CHARGE_TYPES.map((type) => ({
+  value: type,
+  label: CHARGE_TYPE_LABELS[type],
+  icon: { accommodation: BedDouble, cleaning: Sparkles, fee: Receipt, discount: Tag, security_deposit: ShieldCheck }[type],
+  description: {
+    accommodation: "Nightly rate for the stay",
+    cleaning: "One-off turnover cleaning",
+    fee: "Anything else: extra bed, late checkout…",
+    discount: "Negative amount off the booking",
+    security_deposit: "Held and returned after checkout",
+  }[type],
+}));
+
+const PAYMENT_METHOD_OPTIONS: ChoiceCardOption<PaymentMethod>[] = PAYMENT_METHODS.map((method) => ({
+  value: method,
+  label: PAYMENT_METHOD_LABELS[method],
+  icon: { gcash: Smartphone, maya: Smartphone, bank_transfer: Landmark, cash: Banknote }[method],
+  logo: PAYMENT_METHOD_LOGOS[method],
+}));
+
+/** The description a charge type gets when picked; blank means "write your own". */
+function autoDescription(type: ChargeType, nights: number | null) {
+  switch (type) {
+    case "accommodation": return nights ? `Accommodation (${plural(nights, "night")})` : "Accommodation";
+    case "cleaning": return "Cleaning fee";
+    case "security_deposit": return "Refundable security deposit";
+    default: return "";
+  }
+}
 
 /** What editing an existing reservation starts from. */
 export interface ReservationEdit {
   reservationId: string;
   guestId: string;
+  platformId: string | null;
+  platformReference: string | null;
   occupants: string[];
   charges: ChargeLineValues[];
   /** Already recorded on the ledger; editing never changes payments. */
@@ -119,24 +167,37 @@ export interface ReservationEdit {
  */
 export function ReservationForm({
   units,
-  guests,
+  guests: initialGuests,
+  canCreateGuest = false,
+  platforms,
   defaultCheckIn,
   defaultCheckOut,
   requestedUnitId,
+  requestedGuestId,
   defaultGuestCount = 1,
-  isOwner,
+  canConfirm,
+  canSetCharges,
   edit,
   today,
 }: {
-  isOwner: boolean;
+  /** Book straight to confirmed (needs reservations.update and payments.create). */
+  canConfirm: boolean;
+  /** Set charge lines and see prices (payments.create); others get the unit's standard rates. */
+  canSetCharges: boolean;
   /** The first property's local date; the calendar can't book before it. */
   today: string;
   edit?: ReservationEdit;
   units: UnitOption[];
   guests: { id: string; name: string; email: string | null; phone: string | null }[];
+  /** Show "New guest" (guests.create). */
+  canCreateGuest?: boolean;
+  /** Where bookings come from (Direct, Airbnb, …), in display order. */
+  platforms: (PlatformDisplay & { id: string; key: string | null; collectsPayment: boolean })[];
   defaultCheckIn: string;
   defaultCheckOut: string;
   requestedUnitId?: string;
+  /** From a guest's page: starts with that guest selected. */
+  requestedGuestId?: string;
   /** From an availability search: opens one blank name row per extra guest. */
   defaultGuestCount?: number;
 }) {
@@ -156,8 +217,17 @@ export function ReservationForm({
   const [checkOut, setCheckOut] = useState(defaultCheckOut);
   const [additional, setAdditional] = useState<string[]>(() => Array.from({ length: Math.max(0, defaultGuestCount - 1) }, (_, index) => edit?.occupants[index] ?? ""));
   // Guests: "new" creates a guest profile from the contact fields.
-  const [guestId, setGuestId] = useState(edit?.guestId ?? guests[0]?.id ?? "new");
-  const [newGuest, setNewGuest] = useState({ name: "", email: "", phone: "", notes: "" });
+  // Guests created from the "New guest" dialog join the list.
+  const [guests, setGuests] = useState(initialGuests);
+  // Nobody is picked until the user searches, unless we came from a guest's page.
+  const [guestId, setGuestId] = useState(
+    edit?.guestId ?? (initialGuests.some((guest) => guest.id === requestedGuestId) ? requestedGuestId! : ""),
+  );
+  // Booking source: new reservations start on the first platform (Direct).
+  const [platformId, setPlatformId] = useState(edit ? (edit.platformId ?? "") : (platforms[0]?.id ?? ""));
+  const [platformReference, setPlatformReference] = useState(edit?.platformReference ?? "");
+  const selectedPlatform = platforms.find((platform) => platform.id === platformId);
+  const takesReference = !selectedPlatform?.key || !PLATFORMS_WITHOUT_REFERENCE.includes(selectedPlatform.key);
   // Editing lets the owner correct the existing guest's contact details too.
   const contactOf = (id: string) => {
     const guest = guests.find((candidate) => candidate.id === id);
@@ -167,9 +237,11 @@ export function ReservationForm({
   // Charges: null = follow the unit/date defaults; any edit forks into a manual set.
   const [customCharges, setCustomCharges] = useState<ChargeDraft[] | null>(() => (edit ? toDraft(edit.charges) : null));
   const [noPayment, setNoPayment] = useState(false);
-  const [payment, setPayment] = useState({ amount: "", allocation: "booking" as "booking" | "security_deposit", method: "gcash" as (typeof PAYMENT_METHODS)[number], reference: "", receivedAt: "" });
+  const [payment, setPayment] = useState({ amount: "", allocation: "booking" as PaymentAllocation, method: "gcash" as PaymentMethod, reference: "", receivedAt: "" });
+  // Checked: recorded as received now. Unchecked: the owner enters when.
+  const [receivedNow, setReceivedNow] = useState(true);
   // Review
-  const [submitMode, setSubmitMode] = useState<"hold" | "confirmed">(isOwner ? "confirmed" : "hold");
+  const [submitMode, setSubmitMode] = useState<"hold" | "confirmed">(canConfirm ? "confirmed" : "hold");
   const [holdMinutes, setHoldMinutes] = useState("1440");
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [idempotencyKey] = useState(() => crypto.randomUUID());
@@ -196,12 +268,12 @@ export function ReservationForm({
   const guestCount = 1 + additional.length;
   const validRange = Boolean(checkIn && checkOut && checkOut > checkIn);
   const nights = validRange ? nightsBetween(checkIn, checkOut) : null;
-  const guestMode = guestId === "new" ? "new" : "existing";
   const selectedGuest = guests.find((guest) => guest.id === guestId);
   const contactChanged = Boolean(edit && selectedGuest && (contact.name !== (selectedGuest.name ?? "") || contact.email !== (selectedGuest.email ?? "") || contact.phone !== (selectedGuest.phone ?? "")));
-  function chooseGuest(id: string) {
+  function chooseGuest(id: string, list = guests) {
     setGuestId(id);
-    if (id !== "new") setContact(contactOf(id));
+    const guest = list.find((candidate) => candidate.id === id);
+    setContact({ name: guest?.name ?? "", email: guest?.email ?? "", phone: guest?.phone ?? "" });
   }
 
   // Live availability, re-checked whenever the unit or dates change.
@@ -225,16 +297,22 @@ export function ReservationForm({
     if (!selectedUnit || selectedUnit.nightlyRateCents === null || !nights) return [];
     return toDraft(buildDefaultCharges({
       nightlyRateCents: selectedUnit.nightlyRateCents,
+      dayRates: selectedUnit.dayRates,
+      checkIn,
       cleaningFeeCents: selectedUnit.cleaningFeeCents,
       securityDepositCents: selectedUnit.securityDepositCents,
       nights,
     }));
-  }, [selectedUnit, nights]);
+  }, [selectedUnit, nights, checkIn]);
   const charges = customCharges ?? defaultCharges;
   const parsed = useMemo(() => charges.map((draft) => ({ draft, line: parseDraft(draft) })), [charges]);
   const submittableLines = parsed.map((entry) => entry.line).filter((line): line is ChargeLineValues => line !== null);
   const totals = computeTotals(submittableLines);
   const paymentCents = noPayment ? null : parsePayment(payment.amount);
+  // Platforms like Airbnb collect payment themselves, so no fee applies there.
+  const feeRule = selectedPlatform?.collectsPayment ? null : (selectedUnit?.reservationFee ?? null);
+  const feeCents = feeRule ? reservationFeeCents(feeRule, totals.bookingTotalCents) : 0;
+  const feeCovered = !feeCents || (payment.allocation === "booking" && (paymentCents ?? 0) >= feeCents);
 
   // What blocks each step; the first step with a problem caps how far you can go.
   const stepIssues: Record<StepId, string | null> = {
@@ -243,21 +321,20 @@ export function ReservationForm({
         : guestCount > capacity ? `This unit sleeps ${capacity}. Lower the guest count or choose a larger unit.`
           : currentAvailability?.status === "unavailable" ? `These dates aren’t free: ${currentAvailability.reason}.`
             : null,
-    guests: guestMode === "existing" && !selectedGuest ? "Choose a guest."
-      : edit && guestMode === "existing" && contact.name.trim().length < 2 ? "Enter the guest’s full name."
-        : edit && guestMode === "existing" && !contact.email.trim() && !contact.phone.trim() ? "Add an email or phone number for the guest."
-      : guestMode === "new" && newGuest.name.trim().length < 2 ? "Enter the guest’s full name."
-        : guestMode === "new" && !newGuest.email.trim() && !newGuest.phone.trim() ? "Add an email or phone number for the guest."
+    guests: !selectedGuest ? "Search for the primary guest, or add a new one."
+      : edit && contact.name.trim().length < 2 ? "Enter the guest’s full name."
+        : edit && !contact.email.trim() && !contact.phone.trim() ? "Add an email or phone number for the guest."
           : additional.some((name) => name.trim().length < 2) ? "Enter each additional guest’s full name."
             : null,
-    charges: !isOwner ? null
+    charges: !canSetCharges ? null
       : submittableLines.length === 0 ? "Add at least one charge with a description, quantity and amount."
         : parsed.some((entry) => entry.line === null) ? "Fix the highlighted charge lines. Amounts look like 5500 or 5,500.50."
           : !edit && payment.amount.trim() && paymentCents === null ? "Enter the payment like 3000 or 3,000.50."
-            : null,
+            : !edit && paymentCents && !receivedNow && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(payment.receivedAt) ? "Enter the date and time the payment was received."
+              : null,
     review: null,
   };
-  const steps: StepId[] = isOwner ? ["stay", "guests", "charges", "review"] : ["stay", "guests", "review"];
+  const steps: StepId[] = canSetCharges ? ["stay", "guests", "charges", "review"] : ["stay", "guests", "review"];
   const firstBlocked = steps.findIndex((step) => stepIssues[step] !== null);
   const requested = steps.indexOf((searchParams.get("step") ?? "stay") as StepId);
   const stepIndex = Math.max(0, Math.min(requested === -1 ? 0 : requested, firstBlocked === -1 ? steps.length - 1 : firstBlocked));
@@ -285,6 +362,11 @@ export function ReservationForm({
   function updateCharge(key: string, patch: Partial<ChargeDraft>) {
     setCustomCharges((current) => (current ?? defaultCharges).map((draft) => draft.key === key ? { ...draft, ...patch } : draft));
   }
+  // Switching type fills in its description, unless the owner wrote their own.
+  function changeChargeType(draft: ChargeDraft, type: ChargeType) {
+    const untouched = !draft.description.trim() || draft.description === autoDescription(draft.type, nights);
+    updateCharge(draft.key, { type, ...(untouched ? { description: autoDescription(type, nights) } : {}) });
+  }
 
   function submitEdit() {
     const data = new FormData();
@@ -292,13 +374,14 @@ export function ReservationForm({
     data.set("checkIn", checkIn);
     data.set("checkOut", checkOut);
     data.set("guestCount", String(guestCount));
+    data.set("platformId", platformId);
+    data.set("platformReference", platformReference.trim());
     for (const name of additional) data.append("occupantName", name.trim());
     // The update action edits the chosen profile's contact, or creates one for "new".
-    const primary = guestMode === "new" ? newGuest : contact;
-    data.set("guestId", guestMode === "new" ? "new" : guestId);
-    data.set("guestName", primary.name.trim());
-    data.set("guestEmail", primary.email.trim());
-    data.set("guestPhone", primary.phone.trim());
+    data.set("guestId", guestId);
+    data.set("guestName", contact.name.trim());
+    data.set("guestEmail", contact.email.trim());
+    data.set("guestPhone", contact.phone.trim());
     for (const { draft } of parsed.filter((entry) => entry.line !== null)) {
       data.append("chargeType", draft.type);
       data.append("chargeDescription", draft.description.trim());
@@ -319,6 +402,10 @@ export function ReservationForm({
       setReviewError("Record the payment received, or mark “No payment received yet” in Charges & payment.");
       return;
     }
+    if (submitMode === "confirmed" && paymentCents && !feeCovered) {
+      setReviewError(`This unit's reservation fee is ${formatPHP(feeCents)}. Record at least that towards the booking, or place a hold until it's paid.`);
+      return;
+    }
     const data = new FormData();
     data.set("mode", submitMode);
     data.set("idempotencyKey", idempotencyKey);
@@ -326,15 +413,12 @@ export function ReservationForm({
     data.set("checkIn", checkIn);
     data.set("checkOut", checkOut);
     data.set("guestCount", String(guestCount));
+    data.set("platformId", platformId);
+    data.set("platformReference", platformReference.trim());
     for (const name of additional) data.append("occupantName", name.trim());
-    data.set("guestMode", guestMode);
-    if (guestMode === "existing") data.set("guestId", guestId);
-    else {
-      data.set("guestName", newGuest.name.trim());
-      data.set("guestEmail", newGuest.email.trim());
-      data.set("guestPhone", newGuest.phone.trim());
-      data.set("guestNotes", newGuest.notes.trim());
-    }
+    // New guests are created by the picker's dialog, so this is always a saved profile.
+    data.set("guestMode", "existing");
+    data.set("guestId", guestId);
     data.set("chargesJson", JSON.stringify(submittableLines));
     data.set("holdMinutes", holdMinutes);
     if (noPayment) data.set("acknowledgeUnpaid", "on");
@@ -343,20 +427,20 @@ export function ReservationForm({
       data.set("paymentAllocation", payment.allocation);
       data.set("paymentMethod", payment.method);
       data.set("paymentReference", payment.reference.trim());
-      data.set("paymentReceivedAt", payment.receivedAt);
+      data.set("paymentReceivedAt", receivedNow ? "" : payment.receivedAt);
     }
     startTransition(() => formAction(data));
   }
 
   if (units.length === 0) {
     return (
-      <div className="rounded-2xl border border-pine/10 bg-white p-6 text-sm text-ink/70">
+      <div className="rounded-2xl border border-pine/10 bg-surface p-6 text-sm text-ink/70">
         No units are accepting bookings yet. Activate a unit first, then come back to place a hold or booking.
       </div>
     );
   }
 
-  const guestLabel = guestMode === "existing" ? (edit ? contact.name.trim() : selectedGuest?.name) || null : newGuest.name.trim() || null;
+  const guestLabel = (edit ? contact.name.trim() : selectedGuest?.name) || null;
 
   return (
     <div className="min-w-0 space-y-6">
@@ -367,7 +451,7 @@ export function ReservationForm({
 
     <div className="grid min-w-0 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] 2xl:grid-cols-[minmax(0,1fr)_26rem]">
       <div className="min-w-0">
-        <section className="rounded-2xl border border-pine/10 bg-white p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)] sm:p-6">
+        <section className="rounded-2xl border border-pine/10 bg-surface p-5 shadow-[0_1px_2px_rgba(32,58,53,0.06)] sm:p-6">
           {step === "stay" ? (
             <div className="space-y-8">
               <StepHeading title="Where and when" description="Pick the unit, the stay dates, and how many people are staying." />
@@ -410,17 +494,17 @@ export function ReservationForm({
               <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,13rem)]">
                 <div className="min-w-0">
                   <Label htmlFor="checkIn">Check-in</Label>
-                  <Input id="checkIn" type="date" value={checkIn} onChange={(event) => { setCheckIn(event.target.value); if (event.target.value && checkOut <= event.target.value) setCheckOut(addDaysLocal(event.target.value, 1)); }} className="h-12 rounded-xl" />
+                  <DateInput id="checkIn" value={checkIn} today={today} size="lg" onChange={(next) => { setCheckIn(next); if (next && checkOut <= next) setCheckOut(addDaysLocal(next, 1)); }} />
                   {selectedUnit ? <p className="mt-1 text-xs text-ink/50">From {timeLabel(selectedUnit.checkInTime)}</p> : null}
                 </div>
                 <div className="min-w-0">
                   <Label htmlFor="checkOut">Check-out</Label>
-                  <Input id="checkOut" type="date" value={checkOut} min={checkIn ? addDaysLocal(checkIn, 1) : undefined} onChange={(event) => setCheckOut(event.target.value)} className="h-12 rounded-xl" />
+                  <DateInput id="checkOut" value={checkOut} today={today} size="lg" min={checkIn ? addDaysLocal(checkIn, 1) : undefined} onChange={setCheckOut} />
                   {selectedUnit ? <p className="mt-1 text-xs text-ink/50">By {timeLabel(selectedUnit.checkOutTime)} · the check-out day is free for the next guest</p> : null}
                 </div>
                 <div className="min-w-0">
                   <Label htmlFor="guest-count">Guests</Label>
-                  <div className="flex h-12 items-center rounded-xl border border-pine/20 bg-white">
+                  <div className="flex h-12 items-center rounded-xl border border-pine/20 bg-surface">
                     <button type="button" aria-label="Fewer guests" onClick={() => setGuestCount(guestCount - 1)} disabled={guestCount <= 1} className="flex h-full w-11 items-center justify-center rounded-l-xl text-pine hover:bg-pine-mist/60 disabled:opacity-35"><Minus className="h-4 w-4" aria-hidden /></button>
                     <span id="guest-count" className="flex flex-1 items-center justify-center gap-1.5 text-sm font-medium text-ink"><Users className="h-4 w-4 text-pine/50" aria-hidden />{guestCount}</span>
                     <button type="button" aria-label="More guests" onClick={() => setGuestCount(guestCount + 1)} disabled={guestCount >= capacity} className="flex h-full w-11 items-center justify-center rounded-r-xl text-pine hover:bg-pine-mist/60 disabled:opacity-35"><Plus className="h-4 w-4" aria-hidden /></button>
@@ -437,42 +521,55 @@ export function ReservationForm({
             <div className="space-y-8">
               <StepHeading title="Who’s staying" description="The primary guest is who the reservation is for. Add names for everyone else staying." />
               <div>
-                <div className="inline-flex rounded-xl bg-linen p-1" role="radiogroup" aria-label="Primary guest">
-                  <SegmentButton active={guestMode === "existing"} disabled={!guests.length} onClick={() => chooseGuest(edit?.guestId ?? guests[0]?.id ?? "new")}><UserRound className="h-4 w-4" aria-hidden />Existing guest</SegmentButton>
-                  <SegmentButton active={guestMode === "new"} onClick={() => setGuestId("new")}><UserPlus className="h-4 w-4" aria-hidden />New guest</SegmentButton>
-                </div>
-                {guestMode === "existing" ? (
-                  <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-                    <div>
-                      <Label htmlFor="guestId">Guest profile</Label>
-                      <Select id="guestId" value={guestId} onChange={(event) => chooseGuest(event.target.value)}>
-                        {guests.map((guest) => <option key={guest.id} value={guest.id}>{guest.name}</option>)}
-                      </Select>
-                    </div>
-                    {edit ? (
-                      <div className="grid gap-4 sm:grid-cols-2 md:col-span-2 xl:grid-cols-3">
-                        <div><Label htmlFor="contactName">Full name</Label><Input id="contactName" value={contact.name} onChange={(event) => setContact({ ...contact, name: event.target.value })} maxLength={120} /></div>
-                        <div><Label htmlFor="contactEmail">Email</Label><Input id="contactEmail" type="email" value={contact.email} onChange={(event) => setContact({ ...contact, email: event.target.value })} maxLength={200} placeholder="guest@example.com" /></div>
-                        <div><Label htmlFor="contactPhone">Phone</Label><Input id="contactPhone" type="tel" value={contact.phone} onChange={(event) => setContact({ ...contact, phone: event.target.value })} maxLength={40} placeholder="+63 9xx xxx xxxx" /></div>
-                        <p className="text-xs text-ink/50 sm:col-span-2 xl:col-span-3">{contactChanged ? `Saving also updates ${selectedGuest?.name ?? "this guest"}’s profile on all of their reservations.` : "Add at least one contact method: email or phone."}</p>
-                      </div>
-                    ) : (
-                      <dl className="grid gap-4 rounded-xl bg-linen px-4 py-3 text-sm sm:grid-cols-2">
-                        <div><dt className="text-xs text-ink/55">Email</dt><dd className="mt-0.5 break-words text-pine">{selectedGuest?.email || "—"}</dd></div>
-                        <div><dt className="text-xs text-ink/55">Phone</dt><dd className="mt-0.5 text-pine">{selectedGuest?.phone || "—"}</dd></div>
-                      </dl>
-                    )}
+                <h3 className="mb-2 text-sm font-medium text-ink">Primary guest</h3>
+                <GuestPicker
+                  guests={guests}
+                  value={guestId}
+                  onChange={(id) => chooseGuest(id)}
+                  onCreated={(guest) => {
+                    const next = [...guests, guest];
+                    setGuests(next);
+                    chooseGuest(guest.id, next);
+                  }}
+                  canCreate={canCreateGuest}
+                />
+                {edit && selectedGuest ? (
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    <div><Label htmlFor="contactName">Full name</Label><Input id="contactName" value={contact.name} onChange={(event) => setContact({ ...contact, name: event.target.value })} maxLength={120} /></div>
+                    <div><Label htmlFor="contactEmail">Email</Label><Input id="contactEmail" type="email" value={contact.email} onChange={(event) => setContact({ ...contact, email: event.target.value })} maxLength={200} placeholder="guest@example.com" /></div>
+                    <div><Label htmlFor="contactPhone">Phone</Label><Input id="contactPhone" type="tel" value={contact.phone} onChange={(event) => setContact({ ...contact, phone: event.target.value })} maxLength={40} placeholder="+63 9xx xxx xxxx" /></div>
+                    <p className="text-xs text-ink/50 sm:col-span-2 xl:col-span-3">{contactChanged ? `Saving also updates ${selectedGuest.name}’s profile on all of their reservations.` : "Correct the contact details here if they changed."}</p>
                   </div>
-                ) : (
-                  <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <div><Label htmlFor="guestName">Full name</Label><Input id="guestName" value={newGuest.name} onChange={(event) => setNewGuest({ ...newGuest, name: event.target.value })} maxLength={120} /></div>
-                    <div><Label htmlFor="guestEmail">Email</Label><Input id="guestEmail" type="email" value={newGuest.email} onChange={(event) => setNewGuest({ ...newGuest, email: event.target.value })} maxLength={200} placeholder="guest@example.com" /></div>
-                    <div><Label htmlFor="guestPhone">Phone</Label><Input id="guestPhone" type="tel" value={newGuest.phone} onChange={(event) => setNewGuest({ ...newGuest, phone: event.target.value })} maxLength={40} placeholder="+63 9xx xxx xxxx" /></div>
-                    {edit ? null : <div><Label htmlFor="guestNotes">Notes</Label><Input id="guestNotes" value={newGuest.notes} onChange={(event) => setNewGuest({ ...newGuest, notes: event.target.value })} maxLength={2000} placeholder="Optional" /></div>}
-                    <p className="text-xs text-ink/50 md:col-span-2">A new guest profile is created when you save. Add at least one contact method: email or phone.</p>
-                  </div>
-                )}
+                ) : null}
               </div>
+
+              {platforms.length ? (
+                <fieldset className="border-t border-pine/10 pt-6">
+                  <legend className="sr-only">Booked through</legend>
+                  <h3 className="font-display text-lg text-pine" aria-hidden>Booked through</h3>
+                  <p className="text-sm text-ink/60">Where this booking came from.</p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {platforms.map((platform) => {
+                      const selected = platform.id === platformId;
+                      return (
+                        <label key={platform.id} className={cn("inline-flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition", selected ? "border-clay bg-clay-mist/40 text-pine ring-2 ring-clay/30" : "border-pine/15 text-pine hover:border-pine/35")}>
+                          <input type="radio" name="platform" value={platform.id} checked={selected} onChange={() => {
+                            setPlatformId(platform.id);
+                            // Own channels have no outside booking code to keep.
+                            if (platform.key && PLATFORMS_WITHOUT_REFERENCE.includes(platform.key)) setPlatformReference("");
+                          }} className="sr-only" />
+                          <PlatformLogo platform={platform} />
+                          {platform.name}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {takesReference ? <div className="mt-4 max-w-sm">
+                    <Label htmlFor="platformReference">{selectedPlatform ? `${selectedPlatform.name} booking code` : "Booking code"} <span className="font-normal text-ink/45">· optional</span></Label>
+                    <Input id="platformReference" value={platformReference} onChange={(event) => setPlatformReference(event.target.value)} maxLength={80} placeholder="e.g. HMABC12345" />
+                  </div> : null}
+                </fieldset>
+              ) : null}
 
               <div className="border-t border-pine/10 pt-6">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -498,7 +595,7 @@ export function ReservationForm({
             </div>
           ) : null}
 
-          {step === "charges" && isOwner ? (
+          {step === "charges" && canSetCharges ? (
             <div className="space-y-8">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <StepHeading title="Charges" description={edit ? "This reservation’s current charges. Edit any line, or reset to the unit’s rates for the new dates." : "Built from the unit’s rates. Edit any line for a negotiated price, fee, or discount."} />
@@ -513,7 +610,7 @@ export function ReservationForm({
                     const subtotal = line && Number.isInteger(quantity) && quantity >= 1 ? line.quantity * line.unitAmountCents : null;
                     return (
                       <li key={draft.key} className={cn("grid grid-cols-2 items-end gap-3 rounded-xl border p-3 sm:grid-cols-[10rem_minmax(0,1fr)_5rem_8rem_6rem_2rem]", line ? "border-pine/10" : "border-clay/40 bg-clay-mist/30")}>
-                        <div><Label>Type</Label><Select value={draft.type} onChange={(event) => updateCharge(draft.key, { type: event.target.value as ChargeType })}>{CHARGE_TYPES.map((type) => <option key={type} value={type}>{CHARGE_TYPE_LABELS[type]}</option>)}</Select></div>
+                        <div><Label htmlFor={`charge-type-${draft.key}`}>Type</Label><SelectMenu id={`charge-type-${draft.key}`} value={draft.type} options={CHARGE_TYPE_OPTIONS} onChange={(type) => changeChargeType(draft, type)} /></div>
                         <div className="col-span-2 sm:col-span-1"><Label>Description</Label><Input value={draft.description} onChange={(event) => updateCharge(draft.key, { description: event.target.value })} placeholder={draft.type === "accommodation" ? "Accommodation (3 nights)" : "Describe the charge"} /></div>
                         <div><Label>Qty</Label><Input value={draft.quantity} inputMode="numeric" onChange={(event) => updateCharge(draft.key, { quantity: event.target.value })} /></div>
                         <div><Label>{draft.type === "discount" ? "Amount (₱, negative)" : "Amount (₱)"}</Label><Input value={draft.amountInput} inputMode="decimal" placeholder="5500" onChange={(event) => updateCharge(draft.key, { amountInput: event.target.value })} /></div>
@@ -541,6 +638,20 @@ export function ReservationForm({
               <div className="border-t border-pine/10 pt-6">
                 <h3 className="font-display text-lg text-pine">Payment received</h3>
                 <p className="text-sm text-ink/60">Optional. Recorded with a confirmed booking so the balance starts accurate.</p>
+                {feeCents ? (
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-clay/30 bg-clay-mist/40 px-4 py-3 text-sm">
+                    <p className="text-ink/75">
+                      <span className="font-medium text-clay-deep">Reservation fee {formatPHP(feeCents)}</span>
+                      {feeRule?.type === "percent" ? <span className="text-ink/55"> ({describeReservationFee(feeRule)})</span> : null}
+                      <span className="block text-xs text-ink/55">Needed to confirm this booking. Place a hold until the guest pays it.</span>
+                    </p>
+                    {!noPayment && !feeCovered ? (
+                      <Button type="button" variant="outline" size="sm" onClick={() => setPayment({ ...payment, amount: String(feeCents / 100), allocation: "booking" })}>
+                        Enter {formatPHP(feeCents)}
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : null}
                 <label className="mt-4 flex items-start gap-2 text-sm text-ink">
                   <input type="checkbox" className="mt-0.5 accent-pine" checked={noPayment} onChange={(event) => { setNoPayment(event.target.checked); if (event.target.checked) setPayment({ ...payment, amount: "" }); }} />
                   <span>No payment received yet</span>
@@ -548,12 +659,64 @@ export function ReservationForm({
                 {noPayment ? (
                   <p className="mt-3 rounded-xl bg-linen px-4 py-3 text-sm text-ink/70">The booking total of <strong>{formatPHP(totals.bookingTotalCents)}</strong> stays due from the guest. Record payments from the reservation once they arrive.</p>
                 ) : (
-                  <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    <div><Label htmlFor="payment-amount">Amount received (₱)</Label><Input id="payment-amount" value={payment.amount} onChange={(event) => setPayment({ ...payment, amount: event.target.value })} inputMode="decimal" placeholder="e.g. 3,000" /></div>
-                    <div><Label htmlFor="payment-allocation">Towards</Label><Select id="payment-allocation" value={payment.allocation} onChange={(event) => setPayment({ ...payment, allocation: event.target.value as "booking" | "security_deposit" })}>{(["booking", "security_deposit"] as const).map((allocation) => <option key={allocation} value={allocation}>{PAYMENT_ALLOCATION_LABELS[allocation]}</option>)}</Select></div>
-                    <div><Label htmlFor="payment-method">Method</Label><Select id="payment-method" value={payment.method} onChange={(event) => setPayment({ ...payment, method: event.target.value as (typeof PAYMENT_METHODS)[number] })}>{PAYMENT_METHODS.map((method) => <option key={method} value={method}>{PAYMENT_METHOD_LABELS[method]}</option>)}</Select></div>
-                    <div><Label htmlFor="payment-reference">Reference (optional)</Label><Input id="payment-reference" value={payment.reference} onChange={(event) => setPayment({ ...payment, reference: event.target.value })} maxLength={120} placeholder="GCash reference or sender" /></div>
-                    <div><Label htmlFor="payment-received-at">Received (optional)</Label><Input id="payment-received-at" type="datetime-local" value={payment.receivedAt} onChange={(event) => setPayment({ ...payment, receivedAt: event.target.value })} /><p className="mt-1 text-xs text-ink/50">Blank records it now, in the property timezone.</p></div>
+                  <div className="mt-5 space-y-5">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div><Label htmlFor="payment-amount">Amount received (₱)</Label><Input id="payment-amount" value={payment.amount} onChange={(event) => setPayment({ ...payment, amount: event.target.value })} inputMode="decimal" placeholder="e.g. 3,000" /></div>
+                      <div><Label htmlFor="payment-reference">Reference (optional)</Label><Input id="payment-reference" value={payment.reference} onChange={(event) => setPayment({ ...payment, reference: event.target.value })} maxLength={120} placeholder="GCash reference or sender" /></div>
+                    </div>
+                    <div>
+                      <p id="payment-allocation" className="mb-1.5 text-sm font-medium text-ink">Towards</p>
+                      <ChoiceCards
+                        aria-labelledby="payment-allocation"
+                        value={payment.allocation}
+                        onChange={(allocation) => setPayment({ ...payment, allocation })}
+                        options={[
+                          { value: "booking", label: PAYMENT_ALLOCATION_LABELS.booking, icon: Receipt, description: `Counts toward the ${formatPHP(totals.bookingTotalCents)} booking total` },
+                          {
+                            value: "security_deposit",
+                            label: PAYMENT_ALLOCATION_LABELS.security_deposit,
+                            icon: ShieldCheck,
+                            description: totals.depositTotalCents ? `Refundable ${formatPHP(totals.depositTotalCents)}, returned after checkout` : "Add a security deposit charge first",
+                            disabled: !totals.depositTotalCents && payment.allocation !== "security_deposit",
+                          },
+                        ]}
+                      />
+                    </div>
+                    <div>
+                      <p id="payment-method" className="mb-1.5 text-sm font-medium text-ink">Method</p>
+                      <ChoiceCards aria-labelledby="payment-method" columns={4} value={payment.method} onChange={(method) => setPayment({ ...payment, method })} options={PAYMENT_METHOD_OPTIONS} />
+                    </div>
+                    <div>
+                      <label className="flex items-start gap-2 text-sm text-ink">
+                        <input
+                          type="checkbox"
+                          className="mt-0.5 accent-pine"
+                          checked={receivedNow}
+                          onChange={(event) => {
+                            setReceivedNow(event.target.checked);
+                            if (!event.target.checked && !payment.receivedAt) setPayment({ ...payment, receivedAt: `${today}T12:00` });
+                          }}
+                        />
+                        <span>Received just now<span className="block text-xs text-ink/50">Uncheck to enter when it arrived, in the property timezone.</span></span>
+                      </label>
+                      {!receivedNow ? (
+                        // Date and time kept together as YYYY-MM-DDTHH:mm.
+                        <div className="mt-3 grid max-w-md grid-cols-[minmax(0,1fr)_7rem] gap-2">
+                          <DateInput
+                            aria-label="Date received"
+                            value={payment.receivedAt.slice(0, 10)}
+                            today={today}
+                            max={today}
+                            onChange={(date) => setPayment({ ...payment, receivedAt: `${date}T${payment.receivedAt.slice(11, 16) || "12:00"}` })}
+                          />
+                          <TimeInput
+                            aria-label="Time received"
+                            value={payment.receivedAt.slice(11, 16)}
+                            onChange={(time) => setPayment({ ...payment, receivedAt: `${payment.receivedAt.slice(0, 10)}T${time}` })}
+                          />
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                 )}
               </div>
@@ -578,13 +741,14 @@ export function ReservationForm({
               </ReviewBlock>
               <ReviewBlock title="Guests" onEdit={() => goTo("guests")}>
                 <dl className="grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
-                  <ReviewItem label={guestMode === "new" ? "Primary guest (new)" : "Primary guest"} value={guestLabel ?? "—"} />
-                  <ReviewItem label="Email" value={(guestMode === "new" ? newGuest.email : edit ? contact.email : selectedGuest?.email) || "—"} />
-                  <ReviewItem label="Phone" value={(guestMode === "new" ? newGuest.phone : edit ? contact.phone : selectedGuest?.phone) || "—"} />
+                  <ReviewItem label="Primary guest" value={guestLabel ?? "—"} />
+                  <ReviewItem label="Email" value={(edit ? contact.email : selectedGuest?.email) || "—"} />
+                  <ReviewItem label="Phone" value={(edit ? contact.phone : selectedGuest?.phone) || "—"} />
                   <ReviewItem label="Also staying" value={additional.length ? additional.map((name) => name.trim()).join(", ") : "No one else"} />
+                  <ReviewItem label="Booked through" value={selectedPlatform ? `${selectedPlatform.name}${platformReference.trim() ? ` · ${platformReference.trim()}` : ""}` : "Not set"} />
                 </dl>
               </ReviewBlock>
-              {isOwner ? (
+              {canSetCharges ? (
                 <ReviewBlock title="Charges & payment" onEdit={() => goTo("charges")}>
                   <table className="w-full text-sm">
                     <tbody className="divide-y divide-pine/10">
@@ -595,6 +759,7 @@ export function ReservationForm({
                     <tfoot className="border-t border-pine/15">
                       <tr><td colSpan={2} className="pt-3 text-ink/60">Booking total</td><td className="pt-3 text-right font-display text-lg text-pine">{formatPHP(totals.bookingTotalCents)}</td></tr>
                       {totals.depositTotalCents ? <tr><td colSpan={2} className="text-ink/60">Refundable deposit</td><td className="text-right text-pine">{formatPHP(totals.depositTotalCents)}</td></tr> : null}
+                      {!edit && feeCents ? <tr><td colSpan={2} className="text-ink/60">Reservation fee</td><td className={cn("text-right", feeCovered ? "text-pine" : "text-clay-deep")}>{formatPHP(feeCents)} · {feeCovered ? "covered" : "unpaid"}</td></tr> : null}
                     </tfoot>
                   </table>
                   <p className="mt-3 rounded-lg bg-linen px-3 py-2 text-sm text-ink/70">
@@ -605,11 +770,11 @@ export function ReservationForm({
 
               {edit ? null : <fieldset>
                 <legend className="mb-3 font-display text-lg text-pine">Save as</legend>
-                <div className={cn("grid gap-3", isOwner && "md:grid-cols-2")}>
-                  {isOwner ? (
+                <div className={cn("grid gap-3", canConfirm && "md:grid-cols-2")}>
+                  {canConfirm ? (
                     <SaveOption active={submitMode === "confirmed"} onSelect={() => setSubmitMode("confirmed")} icon={ShieldCheck} title="Confirmed booking" description="Locks the dates for this guest and records any payment." />
                   ) : null}
-                  <SaveOption active={submitMode === "hold"} onSelect={() => setSubmitMode("hold")} icon={Clock} title="Hold" description={isOwner ? "Reserves the dates for a limited time while the guest pays." : "Reserves the dates for a limited time for the owner to confirm."}>
+                  <SaveOption active={submitMode === "hold"} onSelect={() => setSubmitMode("hold")} icon={Clock} title="Hold" description={canConfirm ? "Reserves the dates for a limited time while the guest pays." : "Reserves the dates for a limited time for someone who can confirm bookings."}>
                     <div className="mt-3 max-w-48" onClick={(event) => event.stopPropagation()}>
                       <Label htmlFor="holdMinutes">Hold for</Label>
                       <Select id="holdMinutes" value={holdMinutes} onChange={(event) => { setHoldMinutes(event.target.value); setSubmitMode("hold"); }}>{HOLD_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select>
@@ -652,7 +817,7 @@ export function ReservationForm({
           paymentCents={edit ? null : paymentCents}
           paymentAllocation={payment.allocation}
           alreadyPaid={edit?.paid}
-          isOwner={isOwner}
+          showPricing={canSetCharges}
         />
       </aside>
     </div>
@@ -675,7 +840,7 @@ function Stepper({ steps, current, firstBlocked, onJump }: { steps: StepId[]; cu
               aria-current={index === current ? "step" : undefined}
               className={cn(
                 "flex min-w-0 flex-1 items-center gap-2.5 rounded-xl border px-2.5 py-2.5 text-left text-sm transition-colors sm:px-3",
-                index === current ? "border-clay bg-white font-medium text-pine shadow-[0_1px_2px_rgba(32,58,53,0.06)]" : done ? "border-pine/10 bg-white text-pine hover:border-pine/30" : "border-transparent text-ink/45",
+                index === current ? "border-clay bg-surface font-medium text-pine shadow-[0_1px_2px_rgba(32,58,53,0.06)]" : done ? "border-pine/10 bg-surface text-pine hover:border-pine/30" : "border-transparent text-ink/45",
               )}
             >
               <span className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium", index === current ? "bg-clay text-white" : done ? "bg-sage/60 text-pine" : "bg-pine/10 text-ink/50")}>
@@ -719,14 +884,6 @@ function AvailabilityBanner({ valid, unitChosen, result, nights, checkIn, checkO
   if (result.status === "available") return <p className={cn("flex items-center gap-2 rounded-xl bg-sage/50 px-4 py-3 text-sm font-medium text-pine-deep", compact && "mt-4")}><CircleCheck className="h-4 w-4 shrink-0" aria-hidden />{changed ? `New dates are free: ${range}` : `Free for ${range}`}</p>;
   if (result.status === "unavailable") return <p className={cn("flex items-center gap-2 rounded-xl bg-clay-mist px-4 py-3 text-sm font-medium text-clay-deep", compact && "mt-4")}><CircleAlert className="h-4 w-4 shrink-0" aria-hidden />Not free: {result.reason}</p>;
   return <p className={cn("flex items-center gap-2 rounded-xl bg-linen px-4 py-3 text-sm text-ink/60", compact && "mt-4")}><CircleAlert className="h-4 w-4 shrink-0" aria-hidden />{result.message} Saving still runs the full check.</p>;
-}
-
-function SegmentButton({ active, disabled, onClick, children }: { active: boolean; disabled?: boolean; onClick: () => void; children: ReactNode }) {
-  return (
-    <button type="button" role="radio" aria-checked={active} disabled={disabled} onClick={onClick} className={cn("inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors disabled:opacity-40", active ? "bg-white text-pine shadow-[0_1px_2px_rgba(32,58,53,0.1)]" : "text-ink/55 hover:text-pine")}>
-      {children}
-    </button>
-  );
 }
 
 function ReviewBlock({ title, onEdit, children }: { title: string; onEdit: () => void; children: ReactNode }) {

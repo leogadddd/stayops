@@ -9,6 +9,7 @@ export interface AuditDisplayEvent {
 
 const ENTITY_LABELS: Record<string, string> = {
   access_token: "Guest link",
+  booking_platform: "Booking platform",
   damage_report: "Damage report",
   deposit_deduction: "Deposit deduction",
   expense: "Expense",
@@ -99,6 +100,10 @@ export function formatAuditDetails(event: AuditDisplayEvent): string | null {
       return reason ? `Reason: ${reason}` : null;
     case "reservation.expired":
       return "Hold expired automatically.";
+    case "platform.archived":
+      return "Hidden from new reservations; past bookings keep it.";
+    case "platform.updated":
+      return strings(metadata, "fields")?.map(words).join(", ") || null;
     case "payment.recorded":
       return join([
         amount === null ? null : formatPHP(amount),
@@ -120,6 +125,23 @@ export function formatAuditDetails(event: AuditDisplayEvent): string | null {
     case "organization.staff_invited":
     case "organization.staff_removed":
       return join([text(metadata, "name"), text(metadata, "email")]) || null;
+    case "organization.permissions_updated": {
+      const role = text(metadata, "role");
+      const count = (key: string) => (Array.isArray(metadata?.[key]) ? (metadata[key] as unknown[]).length : 0);
+      return join([
+        role ? words(role) : null,
+        count("granted") ? `${count("granted")} granted` : null,
+        count("revoked") ? `${count("revoked")} removed` : null,
+      ]) || null;
+    }
+    case "organization.member_role_changed": {
+      const from = text(metadata, "fromRole");
+      const to = text(metadata, "toRole");
+      return join([
+        text(metadata, "name"),
+        from && to ? `${words(from)} → ${words(to)}` : null,
+      ]) || null;
+    }
     case "task.item_completed":
     case "task.item_reopened":
       return text(metadata, "label");

@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { Banknote, CircleCheck, Landmark, Smartphone, Wallet, type LucideIcon } from "lucide-react";
 import { Input, Label } from "@/components/ui/input";
 import { PAYMENT_METHOD_LABELS } from "@/lib/labels";
+import { PAYMENT_METHOD_LOGOS } from "@/components/app/payment-method-logo";
 import { centavosToPesosInput, formatPHP, pesosToCentavos } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
@@ -22,12 +23,14 @@ export function parseAmount(input: string): number | null {
 }
 
 /** A radio styled as a card; the native input stays for keyboard and screen readers. */
-export function ChoiceCard({ name, value, checked, onSelect, icon: Icon, title, disabled, compact, children }: {
+export function ChoiceCard({ name, value, checked, onSelect, icon: Icon, logo, title, disabled, compact, children }: {
   name: string;
   value: string;
   checked: boolean;
   onSelect: () => void;
   icon: LucideIcon;
+  /** A brand logo image, shown instead of `icon`. */
+  logo?: string;
   title: string;
   disabled?: boolean;
   compact?: boolean;
@@ -40,7 +43,7 @@ export function ChoiceCard({ name, value, checked, onSelect, icon: Icon, title, 
       disabled ? "cursor-not-allowed border-pine/10 bg-linen/60 opacity-60" : checked ? "cursor-pointer border-clay bg-clay-mist/40 ring-1 ring-clay" : "cursor-pointer border-pine/15 hover:border-pine/35",
     )}>
       <input type="radio" name={name} value={value} checked={checked} disabled={disabled} onChange={onSelect} className="sr-only" />
-      <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", checked ? "bg-clay text-white" : "bg-sage/60 text-pine")}><Icon className="h-4 w-4" aria-hidden /></span>
+      {logo ? <img src={logo} alt="" aria-hidden className="h-9 w-9 shrink-0 rounded-lg" /> : <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", checked ? "bg-clay text-white" : "bg-sage/60 text-pine")}><Icon className="h-4 w-4" aria-hidden /></span>}
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-medium text-pine">{title}</span>
         {children ? <span className="mt-1 block">{children}</span> : null}
@@ -55,7 +58,7 @@ export function Progress({ label, share }: { label: string; share: number }) {
   return (
     <>
       <span className="block text-xs text-ink/60">{label}</span>
-      <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-pine/10" aria-hidden><span className="block h-full rounded-full bg-pine" style={{ width: `${Math.min(1, Math.max(0, share)) * 100}%` }} /></span>
+      <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-pine/10" aria-hidden><span className="block h-full rounded-full bg-primary" style={{ width: `${Math.min(1, Math.max(0, share)) * 100}%` }} /></span>
     </>
   );
 }
@@ -69,7 +72,7 @@ export function MethodPicker({ legend, value, onChange }: { legend: string; valu
       <legend className="mb-2 text-sm font-medium text-ink">{legend}</legend>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {PAYMENT_METHODS.map((option) => (
-          <ChoiceCard key={option} name="method" value={option} checked={value === option} onSelect={() => onChange(option)} icon={METHOD_ICONS[option]} title={PAYMENT_METHOD_LABELS[option]} compact />
+          <ChoiceCard key={option} name="method" value={option} checked={value === option} onSelect={() => onChange(option)} icon={METHOD_ICONS[option]} logo={PAYMENT_METHOD_LOGOS[option]} title={PAYMENT_METHOD_LABELS[option]} compact />
         ))}
       </div>
     </fieldset>
@@ -98,7 +101,7 @@ export function AmountField({ id, name, label, value, onChange, base, picks = []
   return (
     <div>
       <Label htmlFor={id}>{label}</Label>
-      <div className={cn("flex h-14 items-center rounded-xl border bg-white focus-within:ring-2 focus-within:ring-sage", invalid ? "border-clay" : "border-pine/20 focus-within:border-pine")}>
+      <div className={cn("flex h-14 items-center rounded-xl border bg-surface focus-within:ring-2 focus-within:ring-sage", invalid ? "border-clay" : "border-pine/20 focus-within:border-pine")}>
         <span className="pl-4 pr-1 font-display text-2xl text-pine/45" aria-hidden>₱</span>
         <Input
           id={id}
@@ -119,7 +122,7 @@ export function AmountField({ id, name, label, value, onChange, base, picks = []
           {options.map((option) => {
             const active = cents === option.cents;
             return (
-              <button key={option.label} type="button" onClick={() => onChange(centavosToPesosInput(option.cents))} aria-pressed={active} className={cn("inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors", active ? "border-pine bg-pine text-white" : "border-pine/15 text-pine hover:border-pine/35")}>
+              <button key={option.label} type="button" onClick={() => onChange(centavosToPesosInput(option.cents))} aria-pressed={active} className={cn("inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors", active ? "border-primary bg-primary text-white" : "border-pine/15 text-pine hover:border-pine/35")}>
                 {option.label}<span className={active ? "text-white/70" : "text-ink/50"}>{formatPHP(option.cents)}</span>
               </button>
             );

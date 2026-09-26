@@ -1,15 +1,17 @@
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { AppHeader, AppSidebar } from "@/components/app/sidebar";
 import { Logo, LogoMark } from "@/components/logo";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import AppLayout from "@/app/(app)/layout";
-import { requireMembership, requireUser } from "@/lib/auth/session";
+import { isL1, listMemberships, requireMembership, requireUser } from "@/lib/auth/session";
+import { getOrganizationLogoUrl } from "@/server/orgs/service";
 
-vi.mock("next/navigation", () => ({ usePathname: vi.fn() }));
-vi.mock("@/lib/auth/session", () => ({ requireUser: vi.fn(), requireMembership: vi.fn() }));
+vi.mock("next/navigation", () => ({ usePathname: vi.fn(), useRouter: vi.fn() }));
+vi.mock("@/lib/auth/session", async () => (await import("./helpers/session-mock")).mockSessionModule({ requireUser: vi.fn(), listMemberships: vi.fn(), isL1: vi.fn() }));
+vi.mock("@/server/orgs/service", () => ({ getOrganizationLogoUrl: vi.fn() }));
 
 const identity = { organizationName: "Example stays", userName: "Test Owner", userEmail: "owner@example.com", role: "owner" as const };
 const h = React.createElement;
@@ -18,6 +20,7 @@ afterAll(() => vi.unstubAllGlobals());
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(usePathname).mockReturnValue("/calendar");
+  vi.mocked(useRouter).mockReturnValue({ push: vi.fn(), refresh: vi.fn() } as never);
 });
 
 describe("branded app shell", () => {
@@ -31,19 +34,26 @@ describe("branded app shell", () => {
 
   it("keeps audit logs under settings rather than sidebar navigation", () => {
     const markup = renderToStaticMarkup(h(AppSidebar, identity));
-    for (const href of ["/dashboard", "/calendar", "/reservations", "/properties", "/guests", "/tasks", "/reports", "/expenses", "/settings"]) {
+    for (const href of ["/dashboard", "/calendar", "/reservations", "/properties", "/guests", "/tasks", "/reports", "/expenses", "/settings/general"]) {
       expect(markup).toContain(`href="${href}"`);
     }
     expect(markup).not.toContain('href="/audit-logs"');
     expect(markup).toContain('aria-current="page"');
     expect(markup).not.toContain("Sign out");
+    expect(markup).toContain("Version 0.9.0");
   });
 
-  it("does not offer staff owner-only destinations", () => {
+  it("shows Settings to staff while keeping protected destinations hidden", () => {
     const markup = renderToStaticMarkup(h(AppSidebar, { ...identity, role: "staff" }));
-    for (const href of ["/reports", "/expenses", "/settings", "/audit-logs"]) expect(markup).not.toContain(`href="${href}`);
+    for (const href of ["/reports", "/expenses", "/audit-logs"]) expect(markup).not.toContain(`href="${href}`);
+    expect(markup).toContain('href="/settings/general"');
     expect(markup).toContain('href="/tasks"');
     expect(markup).toContain('href="/reservations"');
+  });
+
+  it("shows Settings to operations managers", () => {
+    const markup = renderToStaticMarkup(h(AppSidebar, { ...identity, role: "operations_manager" }));
+    expect(markup).toContain('href="/settings/general"');
   });
 
   it("selects only properties while editing a nested unit", () => {
@@ -61,6 +71,8 @@ describe("branded app shell", () => {
     expect(markup).toContain('aria-label="Current date and time"');
     expect(markup).toContain('aria-label="Open account menu"');
     expect(markup).toContain('aria-label="Open navigation"');
+    expect(markup).toContain('aria-label="Active organization"');
+    expect(markup).toContain("Example stays");
     expect(markup).toContain('<dialog aria-label="Navigation"');
     expect(markup).toContain('aria-label="Close navigation"');
   });
@@ -68,6 +80,9 @@ describe("branded app shell", () => {
   it("keeps the shared header and sidebar outside the content scroll region", async () => {
     vi.mocked(requireUser).mockResolvedValue({ id: "user-a", name: identity.userName, email: identity.userEmail } as Awaited<ReturnType<typeof requireUser>>);
     vi.mocked(requireMembership).mockResolvedValue({ userId: "user-a", organizationId: "org-a", organizationName: identity.organizationName, organizationSlug: "example", role: "owner" });
+    vi.mocked(listMemberships).mockResolvedValue([{ organizationId: "org-a", organizationName: identity.organizationName, organizationSlug: "example", role: "owner" }]);
+    vi.mocked(isL1).mockResolvedValue(false);
+    vi.mocked(getOrganizationLogoUrl).mockResolvedValue(null);
     const markup = renderToStaticMarkup(await AppLayout({ children: h("p", null, "Page content") }));
     expect(requireMembership).toHaveBeenCalledOnce();
     expect(markup).toContain("h-dvh overflow-hidden");

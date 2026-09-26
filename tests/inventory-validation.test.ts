@@ -11,11 +11,17 @@ import {
 } from "@/server/inventory/validation";
 
 describe("imageUploadFromDataUrl", () => {
-  it("converts a validated logo data URL to bytes for object storage", () => {
-    expect(imageUploadFromDataUrl("data:image/png;base64,AQID")).toEqual({
-      contentType: "image/png",
-      body: Buffer.from([1, 2, 3]),
+  const onePixelPng = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADElEQVQImWNgYGAAAAAEAAGjChXjAAAAAElFTkSuQmCC";
+
+  it("decodes and normalizes an uploaded image before storage", async () => {
+    await expect(imageUploadFromDataUrl(`data:image/png;base64,${onePixelPng}`)).resolves.toMatchObject({
+      contentType: "image/webp",
+      body: expect.any(Uint8Array),
     });
+  });
+
+  it("rejects bytes that are not a valid image", async () => {
+    await expect(imageUploadFromDataUrl("data:image/png;base64,AQID")).rejects.toThrow("valid JPG, PNG, or WebP");
   });
 });
 

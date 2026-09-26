@@ -107,7 +107,7 @@ export function AmenityPicker({ scope, options, defaultSelected = [] }: {
             placeholder="Search or add an amenity"
             autoComplete="off"
             maxLength={60}
-            className="h-10 w-full rounded-lg border border-pine/20 bg-white pl-9 pr-3 text-sm outline-none placeholder:text-ink/40 focus:border-pine/40 focus:ring-2 focus:ring-sage"
+            className="h-10 w-full rounded-lg border border-pine/20 bg-surface pl-9 pr-3 text-sm outline-none placeholder:text-ink/40 focus:border-pine/40 focus:ring-2 focus:ring-sage"
           />
         </label>
         <span className="text-xs text-ink/55" aria-live="polite">{selected.size} selected</span>
@@ -124,7 +124,7 @@ export function AmenityPicker({ scope, options, defaultSelected = [] }: {
                   type="button"
                   aria-pressed={on}
                   onClick={() => toggle(item.id)}
-                  className={`relative flex h-full w-full items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors ${on ? "border-pine bg-sage/45 text-pine" : "border-pine/15 bg-white text-ink/80 hover:border-pine/35 hover:bg-pine-mist/40"}`}
+                  className={`relative flex h-full w-full items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors ${on ? "border-pine bg-sage/45 text-pine" : "border-pine/15 bg-surface text-ink/80 hover:border-pine/35 hover:bg-pine-mist/40"}`}
                 >
                   <Icon aria-hidden className={`h-4 w-4 shrink-0 ${on ? "text-pine" : "text-ink/45"}`} />
                   <span className="min-w-0 flex-1 break-words leading-tight">{item.name}</span>

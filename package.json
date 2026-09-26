@@ -1,6 +1,6 @@
 {
   "name": "stayops",
-  "version": "0.1.0",
+  "version": "0.9.0",
   "private": true,
   "description": "StayOps — a calmer way to run your stays. Direct-booking operations for small Philippine short-stay operators.",
   "scripts": {
@@ -17,15 +17,22 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --tsconfig tsconfig.scripts.json scripts/migrate.ts",
     "db:push": "drizzle-kit push",
-    "db:seed": "tsx --tsconfig tsconfig.scripts.json scripts/seed.ts",
-    "db:seed-amenities": "tsx --tsconfig tsconfig.scripts.json scripts/seed-amenities.ts",
-    "db:seed-calendar-demo": "tsx --tsconfig tsconfig.scripts.json scripts/seed-calendar-demo.ts",
-    "db:reset-demo": "tsx --tsconfig tsconfig.scripts.json scripts/reset-demo.ts",
+    "seed:demo": "tsx --tsconfig tsconfig.scripts.json scripts/seed.ts",
+    "seed:demo:reset": "tsx --tsconfig tsconfig.scripts.json scripts/reset-demo.ts",
+    "seed:development": "tsx --tsconfig tsconfig.scripts.json scripts/seed-development.ts",
+    "seed:casa-alon": "tsx --tsconfig tsconfig.scripts.json scripts/seed-casa-alon.ts",
+    "seed:amenities": "tsx --tsconfig tsconfig.scripts.json scripts/seed-amenities.ts",
+    "seed:platforms": "tsx --tsconfig tsconfig.scripts.json scripts/seed-platforms.ts",
+    "seed:reservation-platforms": "tsx --tsconfig tsconfig.scripts.json scripts/seed-reservation-platforms.ts",
+    "storage:migrate-photos": "tsx --tsconfig tsconfig.scripts.json scripts/migrate-photos-to-storage.ts",
+    "seed:calendar-demo": "tsx --tsconfig tsconfig.scripts.json scripts/seed-calendar-demo.ts",
+    "seed:reservations": "tsx --tsconfig tsconfig.scripts.json scripts/seed-sample-reservations.ts",
+    "l1": "tsx --tsconfig tsconfig.scripts.json scripts/l1.ts",
     "db:reset": "tsx --tsconfig tsconfig.scripts.json scripts/reset-db.ts",
-    "db:setup": "docker compose up -d && tsx --tsconfig tsconfig.scripts.json scripts/migrate.ts && tsx --tsconfig tsconfig.scripts.json scripts/seed.ts && tsx --tsconfig tsconfig.scripts.json scripts/seed-amenities.ts"
+    "db:setup": "npm run db:up && npm run db:migrate && npm run seed:demo"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.958.0",
+    "@aws-sdk/client-s3": "^3.1141.0",
     "better-auth": "1.7.5",
     "clsx": "^2.1.1",
     "dotenv": "18.0.3",
@@ -38,6 +45,7 @@
     "react-is": "^19.3.0",
     "recharts": "^3.10.1",
     "server-only": "^0.0.1",
+    "sharp": "^0.35.4",
     "sonner": "^2.0.8",
     "tailwind-merge": "^3.7.0",
     "zod": "4.6.5"

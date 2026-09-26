@@ -1,7 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useActionState, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FieldError, Input } from "@/components/ui/input";
@@ -10,6 +9,7 @@ import {
   type InventoryFormState,
 } from "../../actions";
 import { useActionFeedback } from "@/hooks/use-action-feedback";
+import { useSaveAndReturn } from "@/hooks/use-save-and-return";
 
 interface TemplateRow {
   label: string;
@@ -25,19 +25,14 @@ export function ChecklistTemplateEditor({
   unitId: string;
   items: TemplateRow[];
 }) {
-  const [state, formAction, pending] = useActionState<InventoryFormState, FormData>(
+  const save = useSaveAndReturn(
     updateChecklistTemplateAction.bind(null, propertyId, unitId),
-    {},
+    `/properties/${propertyId}/units/${unitId}`,
+    "Turnover checklist updated.",
   );
-  useActionFeedback(state, { success: "Turnover checklist updated." });
+  const [state, formAction, pending] = useActionState<InventoryFormState, FormData>(save, {});
+  useActionFeedback(state);
   const [rows, setRows] = useState<TemplateRow[]>(items);
-  const router = useRouter();
-  useEffect(() => {
-    if (state.success) {
-      router.push(`/properties/${propertyId}/units/${unitId}`);
-      router.refresh();
-    }
-  }, [state.success, propertyId, unitId, router]);
 
   const updateRow = (index: number, patch: Partial<TemplateRow>) => {
     setRows((current) =>
@@ -96,11 +91,9 @@ export function ChecklistTemplateEditor({
         Add item
       </Button>
       <FieldError message={state.error} />
-      <div>
-        <Button type="submit" variant="primary" disabled={pending}>
-          {pending ? "Saving…" : "Save checklist"}
-        </Button>
-      </div>
+      <Button type="submit" variant="clay" size="lg" className="mt-2 w-full" disabled={pending}>
+        {pending ? "Saving…" : "Save checklist"}
+      </Button>
     </form>
   );
 }

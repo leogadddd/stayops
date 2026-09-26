@@ -49,7 +49,7 @@ interface ScheduleItem {
 const KIND_ORDER: Record<Kind, number> = { checkout: 0, clean: 1, checkin: 2 };
 const KIND_STYLE: Record<Kind, { label: string; icon: typeof ArrowUpRight; dot: string; text: string }> = {
   checkout: { label: "Check-out", icon: ArrowUpRight, dot: "bg-clay-mist text-clay-deep ring-clay/25", text: "text-clay-deep" },
-  clean: { label: "Turnover", icon: BrushCleaning, dot: "bg-[#f4ebdc] text-[#7a5a36] ring-[#c7a574]/40", text: "text-[#7a5a36]" },
+  clean: { label: "Turnover", icon: BrushCleaning, dot: "bg-stay-turnover text-stay-turnover-ink ring-stay-turnover-line/40", text: "text-stay-turnover-ink" },
   checkin: { label: "Check-in", icon: ArrowDownRight, dot: "bg-sage text-pine ring-pine/20", text: "text-pine" },
 };
 
@@ -181,8 +181,8 @@ export function TodayPanel({ today, timezone, multipleTimezones, scopeLabel, arr
           <ul className="mt-2 space-y-1">
             {activeHolds.map((reservation) => (
               <li key={reservation.id}>
-                <Link href={`/reservations/${reservation.id}`} className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-[#f4ebdc]">
-                  <span aria-hidden className="h-2 w-2 shrink-0 rounded-full border border-dashed border-[#c7a574] bg-[#f4ebdc]" />
+                <Link href={`/reservations/${reservation.id}`} className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-stay-turnover">
+                  <span aria-hidden className="h-2 w-2 shrink-0 rounded-full border border-dashed border-stay-turnover-line bg-stay-turnover" />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm">{reservation.guestName}</span>
                     <span className="block truncate text-[11px] text-ink/55">{reservation.unitLabel}{reservation.expiryLabel ? ` · expires ${reservation.expiryLabel}` : ""}</span>
