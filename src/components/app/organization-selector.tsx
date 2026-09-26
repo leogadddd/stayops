@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { roleLabel, type RoleKey } from "@/lib/permissions";
 import { selectActiveOrganization } from "@/app/(app)/organization-actions";
 import { SearchableSelect } from "@/components/ui/timezone-picker";
+import { L1OrganizationPicker } from "./l1-organization-picker";
 
 export type OrganizationOption = {
   id: string;
@@ -60,8 +61,11 @@ export function OrganizationSelector({
   tone = "light",
   className,
   onSwitched,
+  l1 = false,
 }: {
   organizations: OrganizationOption[];
+  /** An L1 operator: search every organization instead of listing memberships. */
+  l1?: boolean;
   activeOrganizationId: string;
   imageSrc: string | null;
   /** `dark` for the pine mobile navigation drawer. */
@@ -116,6 +120,20 @@ export function OrganizationSelector({
   };
 
   const single = organizations.length <= 1;
+
+  if (l1) {
+    return (
+      <L1OrganizationPicker
+        organizations={organizations}
+        activeOrganizationId={activeOrganizationId}
+        imageSrc={imageSrc}
+        switching={switching}
+        tone={tone}
+        className={className}
+        onSelect={selectOrganization}
+      />
+    );
+  }
 
   if (!dark) {
     return (

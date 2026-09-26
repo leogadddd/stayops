@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { memberships, organizationRolePermissions, organizations, roles, systemAdmins } from "@/lib/db/schema";
-import { and, asc, desc, eq, notInArray } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { can, resolvePermissions, type Permission, type RoleKey } from "@/lib/permissions";
 
 export const ACTIVE_ORGANIZATION_COOKIE = "stayops_active_organization_id";
@@ -69,14 +69,20 @@ export const requireMembership = cache(async (): Promise<MembershipContext> => {
     redirect("/login");
   }
 
-  const [rows, cookieStore] = await Promise.all([
-    listAccessibleOrganizations(session.user.id),
+  const [rows, cookieStore, l1] = await Promise.all([
+    listMemberships(session.user.id),
     cookies(),
+    isL1(session.user.id),
   ]);
   // The cookie is only a preference; always resolve it against this user's
   // current access before using it as a tenant boundary.
   const preferredOrganizationId = cookieStore.get(ACTIVE_ORGANIZATION_COOKIE)?.value;
-  const membership = rows.find((row) => row.organizationId === preferredOrganizationId) ?? rows[0];
+  const own = rows.find((row) => row.organizationId === preferredOrganizationId);
+  const membership = own
+    ? { ...own, viaL1: false }
+    : l1
+      ? (await getL1Organization(preferredOrganizationId)) ?? (rows[0] ? { ...rows[0], viaL1: false } : await getL1Organization())
+      : rows[0] && { ...rows[0], viaL1: false };
   if (!membership) {
     redirect("/onboarding");
   }
@@ -150,20 +156,33 @@ export const isL1 = cache(async (userId: string): Promise<boolean> => {
   return Boolean(row);
 });
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
- * Every organization the user can open: their memberships, then, for an L1
- * operator, every other organization with owner access (`viaL1`). Onboarding
- * keeps using `listMemberships`, so an L1 can still start their own.
+ * An organization as an L1 operator opens it: with owner access and no
+ * membership. Without an id, the first organization by name, for an L1
+ * who belongs to none and hasn't picked one yet.
  */
-export const listAccessibleOrganizations = cache(async (userId: string) => {
-  const [rows, l1] = await Promise.all([listMemberships(userId), isL1(userId)]);
-  const own = rows.map((row) => ({ ...row, viaL1: false }));
-  if (!l1) return own;
-  const memberOf = rows.map((row) => row.organizationId);
-  const others = await db
+async function getL1Organization(organizationId?: string) {
+  if (organizationId !== undefined && !UUID.test(organizationId)) return null;
+  const [row] = await db
     .select({ organizationId: organizations.id, organizationName: organizations.name, organizationSlug: organizations.slug })
     .from(organizations)
-    .where(memberOf.length ? notInArray(organizations.id, memberOf) : undefined)
-    .orderBy(asc(organizations.name));
-  return [...own, ...others.map((row) => ({ ...row, role: "owner" as RoleKey, viaL1: true }))];
-});
+    .where(organizationId ? eq(organizations.id, organizationId) : undefined)
+    .orderBy(asc(organizations.name))
+    .limit(1);
+  return row ? { ...row, role: "owner" as RoleKey, viaL1: true } : null;
+}
+
+/** Whether the user may switch to this organization: a member, or L1. */
+export async function canOpenOrganization(userId: string, organizationId: string): Promise<boolean> {
+  const rows = await listMemberships(userId);
+  if (rows.some((row) => row.organizationId === organizationId)) return true;
+  return (await isL1(userId)) && (await getL1Organization(organizationId)) !== null;
+}
+
+/** Whether the user has somewhere to work: a membership, or L1 access. */
+export async function hasOrganizationAccess(userId: string): Promise<boolean> {
+  if ((await listMemberships(userId)).length) return true;
+  return (await isL1(userId)) && (await getL1Organization()) !== null;
+}

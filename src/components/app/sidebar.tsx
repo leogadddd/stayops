@@ -103,6 +103,8 @@ type SidebarProps = {
   role: RoleKey;
   /** An L1 operator in an organization they aren't a member of. */
   viaL1?: boolean;
+  /** The user is an L1 operator: the organization picker searches every organization. */
+  l1?: boolean;
   /** Only decides which links to show; every page checks access itself. Defaults to the role's. */
   permissions?: readonly Permission[];
   organizationId?: string;
@@ -298,6 +300,7 @@ export function AppHeader({
           activeOrganizationId={activeOrganizationId}
           imageSrc={props.organizationImage ?? null}
           className="hidden lg:block"
+          l1={props.l1}
         />
       </div>
       <div className="flex shrink-0 items-center gap-5">
@@ -332,6 +335,7 @@ export function AppHeader({
             activeOrganizationId={activeOrganizationId}
             imageSrc={props.organizationImage ?? null}
             tone="dark"
+            l1={props.l1}
             className="mx-3.5 mb-2 border-b border-paper/10 pb-3"
             onSwitched={() => mobileNav.current?.close()}
           />

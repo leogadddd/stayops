@@ -3,14 +3,15 @@
 import { cookies } from "next/headers";
 import {
   ACTIVE_ORGANIZATION_COOKIE,
-  listAccessibleOrganizations,
+  canOpenOrganization,
+  isL1,
   requireUser,
 } from "@/lib/auth/session";
+import { searchOrganizations, type OrganizationSearchResult } from "@/server/orgs/service";
 
 export async function selectActiveOrganization(organizationId: string) {
   const user = await requireUser();
-  const memberships = await listAccessibleOrganizations(user.id);
-  if (!memberships.some((membership) => membership.organizationId === organizationId)) {
+  if (!(await canOpenOrganization(user.id, organizationId))) {
     return { error: "You do not have access to that organization." };
   }
   const cookieStore = await cookies();
@@ -22,4 +23,11 @@ export async function selectActiveOrganization(organizationId: string) {
     maxAge: 60 * 60 * 24 * 365,
   });
   return { success: true };
+}
+
+/** L1 only: organizations across the whole app whose name matches `query`. */
+export async function searchOrganizationsAction(query: string): Promise<OrganizationSearchResult[]> {
+  const user = await requireUser();
+  if (!(await isL1(user.id))) return [];
+  return searchOrganizations(query);
 }

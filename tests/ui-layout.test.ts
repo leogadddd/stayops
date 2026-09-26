@@ -6,11 +6,11 @@ import { AppHeader, AppSidebar } from "@/components/app/sidebar";
 import { Logo, LogoMark } from "@/components/logo";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import AppLayout from "@/app/(app)/layout";
-import { listAccessibleOrganizations, requireMembership, requireUser } from "@/lib/auth/session";
+import { isL1, listMemberships, requireMembership, requireUser } from "@/lib/auth/session";
 import { getOrganizationLogoUrl } from "@/server/orgs/service";
 
 vi.mock("next/navigation", () => ({ usePathname: vi.fn(), useRouter: vi.fn() }));
-vi.mock("@/lib/auth/session", async () => (await import("./helpers/session-mock")).mockSessionModule({ requireUser: vi.fn(), listAccessibleOrganizations: vi.fn() }));
+vi.mock("@/lib/auth/session", async () => (await import("./helpers/session-mock")).mockSessionModule({ requireUser: vi.fn(), listMemberships: vi.fn(), isL1: vi.fn() }));
 vi.mock("@/server/orgs/service", () => ({ getOrganizationLogoUrl: vi.fn() }));
 
 const identity = { organizationName: "Example stays", userName: "Test Owner", userEmail: "owner@example.com", role: "owner" as const };
@@ -80,7 +80,8 @@ describe("branded app shell", () => {
   it("keeps the shared header and sidebar outside the content scroll region", async () => {
     vi.mocked(requireUser).mockResolvedValue({ id: "user-a", name: identity.userName, email: identity.userEmail } as Awaited<ReturnType<typeof requireUser>>);
     vi.mocked(requireMembership).mockResolvedValue({ userId: "user-a", organizationId: "org-a", organizationName: identity.organizationName, organizationSlug: "example", role: "owner" });
-    vi.mocked(listAccessibleOrganizations).mockResolvedValue([{ organizationId: "org-a", organizationName: identity.organizationName, organizationSlug: "example", role: "owner", viaL1: false }]);
+    vi.mocked(listMemberships).mockResolvedValue([{ organizationId: "org-a", organizationName: identity.organizationName, organizationSlug: "example", role: "owner" }]);
+    vi.mocked(isL1).mockResolvedValue(false);
     vi.mocked(getOrganizationLogoUrl).mockResolvedValue(null);
     const markup = renderToStaticMarkup(await AppLayout({ children: h("p", null, "Page content") }));
     expect(requireMembership).toHaveBeenCalledOnce();

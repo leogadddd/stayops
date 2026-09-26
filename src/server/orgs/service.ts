@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, isNull, ne, or } from "drizzle-orm";
+import { and, asc, eq, ilike, isNull, ne, or } from "drizzle-orm";
 import { createHash, randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
 import { auditEvents, memberships, organizationInvitations, organizationJoinCodes, organizationJoinRequests, organizations, roles, user } from "@/lib/db/schema";
@@ -108,6 +108,27 @@ export interface OrganizationProfileInput {
   country: string;
   legalName: string;
   taxId: string;
+}
+
+export interface OrganizationSearchResult {
+  id: string;
+  name: string;
+}
+
+/**
+ * Organizations whose name contains `query`, for the L1 organization
+ * picker. Callers check L1 access; an empty query finds nothing.
+ */
+export async function searchOrganizations(query: string, limit = 20): Promise<OrganizationSearchResult[]> {
+  const search = query.trim().slice(0, 80);
+  if (!search) return [];
+  const pattern = `%${search.replace(/[\\%_]/g, (match) => `\\${match}`)}%`;
+  return db
+    .select({ id: organizations.id, name: organizations.name })
+    .from(organizations)
+    .where(ilike(organizations.name, pattern))
+    .orderBy(asc(organizations.name))
+    .limit(limit);
 }
 
 /** The stored object key (or legacy data URL) currently used for the logo. */

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
 import { systemAdmins } from "@/lib/db/schema";
-import { listAccessibleOrganizations, listMemberships } from "@/lib/auth/session";
+import { canOpenOrganization, hasOrganizationAccess, listMemberships } from "@/lib/auth/session";
+import { searchOrganizations } from "@/server/orgs/service";
 import { createHold } from "@/server/reservations/service";
 import {
   createPlatform,
@@ -74,21 +75,28 @@ describe("platform settings", () => {
 });
 
 describe("L1 operators", () => {
-  it("can open every organization as its owner without being a member", async () => {
+  it("can open and search every organization without being a member", async () => {
     const first = await createTestOrg("l1-first");
     const second = await createTestOrg("l1-second");
     const operator = await createTestUser("l1-operator");
-    expect(await listAccessibleOrganizations(operator.id)).toEqual([]);
+    expect(await hasOrganizationAccess(operator.id)).toBe(false);
+    expect(await canOpenOrganization(operator.id, first.org.id)).toBe(false);
 
     await db.insert(systemAdmins).values({ userId: operator.id });
-    const access = await listAccessibleOrganizations(operator.id);
-    expect(access).toEqual(expect.arrayContaining([
-      expect.objectContaining({ organizationId: first.org.id, role: "owner", viaL1: true }),
-      expect.objectContaining({ organizationId: second.org.id, role: "owner", viaL1: true }),
-    ]));
+    expect(await hasOrganizationAccess(operator.id)).toBe(true);
+    expect(await canOpenOrganization(operator.id, first.org.id)).toBe(true);
+    expect(await canOpenOrganization(operator.id, second.org.id)).toBe(true);
+    expect(await canOpenOrganization(operator.id, "not-a-uuid")).toBe(false);
     // Not a member: onboarding and team lists still see no membership.
     expect(await listMemberships(operator.id)).toEqual([]);
-    // Regular owners only see their own organization.
-    expect((await listAccessibleOrganizations(first.owner.id)).map((row) => row.organizationId)).toEqual([first.org.id]);
+    // Regular owners can't open someone else's organization.
+    expect(await canOpenOrganization(first.owner.id, second.org.id)).toBe(false);
+  });
+
+  it("searches organizations by name, and finds nothing for an empty query", async () => {
+    const { org } = await createTestOrg("l1-search-100%_match");
+    expect(await searchOrganizations("")).toEqual([]);
+    expect(await searchOrganizations("l1-search-100%_")).toEqual([expect.objectContaining({ id: org.id })]);
+    expect(await searchOrganizations("l1-search-100%x")).toEqual([]);
   });
 });

@@ -1,5 +1,6 @@
 import {
-  listAccessibleOrganizations,
+  isL1,
+  listMemberships,
   requireMembership,
   requireUser,
 } from "@/lib/auth/session";
@@ -14,11 +15,18 @@ export default async function AppLayout({
 }) {
   // These share the request-scoped auth cache, and running them together keeps
   // the layout from adding a sequential wait before the page can render.
-  const [user, membership, organizations] = await Promise.all([
+  const [user, membership, memberOf, l1] = await Promise.all([
     requireUser(),
     requireMembership(),
-    requireUser().then((user) => listAccessibleOrganizations(user.id)),
+    requireUser().then((user) => listMemberships(user.id)),
+    requireUser().then((user) => isL1(user.id)),
   ]);
+  // An L1 operator's picker searches the rest; only their own organizations
+  // and the one they're in are sent down.
+  const organizations = [
+    ...memberOf.map((row) => ({ ...row, viaL1: false })),
+    ...(membership.viaL1 ? [{ ...membership, viaL1: true }] : []),
+  ];
   const organizationLogoUrls = await Promise.all(
     organizations.map((organization) =>
       getOrganizationLogoUrl(organization.organizationId),
@@ -55,6 +63,7 @@ export default async function AppLayout({
       : (user.image ?? null),
     role: membership.role,
     viaL1: membership.viaL1 ?? false,
+    l1,
     permissions: membership.permissions ?? resolvePermissions(membership.role),
   };
   return (
