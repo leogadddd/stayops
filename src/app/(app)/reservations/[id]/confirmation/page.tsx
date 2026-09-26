@@ -1,3 +1,4 @@
+import { unitOrPropertyPhotoSrc } from "@/lib/photos";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -68,7 +69,7 @@ export default async function ReservationConfirmationPage({ params }: { params: 
         <div className="min-w-0 space-y-6">
           <section className="overflow-hidden rounded-2xl border border-pine/10 bg-white shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
             <div className="grid md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-              <UnitPhoto src={unit.imageUrl ?? property?.imageUrl ?? null} className="aspect-[16/10] md:aspect-auto md:min-h-64" />
+              <UnitPhoto src={unitOrPropertyPhotoSrc(unit, property)} className="aspect-[16/10] md:aspect-auto md:min-h-64" />
               <div className="min-w-0 p-5 sm:p-6">
                 {property ? <p className="truncate text-xs font-medium uppercase tracking-wide text-clay-deep">{property.name}</p> : null}
                 <h2 className="mt-0.5 font-display text-2xl text-pine">{unit.name}</h2>

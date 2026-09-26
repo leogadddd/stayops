@@ -50,6 +50,10 @@ vi.mock("@/server/audit/service", () => ({ getAuditLogPage: vi.fn(), listAuditEv
 vi.mock("@/server/inventory/amenities", () => ({
   listAmenities: vi.fn(async () => []), listPropertyAmenities: vi.fn(async () => []), listUnitAmenities: vi.fn(async () => []),
 }));
+vi.mock("@/server/inventory/availability", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/server/inventory/availability")>(),
+  getOccupancySegments: vi.fn(async () => new Map()),
+}));
 vi.mock("@/server/inventory/service", () => ({
   listProperties: vi.fn(),
   listPropertyUnits: vi.fn(),

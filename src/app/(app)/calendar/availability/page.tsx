@@ -1,3 +1,4 @@
+import { unitOrPropertyPhotoSrc } from "@/lib/photos";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Bath, BedDouble, CalendarSearch, ChevronRight, Users } from "lucide-react";
@@ -50,7 +51,7 @@ export default async function AvailabilityPage({ searchParams }: { searchParams:
         id: unit.id,
         name: unit.name,
         propertyName: property?.name ?? null,
-        imageUrl: unit.imageUrl ?? property?.imageUrl ?? null,
+        imageUrl: unitOrPropertyPhotoSrc(unit, property),
         capacity: unit.capacity,
         bedrooms: unit.bedrooms,
         bathrooms: unit.bathrooms,

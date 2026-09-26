@@ -1,3 +1,4 @@
+import { unitOrPropertyPhotoSrc } from "@/lib/photos";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { CalendarCheck, Plus } from "lucide-react";
@@ -358,7 +359,7 @@ export default async function CalendarPage({
               id: unit.id,
               name: unit.name,
               propertyName: property?.name ?? null,
-              imageUrl: unit.imageUrl ?? property?.imageUrl ?? null,
+              imageUrl: unitOrPropertyPhotoSrc(unit, property),
               bedrooms: unit.bedrooms,
               statusLabel: unit.status === "active" ? null : UNIT_STATUS_LABELS[unit.status],
             };

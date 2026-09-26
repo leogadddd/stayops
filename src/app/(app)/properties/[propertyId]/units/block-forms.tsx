@@ -1,26 +1,21 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { FieldError, Input, Label } from "@/components/ui/input";
 import { addUnitBlockAction, removeUnitBlockAction, type BlockFormState } from "./block-actions";
 import { useActionFeedback } from "@/hooks/use-action-feedback";
+import { useSaveAndReturn } from "@/hooks/use-save-and-return";
 
 export function BlockForms({ propertyId, unitId }: { propertyId: string; unitId: string }) {
-  const [state, formAction, pending] = useActionState<BlockFormState, FormData>(
+  const save = useSaveAndReturn(
     addUnitBlockAction.bind(null, propertyId, unitId),
-    {},
+    `/properties/${propertyId}/units/${unitId}`,
+    "Blocked period added.",
   );
-  useActionFeedback(state, { success: "Blocked period added." });
-  const router = useRouter();
-  useEffect(() => {
-    if (state.success) {
-      router.push(`/properties/${propertyId}/units/${unitId}`);
-      router.refresh();
-    }
-  }, [state.success, propertyId, unitId, router]);
+  const [state, formAction, pending] = useActionState<BlockFormState, FormData>(save, {});
+  useActionFeedback(state);
 
   return (
     <form action={formAction} className="space-y-4">
@@ -40,8 +35,7 @@ export function BlockForms({ propertyId, unitId }: { propertyId: string; unitId:
         <Input id="block-reason" name="reason" required minLength={2} maxLength={200} placeholder="AC repair, repainting, deep clean…" />
       </div>
       <FieldError message={state.error} />
-      {state.success ? <p className="text-sm text-pine" role="status">Block added.</p> : null}
-      <Button type="submit" variant="clay" disabled={pending}>{pending ? "Adding…" : "Add block"}</Button>
+      <Button type="submit" variant="clay" size="lg" className="w-full" disabled={pending}>{pending ? "Adding…" : "Add block"}</Button>
     </form>
   );
 }

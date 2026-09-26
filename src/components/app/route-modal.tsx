@@ -5,13 +5,16 @@ import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 
 /**
- * A reservation action shown over the reservation page. It is an intercepted
- * route, so closing it (X, Esc, backdrop) steps back to the reservation URL.
+ * An action shown over the page it was opened from (a reservation, a unit…).
+ * It is an intercepted route, so closing it (X, Esc, backdrop) steps back to
+ * that page's URL.
  */
-export function ReservationActionModal({ title, description, unavailable, children }: {
+export function RouteModal({ title, description, unavailable, wide = false, children }: {
   title: string;
   description: string;
   unavailable?: string;
+  /** Room for long forms such as adding a unit. */
+  wide?: boolean;
   children?: ReactNode;
 }) {
   const router = useRouter();
@@ -30,7 +33,7 @@ export function ReservationActionModal({ title, description, unavailable, childr
       aria-describedby={descriptionId}
       onClose={() => router.back()}
       onClick={(event) => { if (event.target === event.currentTarget) dialog.current?.close(); }}
-      className="fixed left-1/2 top-1/2 m-0 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-pine/15 bg-white p-0 text-ink shadow-2xl backdrop:bg-pine-deep/55"
+      className={`fixed left-1/2 top-1/2 m-0 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] ${wide ? "max-w-3xl" : "max-w-xl"} -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-pine/15 bg-white p-0 text-ink shadow-2xl backdrop:bg-pine-deep/55`}
     >
       <div className="flex items-start gap-4 border-b border-pine/10 px-6 py-5">
         <div className="min-w-0 flex-1">

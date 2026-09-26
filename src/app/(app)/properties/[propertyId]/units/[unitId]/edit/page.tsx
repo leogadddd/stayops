@@ -1,3 +1,4 @@
+import { photoSrc } from "@/lib/photos";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { requireOwner } from "@/lib/auth/session";
@@ -32,9 +33,9 @@ export default async function EditUnitPage({ params }: { params: Promise<{ prope
   ]);
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <PageHeading title="Edit unit" description={`${property.name} · ${unit.name}`} backHref={`/properties/${property.id}/units/${unit.id}`} backLabel={unit.name} />
-      <UnitEditForm propertyId={property.id} unitId={unit.id} amenityOptions={amenityOptions} selectedAmenityIds={selected.map((amenity) => amenity.id)} values={{ name: unit.name, capacity: unit.capacity, bedrooms: unit.bedrooms, bathrooms: unit.bathrooms, nightlyRate: centavosToPesosInput(unit.defaultNightlyRateCents), cleaningFee: centavosToPesosInput(unit.cleaningFeeCents), securityDeposit: centavosToPesosInput(unit.securityDepositCents), checkInTime: unit.checkInTime, checkOutTime: unit.checkOutTime, status: unit.status, imageUrl: unit.imageUrl }} />
+    <div className="min-w-0 overflow-hidden">
+      <PageHeading title="Edit unit" description={`${unit.name} · ${property.name}`} backHref={`/properties/${property.id}/units/${unit.id}`} backLabel={unit.name} />
+      <UnitEditForm propertyId={property.id} unitId={unit.id} propertyName={property.name} amenityOptions={amenityOptions} selectedAmenityIds={selected.map((amenity) => amenity.id)} values={{ name: unit.name, capacity: unit.capacity, bedrooms: unit.bedrooms, bathrooms: unit.bathrooms, nightlyRate: centavosToPesosInput(unit.defaultNightlyRateCents), cleaningFee: centavosToPesosInput(unit.cleaningFeeCents), securityDeposit: centavosToPesosInput(unit.securityDepositCents), checkInTime: unit.checkInTime, checkOutTime: unit.checkOutTime, status: unit.status, imageUrl: photoSrc("unit", unit) }} />
     </div>
   );
 }

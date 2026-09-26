@@ -1,3 +1,4 @@
+import { photoSrc } from "@/lib/photos";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -69,7 +70,7 @@ export default async function StayShowcasePage({ params, searchParams }: {
   const bookHref = `/reservations/new?${new URLSearchParams({ unit: unit.id, ...(search ? { checkIn: search.checkIn, checkOut: search.checkOut, guests: String(search.guestCount) } : {}) })}`;
   const calendarHref = `/calendar?${new URLSearchParams({ unit: unit.id, ...(search ? { month: search.checkIn.slice(0, 7) } : {}) })}`;
   const showRates = membership.role === "owner";
-  const photos = [...new Set([unit.imageUrl, property.imageUrl].filter((src): src is string => Boolean(src)))];
+  const photos = [...new Set([photoSrc("unit", unit), photoSrc("property", property)].filter((src): src is string => Boolean(src)))];
   const stayCents = search ? unit.defaultNightlyRateCents * search.nights : 0;
   const totalCents = stayCents + (unit.cleaningFeeCents ?? 0);
   const segments = segmentsByUnit.get(unit.id) ?? [];

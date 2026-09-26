@@ -12,18 +12,24 @@ import {
   createUnit,
   deleteProperty,
   deleteUnit,
+  getPropertyOrThrow,
+  getUnitOrThrow,
   updateProperty,
   updateUnit,
 } from "@/server/inventory/service";
 import { createAmenity, type AmenityOption } from "@/server/inventory/amenities";
-import { AMENITY_SCOPES, type AmenityScope } from "@/lib/db/schema";
+import { AMENITY_SCOPES, UNIT_STATUSES, type AmenityScope, type UnitStatus } from "@/lib/db/schema";
 import { InventoryError } from "@/server/inventory/validation";
-import { imageDataUrlFromForm } from "@/server/inventory/image-upload";
+import { imageUploadFromForm } from "@/server/inventory/image-upload";
+import { discardInventoryPhoto, storeInventoryPhoto } from "@/server/inventory/photos";
+import { StorageError } from "@/server/storage/service";
 import { unexpectedErrorMessage } from "@/lib/errors";
 
 export interface InventoryFormState {
   error?: string;
   success?: boolean;
+  /** The record a create action made, so the form can open it. */
+  id?: string;
 }
 
 function readString(formData: FormData, key: string): string {
@@ -47,7 +53,7 @@ function readAmenityIds(formData: FormData): string[] {
 }
 
 function toFormError(error: unknown): InventoryFormState {
-  if (error instanceof InventoryError || error instanceof MoneyParseError) {
+  if (error instanceof InventoryError || error instanceof MoneyParseError || error instanceof StorageError) {
     return { error: error.message };
   }
   if (error instanceof OperationsError) {
@@ -59,14 +65,41 @@ function toFormError(error: unknown): InventoryFormState {
   return { error: unexpectedErrorMessage(error, "inventory") };
 }
 
+/**
+ * Save a property or unit with the form's cover photo, if one was chosen. The
+ * photo goes to object storage first; `save` gets its key (or undefined to keep
+ * the current photo). A failed save removes the new photo, and a successful
+ * one removes the photo it replaced.
+ */
+async function saveWithPhoto<T>(
+  organizationId: string,
+  formData: FormData,
+  save: (imageUrl: string | undefined) => Promise<T>,
+  previousImageUrl?: () => Promise<string | null>,
+): Promise<T> {
+  const upload = await imageUploadFromForm(formData, "image");
+  const imageUrl = upload ? await storeInventoryPhoto(organizationId, upload) : undefined;
+  const previous = imageUrl && previousImageUrl ? await previousImageUrl() : null;
+  let result: T;
+  try {
+    result = await save(imageUrl);
+  } catch (error) {
+    await discardInventoryPhoto(organizationId, imageUrl);
+    throw error;
+  }
+  if (imageUrl) await discardInventoryPhoto(organizationId, previous);
+  return result;
+}
+
 export async function createPropertyAction(
   _prev: InventoryFormState,
   formData: FormData,
 ): Promise<InventoryFormState> {
   const membership = await requireMembership();
   assertOwner(membership);
+  let property;
   try {
-    await createProperty({
+    property = await saveWithPhoto(membership.organizationId, formData, (imageUrl) => createProperty({
       organizationId: membership.organizationId,
       actorUserId: membership.userId,
       data: {
@@ -77,16 +110,16 @@ export async function createPropertyAction(
         checkOutTime: readString(formData, "checkOutTime") || "11:00",
         turnoverDurationMinutes: readTurnoverDuration(formData),
         houseRules: readString(formData, "houseRules") || undefined,
-        imageUrl: await imageDataUrlFromForm(formData, "image"),
+        imageUrl,
       },
       amenityIds: readAmenityIds(formData),
-    });
+    }));
   } catch (error) {
     return toFormError(error);
   }
   revalidatePath("/properties");
   revalidatePath("/calendar");
-  return { success: true };
+  return { success: true, id: property.id };
 }
 
 export async function updatePropertyAction(
@@ -97,7 +130,7 @@ export async function updatePropertyAction(
   const membership = await requireMembership();
   assertOwner(membership);
   try {
-    await updateProperty({
+    await saveWithPhoto(membership.organizationId, formData, (imageUrl) => updateProperty({
       organizationId: membership.organizationId,
       actorUserId: membership.userId,
       propertyId,
@@ -109,15 +142,46 @@ export async function updatePropertyAction(
         checkOutTime: readString(formData, "checkOutTime") || "11:00",
         turnoverDurationMinutes: readTurnoverDuration(formData),
         houseRules: readString(formData, "houseRules") || undefined,
-        imageUrl: await imageDataUrlFromForm(formData, "image"),
+        imageUrl,
       },
       amenityIds: readAmenityIds(formData),
-    });
+    }), async () => (await getPropertyOrThrow(membership.organizationId, propertyId)).imageUrl);
   } catch (error) {
     return toFormError(error);
   }
   revalidatePath("/properties");
   revalidatePath("/calendar");
+  return { success: true };
+}
+
+/** Change only a property's house rules, keeping everything else about it. */
+export async function updateHouseRulesAction(
+  propertyId: string,
+  _prev: InventoryFormState,
+  formData: FormData,
+): Promise<InventoryFormState> {
+  const membership = await requireMembership();
+  assertOwner(membership);
+  try {
+    const property = await getPropertyOrThrow(membership.organizationId, propertyId);
+    await updateProperty({
+      organizationId: membership.organizationId,
+      actorUserId: membership.userId,
+      propertyId,
+      data: {
+        name: property.name,
+        address: property.address ?? undefined,
+        timezone: property.timezone,
+        checkInTime: property.checkInTime,
+        checkOutTime: property.checkOutTime,
+        turnoverDurationMinutes: property.turnoverDurationMinutes,
+        houseRules: readString(formData, "houseRules") || undefined,
+      },
+    });
+  } catch (error) {
+    return toFormError(error);
+  }
+  revalidatePath(`/properties/${propertyId}`);
   return { success: true };
 }
 
@@ -142,7 +206,7 @@ export async function deletePropertyAction(
   return { success: true };
 }
 
-async function unitDataFromForm(formData: FormData) {
+function unitDataFromForm(formData: FormData) {
   return {
     name: readString(formData, "name"),
     capacity: Number(readString(formData, "capacity")),
@@ -160,7 +224,6 @@ async function unitDataFromForm(formData: FormData) {
       | "active"
       | "maintenance"
       | "inactive",
-    imageUrl: await imageDataUrlFromForm(formData, "image"),
   };
 }
 
@@ -172,13 +235,13 @@ export async function createUnitAction(
   const membership = await requireMembership();
   assertOwner(membership);
   try {
-    await createUnit({
+    await saveWithPhoto(membership.organizationId, formData, (imageUrl) => createUnit({
       organizationId: membership.organizationId,
       actorUserId: membership.userId,
       propertyId,
-      data: await unitDataFromForm(formData),
+      data: { ...unitDataFromForm(formData), imageUrl },
       amenityIds: readAmenityIds(formData),
-    });
+    }));
   } catch (error) {
     return toFormError(error);
   }
@@ -196,19 +259,66 @@ export async function updateUnitAction(
   const membership = await requireMembership();
   assertOwner(membership);
   try {
-    await updateUnit({
+    await saveWithPhoto(membership.organizationId, formData, (imageUrl) => updateUnit({
       organizationId: membership.organizationId,
       actorUserId: membership.userId,
       unitId,
-      data: await unitDataFromForm(formData),
+      data: { ...unitDataFromForm(formData), imageUrl },
       amenityIds: readAmenityIds(formData),
-    });
+    }), async () => (await getUnitOrThrow(membership.organizationId, unitId)).imageUrl);
   } catch (error) {
     return toFormError(error);
   }
   revalidatePath(`/properties/${propertyId}`);
   revalidatePath(`/properties/${propertyId}/units/${unitId}`);
   revalidatePath("/calendar");
+  return { success: true };
+}
+
+/** Change only a unit's status, keeping everything else about it. */
+export async function updateUnitStatusAction(
+  propertyId: string,
+  unitId: string,
+  _prev: InventoryFormState,
+  formData: FormData,
+): Promise<InventoryFormState> {
+  const membership = await requireMembership();
+  assertOwner(membership);
+  const status = readString(formData, "status") as UnitStatus;
+  try {
+    if (!UNIT_STATUSES.includes(status)) {
+      throw new InventoryError("Choose a status.", "status");
+    }
+    const unit = await getUnitOrThrow(membership.organizationId, unitId);
+    if (unit.propertyId !== propertyId) throw new InventoryError("Unit not found.", "unitId");
+    if (unit.status !== status) {
+      await updateUnit({
+        organizationId: membership.organizationId,
+        actorUserId: membership.userId,
+        unitId,
+        data: {
+          name: unit.name,
+          capacity: unit.capacity,
+          bedrooms: unit.bedrooms,
+          bathrooms: unit.bathrooms,
+          defaultNightlyRateCents: unit.defaultNightlyRateCents,
+          cleaningFeeCents: unit.cleaningFeeCents,
+          securityDepositCents: unit.securityDepositCents,
+          checkInTime: unit.checkInTime,
+          checkOutTime: unit.checkOutTime,
+          status,
+        },
+      });
+    }
+  } catch (error) {
+    return toFormError(error);
+  }
+  revalidatePath("/dashboard");
+  revalidatePath("/properties");
+  revalidatePath(`/properties/${propertyId}`);
+  revalidatePath(`/properties/${propertyId}/units/${unitId}`);
+  revalidatePath("/calendar");
+  revalidatePath("/reservations/new");
   return { success: true };
 }
 

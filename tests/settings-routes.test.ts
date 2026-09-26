@@ -6,6 +6,8 @@ import { db } from "@/lib/db";
 import { PermissionDenied } from "@/components/app/permission-denied";
 import { getAuditLogPage, listAuditEvents } from "@/server/audit/service";
 import * as inventory from "@/server/inventory/service";
+import * as propertyActions from "@/app/(app)/properties/actions";
+import * as blockActions from "@/app/(app)/properties/[propertyId]/units/block-actions";
 import { InventoryError } from "@/server/inventory/validation";
 import SettingsPage from "@/app/(app)/settings/page";
 import PropertiesPage from "@/app/(app)/properties/page";
@@ -18,9 +20,11 @@ import NewStaffPage from "@/app/(app)/settings/staff/new/page";
 import NewPropertyPage from "@/app/(app)/properties/new/page";
 import EditPropertyPage from "@/app/(app)/properties/[propertyId]/edit/page";
 import NewUnitPage from "@/app/(app)/properties/[propertyId]/units/new/page";
+import HouseRulesPage from "@/app/(app)/properties/[propertyId]/house-rules/page";
 import EditUnitPage from "@/app/(app)/properties/[propertyId]/units/[unitId]/edit/page";
 import NewUnitBlockPage from "@/app/(app)/properties/[propertyId]/units/[unitId]/blocks/new/page";
 import EditChecklistPage from "@/app/(app)/properties/[propertyId]/units/[unitId]/checklist/edit/page";
+import UnitStatusPage from "@/app/(app)/properties/[propertyId]/units/[unitId]/status/page";
 import { OrgNameForm } from "@/app/(app)/settings/org-name-form";
 import { PaymentInstructionsForm } from "@/app/(app)/settings/payment-instructions-form";
 import { InviteStaffForm } from "@/app/(app)/settings/staff-forms";
@@ -30,7 +34,7 @@ import { UnitEditForm } from "@/app/(app)/properties/[propertyId]/units/unit-edi
 import { BlockForms } from "@/app/(app)/properties/[propertyId]/units/block-forms";
 import { ChecklistTemplateEditor } from "@/app/(app)/properties/[propertyId]/units/checklist-template-editor";
 
-const navigation = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn(), redirect: vi.fn() }));
+const navigation = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn(), redirect: vi.fn() }));
 vi.mock("react", async (importOriginal) => ({
   ...await importOriginal<typeof import("react")>(),
   useActionState: vi.fn(),
@@ -45,8 +49,12 @@ vi.mock("@/lib/auth/session", () => ({ requireOwner: vi.fn() }));
 vi.mock("@/lib/db", () => ({ db: { query: { organizations: { findFirst: vi.fn() } }, select: vi.fn() } }));
 vi.mock("@/server/audit/service", () => ({ getAuditLogPage: vi.fn(), listAuditEvents: vi.fn() }));
 vi.mock("@/server/inventory/service", () => ({
-  listProperties: vi.fn(), listPropertyUnits: vi.fn(), getPropertyOrThrow: vi.fn(),
+  listProperties: vi.fn(), listPropertyUnits: vi.fn(), listOrgUnits: vi.fn(), getPropertyOrThrow: vi.fn(),
   getUnitOrThrow: vi.fn(), listUnitBlocks: vi.fn(),
+}));
+vi.mock("@/server/inventory/availability", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/server/inventory/availability")>(),
+  getOccupancySegments: vi.fn(async () => new Map()),
 }));
 vi.mock("@/server/inventory/amenities", () => ({
   listAmenities: vi.fn(async () => []), listPropertyAmenities: vi.fn(async () => []), listUnitAmenities: vi.fn(async () => []),
@@ -56,7 +64,7 @@ vi.mock("@/app/(app)/settings/actions", () => ({
 }));
 vi.mock("@/app/(app)/properties/actions", () => ({
   createPropertyAction: vi.fn(), updatePropertyAction: vi.fn(), createUnitAction: vi.fn(),
-  updateUnitAction: vi.fn(), updateChecklistTemplateAction: vi.fn(),
+  updateUnitAction: vi.fn(), updateChecklistTemplateAction: vi.fn(), updateUnitStatusAction: vi.fn(), updateHouseRulesAction: vi.fn(),
   deletePropertyAction: vi.fn(), deleteUnitAction: vi.fn(),
 }));
 vi.mock("@/app/(app)/properties/[propertyId]/units/block-actions", () => ({
@@ -89,11 +97,13 @@ const unitParams = () => ({ params: Promise.resolve({ propertyId: property.id, u
 const propertyPages = [
   { name: "property edit", render: () => EditPropertyPage(propertyParams()), firstRead: inventory.getPropertyOrThrow },
   { name: "unit create", render: () => NewUnitPage(propertyParams()), firstRead: inventory.getPropertyOrThrow },
+  { name: "house rules", render: () => HouseRulesPage(propertyParams()), firstRead: inventory.getPropertyOrThrow },
 ];
 const unitPages = [
   { name: "unit edit", render: () => EditUnitPage(unitParams()), firstRead: inventory.getPropertyOrThrow },
   { name: "block create", render: () => NewUnitBlockPage(unitParams()), firstRead: inventory.getPropertyOrThrow },
   { name: "checklist edit", render: () => EditChecklistPage(unitParams()), firstRead: inventory.getPropertyOrThrow },
+  { name: "unit status", render: () => UnitStatusPage(unitParams()), firstRead: inventory.getPropertyOrThrow },
 ];
 const newPages = [
   { name: "audit logs", render: () => AuditLogsPage(), firstRead: getAuditLogPage },
@@ -123,6 +133,7 @@ beforeEach(() => {
   } as unknown as ReturnType<typeof db.select>);
   vi.mocked(inventory.listProperties).mockResolvedValue([property]);
   vi.mocked(inventory.listPropertyUnits).mockResolvedValue([unit]);
+  vi.mocked(inventory.listOrgUnits).mockResolvedValue([unit]);
   vi.mocked(inventory.getPropertyOrThrow).mockResolvedValue(property);
   vi.mocked(inventory.getUnitOrThrow).mockResolvedValue(unit);
   vi.mocked(inventory.listUnitBlocks).mockResolvedValue([]);
@@ -191,28 +202,30 @@ describe("read-only summaries and reusable tables", () => {
     expect(listAuditEvents).not.toHaveBeenCalled();
   });
 
-  it("lists properties in a shared table and links to a separate create route", async () => {
+  it("lists properties as cards and links to a separate create route", async () => {
     const html = renderToStaticMarkup(await PropertiesPage());
-    expect(html).toContain('data-slot="table"');
+    expect(html).toContain("Test property");
+    expect(html).toContain("Private address");
     expect(html).toContain('href="/properties/new"');
     expect(html).toContain(`href="${propertyHref}"`);
     expect(html).not.toContain("<form");
   });
 
-  it("shows property details and a units table without embedded forms", async () => {
+  it("shows property details and its units without embedded forms", async () => {
     const html = renderToStaticMarkup(await PropertyDetailPage(propertyParams()));
     expect(html).toContain("Private address");
     expect(html).toContain("Quiet after 10pm");
-    expect(html).toContain('data-slot="table"');
-    for (const href of [`${propertyHref}/edit`, `${propertyHref}/units/new`, unitHref]) expect(html).toContain(`href="${href}"`);
+    expect(html).toContain("Test unit");
+    expect(html).toContain("3 PM");
+    for (const href of [`${propertyHref}/edit`, `${propertyHref}/units/new`, `${propertyHref}/house-rules`, unitHref]) expect(html).toContain(`href="${href}"`);
     expect(html).not.toContain("<form");
   });
 
-  it("shows unit and checklist summaries, a blocks table and dedicated editor links", async () => {
+  it("shows unit and checklist summaries, blocks and dedicated action links", async () => {
     const html = renderToStaticMarkup(await UnitDetailPage(unitParams()));
     expect(html).toContain("Clean room");
-    expect(html).toContain('data-slot="table"');
-    for (const href of [`${unitHref}/edit`, `${unitHref}/blocks/new`, `${unitHref}/checklist/edit`]) expect(html).toContain(`href="${href}"`);
+    expect(html).toContain("No current or upcoming blocks.");
+    for (const href of [`${unitHref}/edit`, `${unitHref}/blocks/new`, `${unitHref}/checklist/edit`, `${unitHref}/status`, `/reservations/new?unit=${unit.id}`]) expect(html).toContain(`href="${href}"`);
     expect(html).not.toContain("<form");
     expect(html).not.toContain("<details");
     expect(inventory.listUnitBlocks).toHaveBeenCalledWith(owner.organizationId, unit.id, expect.any(String));
@@ -251,12 +264,15 @@ const editors = [
   { name: "organization", render: () => React.createElement(OrgNameForm, { defaultName: owner.organizationName }), destination: undefined },
   { name: "payment instructions", render: () => React.createElement(PaymentInstructionsForm, { defaultValue: "" }), destination: undefined },
   { name: "staff", render: () => React.createElement(InviteStaffForm), destination: "/settings" },
-  { name: "new property", render: () => React.createElement(PropertyForm), destination: "/properties" },
-  { name: "edit property", render: () => React.createElement(PropertyForm, { propertyId: property.id }), destination: propertyHref },
-  { name: "new unit", render: () => React.createElement(UnitCreateForm, { propertyId: property.id }), destination: propertyHref },
-  { name: "edit unit", render: () => React.createElement(UnitEditForm, { propertyId: property.id, unitId: unit.id, values: { name: unit.name, capacity: 2, bedrooms: 1, bathrooms: 1, nightlyRate: "1250.50", cleaningFee: "300", securityDeposit: "", checkInTime: "15:00", checkOutTime: "11:00", status: "active" } }), destination: unitHref },
-  { name: "block", render: () => React.createElement(BlockForms, { propertyId: property.id, unitId: unit.id }), destination: unitHref },
-  { name: "checklist", render: () => React.createElement(ChecklistTemplateEditor, { propertyId: property.id, unitId: unit.id, items: unit.checklistTemplate }), destination: unitHref },
+];
+// These can open as a modal, so the save itself returns to the page (closing it).
+const returningEditors = [
+  { name: "new property", render: () => React.createElement(PropertyForm), action: propertyActions.createPropertyAction, result: { success: true, id: "property-new" }, destination: "/properties/property-new" },
+  { name: "edit property", render: () => React.createElement(PropertyForm, { propertyId: property.id }), action: propertyActions.updatePropertyAction, destination: propertyHref },
+  { name: "edit unit", render: () => React.createElement(UnitEditForm, { propertyId: property.id, unitId: unit.id, values: { name: unit.name, capacity: 2, bedrooms: 1, bathrooms: 1, nightlyRate: "1250.50", cleaningFee: "300", securityDeposit: "", checkInTime: "15:00", checkOutTime: "11:00", status: "active" } }), action: propertyActions.updateUnitAction, destination: unitHref },
+  { name: "new unit", render: () => React.createElement(UnitCreateForm, { propertyId: property.id }), action: propertyActions.createUnitAction, destination: propertyHref },
+  { name: "block", render: () => React.createElement(BlockForms, { propertyId: property.id, unitId: unit.id }), action: blockActions.addUnitBlockAction, destination: unitHref },
+  { name: "checklist", render: () => React.createElement(ChecklistTemplateEditor, { propertyId: property.id, unitId: unit.id, items: unit.checklistTemplate }), action: propertyActions.updateChecklistTemplateAction, destination: unitHref },
 ];
 
 function flushNavigationEffects() {
@@ -273,13 +289,27 @@ describe("editor save navigation", () => {
     expect(navigation.refresh).toHaveBeenCalledOnce();
   });
 
-  it.each(editors)("retains $name form errors without navigating", ({ render }) => {
+  it.each(returningEditors)("returns to the page after a successful $name save", async (editor) => {
+    const { render, action, destination } = editor;
+    const result: { success: boolean; id?: string } = ("result" in editor && editor.result) || { success: true };
+    vi.mocked(action).mockResolvedValue(result);
+    vi.stubGlobal("sessionStorage", { setItem: vi.fn() });
+    vi.stubGlobal("window", { dispatchEvent: vi.fn() });
+    renderToStaticMarkup(render());
+    const save = vi.mocked(React.useActionState).mock.calls[0]![0] as (state: object, form: FormData) => Promise<object>;
+    expect(await save({}, new FormData())).toEqual(result);
+    expect(navigation.replace).toHaveBeenCalledExactlyOnceWith(destination);
+    expect(navigation.refresh).toHaveBeenCalledOnce();
+  });
+
+  it.each([...editors, ...returningEditors])("retains $name form errors without navigating", ({ render }) => {
     vi.mocked(React.useActionState).mockReturnValue([{ error: "Check the submitted details." }, vi.fn(), false]);
     const html = renderToStaticMarkup(render());
     flushNavigationEffects();
     expect(html).toContain("Check the submitted details.");
     expect(html).toContain("<form");
     expect(navigation.push).not.toHaveBeenCalled();
+    expect(navigation.replace).not.toHaveBeenCalled();
     expect(navigation.refresh).not.toHaveBeenCalled();
   });
 });

@@ -1,25 +1,51 @@
+import { unitOrPropertyPhotoSrc } from "@/lib/photos";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { Plus } from "lucide-react";
+import {
+  ArrowLeft,
+  BedDouble,
+  CalendarDays,
+  CalendarPlus,
+  CircleAlert,
+  ClipboardList,
+  Construction,
+  MapPin,
+  Pencil,
+  Plus,
+  RefreshCw,
+  TrendingUp,
+  Users,
+  Wallet,
+} from "lucide-react";
 import { requireOwner } from "@/lib/auth/session";
 import { PermissionDenied } from "@/components/app/permission-denied";
-import { PageHeading } from "@/components/app/page-heading";
-import { todayInTimeZone } from "@/lib/dates";
-import { UNIT_STATUS_LABELS } from "@/lib/labels";
+import { addDaysLocal, nightsBetween, todayInTimeZone } from "@/lib/dates";
+import { UNIT_STATUS_DESCRIPTIONS, UNIT_STATUS_LABELS } from "@/lib/labels";
 import { formatPHP } from "@/lib/money";
 import { normalizeChecklistTemplate } from "@/lib/turnover";
+import { summarizeUnitActivity } from "@/lib/unit-activity";
+import { getOccupancySegments } from "@/server/inventory/availability";
 import { getPropertyOrThrow, getUnitOrThrow, listUnitBlocks } from "@/server/inventory/service";
 import { InventoryError } from "@/server/inventory/validation";
-import { Badge } from "@/components/ui/badge";
+import { listUnitAmenities } from "@/server/inventory/amenities";
 import { buttonClassName } from "@/components/ui/button";
-import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { RemoveBlockButton } from "../block-forms";
 import { AmenityList } from "../../../amenity-icons";
-import { listUnitAmenities } from "@/server/inventory/amenities";
+import {
+  Panel,
+  SideAction,
+  StatTile,
+  StayRow,
+  UnitStatusBadge,
+  percent,
+} from "../../../inventory-display";
+import { dayLabel, timeLabel, UnitPhoto } from "../../../../calendar/availability/stay-display";
 
 export const metadata: Metadata = { title: "Unit" };
+
+const OUTLOOK_DAYS = 30;
+const UPCOMING_DAYS = 120;
 
 export default async function UnitDetailPage({ params }: { params: Promise<{ propertyId: string; unitId: string }> }) {
   const membership = await requireOwner();
@@ -37,70 +63,272 @@ export default async function UnitDetailPage({ params }: { params: Promise<{ pro
   }
   if (unit.propertyId !== property.id) notFound();
 
-  const [blocks, amenities] = await Promise.all([
-    listUnitBlocks(membership.organizationId, unit.id, todayInTimeZone(property.timezone)),
+  const today = todayInTimeZone(property.timezone);
+  const [blocks, amenities, segmentsByUnit] = await Promise.all([
+    listUnitBlocks(membership.organizationId, unit.id, today),
     listUnitAmenities(membership.organizationId, unit.id),
+    getOccupancySegments(membership.organizationId, [unit.id], today, addDaysLocal(today, UPCOMING_DAYS)),
   ]);
+  const activity = summarizeUnitActivity(segmentsByUnit.get(unit.id) ?? [], today, addDaysLocal(today, OUTLOOK_DAYS));
   const checklist = normalizeChecklistTemplate(unit.checklistTemplate);
   const unitHref = `/properties/${property.id}/units/${unit.id}`;
+  const bookable = unit.status === "active";
+  const newReservationHref = `/reservations/new?unit=${unit.id}`;
+  const calendarHref = `/calendar?unit=${unit.id}`;
+
+  const nowValue = activity.current
+    ? activity.current.guestName
+    : activity.blockedNow
+      ? "Blocked"
+      : "Free tonight";
+  const nowDetail = activity.current
+    ? `Until ${dayLabel(activity.current.endDate)}`
+    : activity.blockedNow
+      ? activity.blockedNow.reason
+      : activity.next
+        ? `Next: ${dayLabel(activity.next.startDate)}`
+        : "No upcoming stays";
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <PageHeading title={unit.name} description={`${property.name} · ${formatPHP(unit.defaultNightlyRateCents)} per night`} backHref={`/properties/${property.id}`} backLabel={property.name}>
-        <Link href={`${unitHref}/edit`} className={buttonClassName("outline")}>Edit unit</Link>
-      </PageHeading>
+    <div className="min-w-0 overflow-hidden">
+      <Link
+        href={`/properties/${property.id}`}
+        className="mb-4 inline-flex items-center gap-2 text-sm text-pine/70 hover:text-clay"
+      >
+        <ArrowLeft className="h-4 w-4" aria-hidden />
+        {property.name}
+      </Link>
 
-      <Card className="overflow-hidden bg-[#FFFDFA]">
-        {unit.imageUrl ? <img src={unit.imageUrl} alt={`${unit.name} cover`} className="h-64 w-full object-cover" /> : null}
-        <CardHeader className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-display text-xl text-pine">Unit details</h2>
-          <Badge tone={unit.status === "active" ? "sage" : unit.status === "maintenance" ? "clay" : "neutral"}>{UNIT_STATUS_LABELS[unit.status]}</Badge>
-        </CardHeader>
-        <CardBody>
-          <dl className="grid gap-5 text-sm sm:grid-cols-3">
-            <div><dt className="text-ink/55">Capacity</dt><dd className="mt-1 text-pine">{unit.capacity} guests</dd></div>
-            <div><dt className="text-ink/55">Bedrooms</dt><dd className="mt-1 text-pine">{unit.bedrooms}</dd></div>
-            <div><dt className="text-ink/55">Bathrooms</dt><dd className="mt-1 text-pine">{unit.bathrooms}</dd></div>
-            <div><dt className="text-ink/55">Nightly rate</dt><dd className="mt-1 text-pine">{formatPHP(unit.defaultNightlyRateCents)}</dd></div>
-            <div><dt className="text-ink/55">Cleaning fee</dt><dd className="mt-1 text-pine">{unit.cleaningFeeCents === null ? "Not set" : formatPHP(unit.cleaningFeeCents)}</dd></div>
-            <div><dt className="text-ink/55">Refundable deposit</dt><dd className="mt-1 text-pine">{unit.securityDepositCents === null ? "Not set" : formatPHP(unit.securityDepositCents)}</dd></div>
-            <div className="sm:col-span-3"><dt className="mb-2 text-ink/55">Amenities</dt><dd><AmenityList amenities={amenities} emptyLabel="No amenities selected." /></dd></div>
-          </dl>
-        </CardBody>
-      </Card>
+      <section className="overflow-hidden rounded-2xl border border-pine/10 bg-white shadow-[0_1px_2px_rgba(32,58,53,0.06)]">
+        <div className="grid md:grid-cols-[16rem_minmax(0,1fr)] xl:grid-cols-[20rem_minmax(0,1fr)]">
+          <UnitPhoto
+            src={unitOrPropertyPhotoSrc(unit, property)}
+            className="aspect-[16/9] md:aspect-auto md:h-full md:min-h-56"
+          />
+          <div className="@container flex min-w-0 flex-col gap-5 p-5 sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="min-w-0">
+                <UnitStatusBadge status={unit.status} />
+                <h1 className="mt-3 truncate font-display text-3xl tracking-tight text-pine sm:text-4xl">
+                  {unit.name}
+                </h1>
+                <p className="mt-1.5 flex items-center gap-1.5 text-sm text-ink/65">
+                  <MapPin className="h-4 w-4 shrink-0 text-pine/45" aria-hidden />
+                  <span className="truncate">
+                    {property.name}
+                    {property.address ? ` · ${property.address}` : ""}
+                  </span>
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                {bookable ? (
+                  <Link href={newReservationHref} className={buttonClassName("clay", "md")}>
+                    <CalendarPlus className="h-4 w-4" aria-hidden />
+                    New reservation
+                  </Link>
+                ) : null}
+                <Link href={`${unitHref}/edit`} className={buttonClassName("outline", "md")}>
+                  <Pencil className="h-4 w-4" aria-hidden />
+                  Edit
+                </Link>
+                <Link href={calendarHref} className={buttonClassName("ghost", "md")}>
+                  <CalendarDays className="h-4 w-4" aria-hidden />
+                  Calendar
+                </Link>
+              </div>
+            </div>
 
-      <Card className="overflow-hidden bg-[#FFFDFA]">
-        <CardHeader className="flex flex-wrap items-center justify-between gap-3">
-          <div><h2 className="font-display text-xl text-pine">Out-of-service blocks</h2><p className="mt-1 text-xs text-ink/55">Current and upcoming blocks. The end date is the first bookable night.</p></div>
-          <Link href={`${unitHref}/blocks/new`} className={buttonClassName("clay", "sm")}><Plus className="h-4 w-4" aria-hidden />Add block</Link>
-        </CardHeader>
-        <Table aria-label="Out-of-service blocks">
-          <TableHeader><TableRow><TableHead>Start date</TableHead><TableHead>End date · exclusive</TableHead><TableHead>Reason</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
-          <TableBody>
-            {blocks.length === 0 ? <TableRow><TableCell colSpan={4} className="py-8 text-center text-ink/55">No current or upcoming blocks. Active units can accept bookings on available dates.</TableCell></TableRow> : blocks.map((block) => (
-              <TableRow key={block.id}>
-                <TableCell className="whitespace-nowrap">{block.startDate}</TableCell>
-                <TableCell className="whitespace-nowrap">{block.endDate}</TableCell>
-                <TableCell>{block.reason}</TableCell>
-                <TableCell className="text-right"><RemoveBlockButton propertyId={property.id} unitId={unit.id} blockId={block.id} label={`${block.startDate} to ${block.endDate}`} /></TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
+            <dl className="grid grid-cols-2 gap-2.5 @3xl:grid-cols-4">
+              <StatTile
+                icon={Wallet}
+                label="Nightly rate"
+                value={unit.defaultNightlyRateCents ? formatPHP(unit.defaultNightlyRateCents) : "Not set"}
+                detail={unit.cleaningFeeCents ? `+ ${formatPHP(unit.cleaningFeeCents)} cleaning` : undefined}
+              />
+              <StatTile
+                icon={Users}
+                label="Sleeps"
+                value={`${unit.capacity} guest${unit.capacity === 1 ? "" : "s"}`}
+                detail={`${unit.bedrooms} bed · ${unit.bathrooms} bath`}
+              />
+              <StatTile
+                icon={TrendingUp}
+                label={`Next ${OUTLOOK_DAYS} days`}
+                value={percent(activity.bookedNights, activity.windowNights)}
+                detail={`${activity.bookedNights} of ${activity.windowNights} nights booked`}
+              />
+              <StatTile
+                icon={BedDouble}
+                label="Tonight"
+                value={nowValue}
+                detail={nowDetail}
+                tone={activity.current ? "sage" : activity.blockedNow ? "clay" : undefined}
+              />
+            </dl>
+          </div>
+        </div>
+      </section>
 
-      <Card className="bg-[#FFFDFA]">
-        <CardHeader className="flex flex-wrap items-center justify-between gap-3">
-          <div><h2 className="font-display text-xl text-pine">Turnover checklist</h2><p className="mt-1 text-xs text-ink/55">{checklist.length} items · {checklist.filter((item) => item.required).length} required</p></div>
-          <Link href={`${unitHref}/checklist/edit`} className={buttonClassName("outline", "sm")}>Edit checklist</Link>
-        </CardHeader>
-        <CardBody>
-          <p className="mb-4 text-sm text-ink/60">Every checkout opens a turnover task from this checklist. Changes apply to future turnovers only.</p>
-          <ol className="divide-y divide-pine/10">
-            {checklist.map((item, index) => <li key={index} className="flex items-start justify-between gap-4 py-3 text-sm"><span className="text-pine">{index + 1}. {item.label}</span><span className="shrink-0 text-xs text-ink/55">{item.required ? "Required" : "Optional"}</span></li>)}
-          </ol>
-        </CardBody>
-      </Card>
+      {!bookable ? (
+        <p
+          className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+          role="status"
+        >
+          <CircleAlert className="h-4 w-4 shrink-0" aria-hidden />
+          <span className="min-w-0 flex-1">
+            <strong>{UNIT_STATUS_LABELS[unit.status]}.</strong> {UNIT_STATUS_DESCRIPTIONS[unit.status]}
+          </span>
+          <Link href={`${unitHref}/status`} className="font-medium underline underline-offset-4">
+            Change status
+          </Link>
+        </p>
+      ) : null}
+
+      <div className="mt-6 grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_24rem]">
+        <div className="min-w-0 space-y-6">
+          <Panel
+            title="Upcoming stays"
+            description={`Current and upcoming holds and bookings for the next ${UPCOMING_DAYS} days.`}
+            action={
+              <Link href={calendarHref} className="text-xs font-medium text-clay-deep hover:underline">
+                View calendar
+              </Link>
+            }
+            flush
+          >
+            {activity.upcoming.length ? (
+              <ul className="divide-y divide-pine/8 border-t border-pine/8">
+                {activity.upcoming.map((stay) => (
+                  <li key={stay.id}>
+                    <StayRow stay={stay} today={today} />
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="border-t border-pine/8 px-5 py-8 text-center sm:px-6">
+                <p className="text-sm text-ink/60">No upcoming stays.</p>
+                {bookable ? (
+                  <Link href={newReservationHref} className={buttonClassName("outline", "sm", "mt-3")}>
+                    <Plus className="h-4 w-4" aria-hidden />
+                    New reservation
+                  </Link>
+                ) : null}
+              </div>
+            )}
+          </Panel>
+
+          <Panel
+            title="Out-of-service blocks"
+            description="Nights closed for repairs or preparation."
+            action={
+              <Link href={`${unitHref}/blocks/new`} className={buttonClassName("outline", "sm")}>
+                <Plus className="h-4 w-4" aria-hidden />
+                Add block
+              </Link>
+            }
+            flush
+          >
+            {blocks.length ? (
+              <ul className="divide-y divide-pine/8 border-t border-pine/8">
+                {blocks.map((block) => {
+                  const lastNight = addDaysLocal(block.endDate, -1);
+                  const nights = nightsBetween(block.startDate, block.endDate);
+                  const range = `${dayLabel(block.startDate)}${lastNight !== block.startDate ? ` → ${dayLabel(lastNight)}` : ""}`;
+                  return (
+                    <li key={block.id} className="flex items-center gap-3 px-5 py-3 sm:px-6">
+                      <Construction className="h-4 w-4 shrink-0 text-ink/40" aria-hidden />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium text-pine">{block.reason}</span>
+                        <span className="block text-xs text-ink/55">
+                          {range} · {nights} night{nights === 1 ? "" : "s"}
+                        </span>
+                      </span>
+                      <RemoveBlockButton propertyId={property.id} unitId={unit.id} blockId={block.id} label={range} />
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="border-t border-pine/8 px-5 py-6 text-center text-sm text-ink/55 sm:px-6">
+                No current or upcoming blocks.
+              </p>
+            )}
+          </Panel>
+
+          <Panel
+            title="Turnover checklist"
+            description={`${checklist.length} items · ${checklist.filter((item) => item.required).length} required. Every checkout opens a cleaning task from this list.`}
+            action={
+              <Link href={`${unitHref}/checklist/edit`} className={buttonClassName("outline", "sm")}>
+                <Pencil className="h-4 w-4" aria-hidden />
+                Edit
+              </Link>
+            }
+          >
+            <ol className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
+              {checklist.map((item, index) => (
+                <li key={index} className="flex items-start gap-2 text-sm">
+                  <span className="mt-px w-5 shrink-0 text-right text-xs tabular-nums text-ink/40">{index + 1}.</span>
+                  <span className="min-w-0 flex-1 text-pine">{item.label}</span>
+                  {item.required ? null : <span className="shrink-0 text-xs text-ink/40">Optional</span>}
+                </li>
+              ))}
+            </ol>
+          </Panel>
+        </div>
+
+        <aside className="min-w-0 space-y-6" aria-label="Unit actions">
+          <Panel title="Manage unit">
+            <div className="space-y-2">
+              {bookable ? (
+                <SideAction href={newReservationHref} icon={CalendarPlus} tone="clay">
+                  New reservation
+                </SideAction>
+              ) : null}
+              <SideAction href={`${unitHref}/status`} icon={RefreshCw}>
+                Change status
+              </SideAction>
+              <SideAction href={`${unitHref}/blocks/new`} icon={Construction}>
+                Block dates
+              </SideAction>
+              <SideAction href={`${unitHref}/checklist/edit`} icon={ClipboardList}>
+                Edit checklist
+              </SideAction>
+              <SideAction href={`${unitHref}/edit`} icon={Pencil}>
+                Edit unit details
+              </SideAction>
+            </div>
+          </Panel>
+
+          <Panel title="Details">
+            <dl className="space-y-3 text-sm">
+              <DetailRow label="Check-in from" value={timeLabel(unit.checkInTime)} />
+              <DetailRow label="Check-out by" value={timeLabel(unit.checkOutTime)} />
+              <DetailRow
+                label="Cleaning fee"
+                value={unit.cleaningFeeCents === null ? "Not set" : formatPHP(unit.cleaningFeeCents)}
+              />
+              <DetailRow
+                label="Refundable deposit"
+                value={unit.securityDepositCents === null ? "Not set" : formatPHP(unit.securityDepositCents)}
+              />
+            </dl>
+            <div className="mt-4 border-t border-pine/10 pt-4">
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ink/45">Amenities</p>
+              <AmenityList amenities={amenities} emptyLabel="No amenities selected." />
+            </div>
+          </Panel>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <dt className="text-ink/55">{label}</dt>
+      <dd className="text-right font-medium text-pine">{value}</dd>
     </div>
   );
 }
