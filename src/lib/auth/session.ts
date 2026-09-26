@@ -5,8 +5,8 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { memberships, organizationRolePermissions, organizations, roles } from "@/lib/db/schema";
-import { and, desc, eq } from "drizzle-orm";
+import { memberships, organizationRolePermissions, organizations, roles, systemAdmins } from "@/lib/db/schema";
+import { and, asc, desc, eq, notInArray } from "drizzle-orm";
 import { can, resolvePermissions, type Permission, type RoleKey } from "@/lib/permissions";
 
 export const ACTIVE_ORGANIZATION_COOKIE = "stayops_active_organization_id";
@@ -49,6 +49,8 @@ export interface MembershipContext {
   organizationSlug: string;
   role: RoleKey;
   userId: string;
+  /** An L1 operator acting in an organization they aren't a member of (as its owner). */
+  viaL1?: boolean;
   /**
    * Effective permissions in this organization. `requireMembership` always
    * sets it; when absent (hand-built contexts) the role's defaults apply.
@@ -68,11 +70,11 @@ export const requireMembership = cache(async (): Promise<MembershipContext> => {
   }
 
   const [rows, cookieStore] = await Promise.all([
-    listMemberships(session.user.id),
+    listAccessibleOrganizations(session.user.id),
     cookies(),
   ]);
   // The cookie is only a preference; always resolve it against this user's
-  // current memberships before using it as a tenant boundary.
+  // current access before using it as a tenant boundary.
   const preferredOrganizationId = cookieStore.get(ACTIVE_ORGANIZATION_COOKIE)?.value;
   const membership = rows.find((row) => row.organizationId === preferredOrganizationId) ?? rows[0];
   if (!membership) {
@@ -140,4 +142,28 @@ export const listMemberships = cache(async (userId: string) => {
     .innerJoin(roles, eq(memberships.roleId, roles.id))
     .where(eq(memberships.userId, userId))
     .orderBy(desc(memberships.createdAt));
+});
+
+/** Whether the user is an L1 operator (see `systemAdmins`). */
+export const isL1 = cache(async (userId: string): Promise<boolean> => {
+  const [row] = await db.select({ userId: systemAdmins.userId }).from(systemAdmins).where(eq(systemAdmins.userId, userId)).limit(1);
+  return Boolean(row);
+});
+
+/**
+ * Every organization the user can open: their memberships, then, for an L1
+ * operator, every other organization with owner access (`viaL1`). Onboarding
+ * keeps using `listMemberships`, so an L1 can still start their own.
+ */
+export const listAccessibleOrganizations = cache(async (userId: string) => {
+  const [rows, l1] = await Promise.all([listMemberships(userId), isL1(userId)]);
+  const own = rows.map((row) => ({ ...row, viaL1: false }));
+  if (!l1) return own;
+  const memberOf = rows.map((row) => row.organizationId);
+  const others = await db
+    .select({ organizationId: organizations.id, organizationName: organizations.name, organizationSlug: organizations.slug })
+    .from(organizations)
+    .where(memberOf.length ? notInArray(organizations.id, memberOf) : undefined)
+    .orderBy(asc(organizations.name));
+  return [...own, ...others.map((row) => ({ ...row, role: "owner" as RoleKey, viaL1: true }))];
 });

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Input, Label } from "@/components/ui/input";
+import { ChoiceCards } from "@/components/ui/choice-cards";
 import { TimeInput } from "@/components/ui/time-input";
 import { WEEKDAYS, type Weekday } from "@/lib/rates";
 import { fromMinutes, stayLengthHours, toMinutes } from "@/lib/stay-times";
@@ -176,6 +177,78 @@ export function DayRatesFields({
           <p className="text-xs text-ink/50">Blank days use the regular nightly rate. A night is priced by the day it starts.</p>
         </div>
       ) : null /* Off means no day inputs submit, so saving clears any day rates. */}
+    </div>
+  );
+}
+
+export type ReservationFeeChoice = "" | "fixed" | "percent";
+
+const RESERVATION_FEE_OPTIONS = [
+  { value: "", label: "None", description: "Confirm without a down payment." },
+  { value: "fixed", label: "Fixed amount", description: "The same amount for every booking." },
+  { value: "percent", label: "Percentage", description: "A share of the booking total." },
+] as const;
+
+/**
+ * The down payment a guest owes before a booking is confirmed. Applies to
+ * the team's own channels (Direct, Facebook, Messenger…), never to platforms
+ * that collect payment themselves, like Airbnb or Agoda. Submits as
+ * `reservationFeeType` and `reservationFeeAmount` (pesos, or a percent).
+ */
+export function ReservationFeeFields({ defaultType, defaultAmount }: { defaultType: ReservationFeeChoice; defaultAmount: string }) {
+  const [type, setType] = useState<ReservationFeeChoice>(defaultType);
+  const [amount, setAmount] = useState(defaultAmount);
+
+  return (
+    <div className="rounded-xl border border-pine/10 bg-linen/50 p-4">
+      <p id="reservation-fee-label" className="text-sm font-medium text-pine">Reservation fee</p>
+      <p className="mb-3 text-xs text-ink/55">
+        The down payment needed to confirm a booking made directly, on Facebook or Messenger. Not charged on Airbnb, Agoda and other platforms that collect payment.
+      </p>
+      <input type="hidden" name="reservationFeeType" value={type} />
+      <ChoiceCards
+        aria-labelledby="reservation-fee-label"
+        columns={3}
+        value={type}
+        onChange={(next) => {
+          if (next !== type) setAmount("");
+          setType(next);
+        }}
+        options={RESERVATION_FEE_OPTIONS}
+      />
+      {type ? (
+        <div className="mt-3 max-w-48">
+          <Label htmlFor="reservation-fee-amount">{type === "fixed" ? "Amount" : "Percent of the booking total"}</Label>
+          {type === "fixed" ? (
+            <PesoInput
+              id="reservation-fee-amount"
+              name="reservationFeeAmount"
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+              placeholder="1,000"
+              required
+            />
+          ) : (
+            <div className="relative">
+              <Input
+                id="reservation-fee-amount"
+                name="reservationFeeAmount"
+                type="number"
+                inputMode="decimal"
+                min={0.01}
+                max={100}
+                step={0.01}
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+                placeholder="30"
+                className="pr-8 tabular-nums"
+                required
+              />
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-ink/45">%</span>
+            </div>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }

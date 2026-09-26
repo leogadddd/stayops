@@ -87,7 +87,7 @@ const unit = {
   id: "unit-a", organizationId: owner.organizationId, propertyId: property.id, name: "Test unit",
   status: "active" as const, capacity: 2, bedrooms: 1, bathrooms: 1, defaultNightlyRateCents: 125_050, dayRates: {},
   imageUrl: null,
-  cleaningFeeCents: 30_000, securityDepositCents: null, checkInTime: "15:00", checkOutTime: "11:00", checklistTemplate: [{ label: "Clean room", required: true }],
+  cleaningFeeCents: 30_000, securityDepositCents: null, reservationFeeType: null, reservationFeeAmount: null, checkInTime: "15:00", checkOutTime: "11:00", checklistTemplate: [{ label: "Clean room", required: true }],
   createdAt: new Date("2026-09-01T00:00:00Z"), updatedAt: new Date("2026-09-01T00:00:00Z"),
   deletedAt: null,
 };
@@ -277,7 +277,7 @@ const editors = [
 const returningEditors = [
   { name: "new property", render: () => React.createElement(PropertyForm), action: propertyActions.createPropertyAction, result: { success: true, id: "property-new" }, destination: "/properties/property-new" },
   { name: "edit property", render: () => React.createElement(PropertyForm, { propertyId: property.id }), action: propertyActions.updatePropertyAction, destination: propertyHref },
-  { name: "edit unit", render: () => React.createElement(UnitEditForm, { propertyId: property.id, unitId: unit.id, values: { name: unit.name, capacity: 2, bedrooms: 1, bathrooms: 1, nightlyRate: "1250.50", cleaningFee: "300", securityDeposit: "", checkInTime: "15:00", checkOutTime: "11:00", status: "active" } }), action: propertyActions.updateUnitAction, destination: unitHref },
+  { name: "edit unit", render: () => React.createElement(UnitEditForm, { propertyId: property.id, unitId: unit.id, values: { name: unit.name, capacity: 2, bedrooms: 1, bathrooms: 1, nightlyRate: "1250.50", cleaningFee: "300", securityDeposit: "", reservationFeeType: "", reservationFeeAmount: "", checkInTime: "15:00", checkOutTime: "11:00", status: "active" } }), action: propertyActions.updateUnitAction, destination: unitHref },
   { name: "new unit", render: () => React.createElement(UnitCreateForm, { propertyId: property.id }), action: propertyActions.createUnitAction, destination: propertyHref },
   { name: "block", render: () => React.createElement(BlockForms, { propertyId: property.id, unitId: unit.id }), action: blockActions.addUnitBlockAction, destination: unitHref },
   { name: "checklist", render: () => React.createElement(ChecklistTemplateEditor, { propertyId: property.id, unitId: unit.id, items: unit.checklistTemplate }), action: propertyActions.updateChecklistTemplateAction, destination: unitHref },

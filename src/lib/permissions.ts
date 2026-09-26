@@ -107,6 +107,16 @@ export const PERMISSION_AREAS = [
     actions: { view: "See the audit log" },
   },
   {
+    area: "platforms",
+    label: "Booking platforms",
+    actions: {
+      view: "See the organization's booking platforms settings",
+      create: "Add booking platforms",
+      update: "Edit, reorder and restore booking platforms",
+      delete: "Remove booking platforms",
+    },
+  },
+  {
     area: "organization",
     label: "Organization settings",
     actions: { update: "Edit the organization profile, region and guest payment instructions" },
@@ -153,6 +163,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, readonly Permission[]> = 
   admin: PERMISSIONS,
   operations_manager: PERMISSIONS.filter(
     (permission) => !permission.startsWith("team.") && !permission.startsWith("organization.")
+      && (!permission.startsWith("platforms.") || permission === "platforms.view")
       && permission !== "reports.view" && permission !== "audit_logs.view",
   ),
   staff: [

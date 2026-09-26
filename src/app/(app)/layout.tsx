@@ -1,5 +1,5 @@
 import {
-  listMemberships,
+  listAccessibleOrganizations,
   requireMembership,
   requireUser,
 } from "@/lib/auth/session";
@@ -17,7 +17,7 @@ export default async function AppLayout({
   const [user, membership, organizations] = await Promise.all([
     requireUser(),
     requireMembership(),
-    requireUser().then((user) => listMemberships(user.id)),
+    requireUser().then((user) => listAccessibleOrganizations(user.id)),
   ]);
   const organizationLogoUrls = await Promise.all(
     organizations.map((organization) =>
@@ -41,6 +41,7 @@ export default async function AppLayout({
       id: organization.organizationId,
       name: organization.organizationName,
       role: organization.role,
+      viaL1: organization.viaL1,
       imageSrc: organizationLogoUrls[index]?.startsWith("data:")
         ? organizationLogoUrls[index]
         : organizationLogoUrls[index]
@@ -53,6 +54,7 @@ export default async function AppLayout({
       ? `/api/users/${user.id}/profile-image`
       : (user.image ?? null),
     role: membership.role,
+    viaL1: membership.viaL1 ?? false,
     permissions: membership.permissions ?? resolvePermissions(membership.role),
   };
   return (

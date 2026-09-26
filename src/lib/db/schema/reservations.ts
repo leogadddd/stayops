@@ -14,7 +14,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
 import { organizations } from "./orgs";
-import { units } from "./inventory";
+import { reservationFeeType, units } from "./inventory";
 
 export const RESERVATION_STATUSES = [
   "hold",
@@ -113,6 +113,9 @@ export const bookingPlatforms = pgTable(
     color: text("color"),
     // The platform's cut of each booking, in basis points (1500 = 15%).
     commissionBasisPoints: integer("commission_basis_points"),
+    // The platform takes the guest's payment itself (Airbnb, Agoda), so the
+    // unit's reservation fee doesn't apply to its bookings.
+    collectsPayment: boolean("collects_payment").notNull().default(false),
     isActive: boolean("is_active").notNull().default(true),
     position: integer("position").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -151,6 +154,11 @@ export const reservations = pgTable(
     guestCount: integer("guest_count").notNull().default(1),
     // Holds reserve dates until this UTC timestamp; null for non-holds.
     expiresAt: timestamp("expires_at", { withTimezone: true }),
+    // The unit's reservation fee rule, copied when the booking is made (null
+    // when none applies, e.g. an Airbnb booking). The required amount follows
+    // the current charges; see src/lib/reservation-fee.ts.
+    reservationFeeType: reservationFeeType("reservation_fee_type"),
+    reservationFeeAmount: integer("reservation_fee_amount"),
     // Owner-supplied reason when confirming without the required payment.
     confirmReason: text("confirm_reason"),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
@@ -197,6 +205,10 @@ export const reservations = pgTable(
     check(
       "reservations_range_check",
       sql`${table.checkOutDate} > ${table.checkInDate}`,
+    ),
+    check(
+      "reservations_reservation_fee_check",
+      sql`(${table.reservationFeeType} IS NULL) = (${table.reservationFeeAmount} IS NULL)`,
     ),
     check(
       "reservations_guest_count_check",

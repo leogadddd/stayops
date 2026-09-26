@@ -141,6 +141,20 @@
       "when": 1790668800008,
       "tag": "20260926091313_add_booking_platforms_and_guest_profile",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1790668800009,
+      "tag": "20260926110225_add_reservation_fee",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1790668800010,
+      "tag": "20260926111946_add_system_admins",
+      "breakpoints": true
     }
   ]
 }

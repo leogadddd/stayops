@@ -1,5 +1,6 @@
 import { unitOrPropertyPhotoSrc } from "@/lib/photos";
 import type { Unit } from "@/lib/db/schema";
+import { reservationFeeRule } from "@/lib/reservation-fee";
 import type { UnitOption } from "./reservation-form";
 
 /** A unit as the reservation form shows it. Rates are only sent to people who may see them. */
@@ -23,5 +24,6 @@ export function toUnitOption(
     dayRates: showRates ? unit.dayRates : null,
     cleaningFeeCents: showRates ? unit.cleaningFeeCents : null,
     securityDepositCents: showRates ? unit.securityDepositCents : null,
+    reservationFee: showRates ? reservationFeeRule(unit) : null,
   };
 }

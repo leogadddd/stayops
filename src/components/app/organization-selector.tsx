@@ -13,8 +13,15 @@ export type OrganizationOption = {
   id: string;
   name: string;
   role: RoleKey;
+  /** Opened through L1 operator access, not a membership. */
+  viaL1?: boolean;
   imageSrc?: string | null;
 };
+
+/** "Owner", or "L1 access" in an organization the user isn't a member of. */
+function accessLabel(organization: Pick<OrganizationOption, "role" | "viaL1">): string {
+  return organization.viaL1 ? "L1 access" : roleLabel(organization.role);
+}
 
 /** The organization logo, or its initial on brand pine. */
 function OrganizationMark({
@@ -119,7 +126,7 @@ export function OrganizationSelector({
         options={organizations.map((organization) => ({
           value: organization.id,
           label: organization.name,
-          description: roleLabel(organization.role),
+          description: accessLabel(organization),
           mark: organization.name,
           imageSrc: organization.imageSrc,
         }))}
@@ -178,7 +185,7 @@ export function OrganizationSelector({
             {switching
               ? "Switching…"
               : single
-                ? roleLabel(activeOrganization.role)
+                ? accessLabel(activeOrganization)
                 : `${organizations.length} organizations`}
           </span>
         </span>
@@ -246,7 +253,7 @@ export function OrganizationSelector({
                       {organization.name}
                     </span>
                     <span className="mt-0.5 inline-flex rounded-full bg-sage/45 px-2 py-0.5 text-[11px] font-medium text-pine">
-                      {roleLabel(organization.role)}
+                      {accessLabel(organization)}
                     </span>
                   </span>
                   {selected ? (

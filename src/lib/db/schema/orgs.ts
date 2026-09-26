@@ -17,6 +17,16 @@ export const joinRequestStatus = pgEnum("organization_join_request_status", ["pe
 /** Stable keys used in API contracts. Labels and permissions live in tables. */
 export const roleKey = pgEnum("organization_role_key", ["owner", "admin", "operations_manager", "staff"]);
 
+/**
+ * L1: StayOps operators. They act as an owner in every organization without
+ * being a member of it, so they never show on a team list. Granted and
+ * revoked only with `npm run l1 -- grant|revoke <email>`, never from the app.
+ */
+export const systemAdmins = pgTable("system_admins", {
+  userId: text("user_id").primaryKey().references(() => user.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 /** Global, seeded roles. They are intentionally not organization-editable yet. */
 export const roles = pgTable("roles", {
   id: uuid("id").primaryKey().defaultRandom(),

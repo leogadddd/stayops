@@ -218,12 +218,15 @@ export const updateReservationSchema = reservationDetailsSchema.extend({
   .refine((value) => value.guestId || value.primaryGuest, { message: "Choose a primary guest.", path: ["guestId"] });
 export type UpdateReservationInput = z.input<typeof updateReservationSchema>;
 
+// The reason is only required while the reservation fee is unpaid; the
+// service decides.
 export const confirmHoldSchema = z.object({
   reason: z
     .string()
     .trim()
     .min(2, "Give a short reason for confirming without a recorded deposit.")
-    .max(500, "Reason must be 500 characters or fewer."),
+    .max(500, "Reason must be 500 characters or fewer.")
+    .optional(),
 });
 
 export const cancelReservationSchema = z.object({

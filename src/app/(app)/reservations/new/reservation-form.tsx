@@ -35,6 +35,7 @@ import { DateInput } from "@/components/ui/date-input";
 import { TimeInput } from "@/components/ui/time-input";
 import { PlatformLogo, type PlatformDisplay } from "@/components/app/platform-badge";
 import { PLATFORMS_WITHOUT_REFERENCE } from "@/lib/platforms";
+import { describeReservationFee, reservationFeeCents, type ReservationFeeRule } from "@/lib/reservation-fee";
 import { PAYMENT_METHOD_LOGOS } from "@/components/app/payment-method-logo";
 import { GuestPicker } from "./guest-picker";
 
@@ -54,6 +55,8 @@ export interface UnitOption {
   dayRates: DayRates | null;
   cleaningFeeCents: number | null;
   securityDepositCents: number | null;
+  /** The down payment that confirms a booking from the team's own channels; owners only. */
+  reservationFee: ReservationFeeRule | null;
 }
 
 interface ChargeDraft {
@@ -189,7 +192,7 @@ export function ReservationForm({
   /** Show "New guest" (guests.create). */
   canCreateGuest?: boolean;
   /** Where bookings come from (Direct, Airbnb, …), in display order. */
-  platforms: (PlatformDisplay & { id: string; key: string | null })[];
+  platforms: (PlatformDisplay & { id: string; key: string | null; collectsPayment: boolean })[];
   defaultCheckIn: string;
   defaultCheckOut: string;
   requestedUnitId?: string;
@@ -306,6 +309,10 @@ export function ReservationForm({
   const submittableLines = parsed.map((entry) => entry.line).filter((line): line is ChargeLineValues => line !== null);
   const totals = computeTotals(submittableLines);
   const paymentCents = noPayment ? null : parsePayment(payment.amount);
+  // Platforms like Airbnb collect payment themselves, so no fee applies there.
+  const feeRule = selectedPlatform?.collectsPayment ? null : (selectedUnit?.reservationFee ?? null);
+  const feeCents = feeRule ? reservationFeeCents(feeRule, totals.bookingTotalCents) : 0;
+  const feeCovered = !feeCents || (payment.allocation === "booking" && (paymentCents ?? 0) >= feeCents);
 
   // What blocks each step; the first step with a problem caps how far you can go.
   const stepIssues: Record<StepId, string | null> = {
@@ -393,6 +400,10 @@ export function ReservationForm({
     }
     if (submitMode === "confirmed" && totals.bookingTotalCents > 0 && !paymentCents && !noPayment) {
       setReviewError("Record the payment received, or mark “No payment received yet” in Charges & payment.");
+      return;
+    }
+    if (submitMode === "confirmed" && paymentCents && !feeCovered) {
+      setReviewError(`This unit's reservation fee is ${formatPHP(feeCents)}. Record at least that towards the booking, or place a hold until it's paid.`);
       return;
     }
     const data = new FormData();
@@ -627,6 +638,20 @@ export function ReservationForm({
               <div className="border-t border-pine/10 pt-6">
                 <h3 className="font-display text-lg text-pine">Payment received</h3>
                 <p className="text-sm text-ink/60">Optional. Recorded with a confirmed booking so the balance starts accurate.</p>
+                {feeCents ? (
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-clay/30 bg-clay-mist/40 px-4 py-3 text-sm">
+                    <p className="text-ink/75">
+                      <span className="font-medium text-clay-deep">Reservation fee {formatPHP(feeCents)}</span>
+                      {feeRule?.type === "percent" ? <span className="text-ink/55"> ({describeReservationFee(feeRule)})</span> : null}
+                      <span className="block text-xs text-ink/55">Needed to confirm this booking. Place a hold until the guest pays it.</span>
+                    </p>
+                    {!noPayment && !feeCovered ? (
+                      <Button type="button" variant="outline" size="sm" onClick={() => setPayment({ ...payment, amount: String(feeCents / 100), allocation: "booking" })}>
+                        Enter {formatPHP(feeCents)}
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : null}
                 <label className="mt-4 flex items-start gap-2 text-sm text-ink">
                   <input type="checkbox" className="mt-0.5 accent-pine" checked={noPayment} onChange={(event) => { setNoPayment(event.target.checked); if (event.target.checked) setPayment({ ...payment, amount: "" }); }} />
                   <span>No payment received yet</span>
@@ -734,6 +759,7 @@ export function ReservationForm({
                     <tfoot className="border-t border-pine/15">
                       <tr><td colSpan={2} className="pt-3 text-ink/60">Booking total</td><td className="pt-3 text-right font-display text-lg text-pine">{formatPHP(totals.bookingTotalCents)}</td></tr>
                       {totals.depositTotalCents ? <tr><td colSpan={2} className="text-ink/60">Refundable deposit</td><td className="text-right text-pine">{formatPHP(totals.depositTotalCents)}</td></tr> : null}
+                      {!edit && feeCents ? <tr><td colSpan={2} className="text-ink/60">Reservation fee</td><td className={cn("text-right", feeCovered ? "text-pine" : "text-clay-deep")}>{formatPHP(feeCents)} · {feeCovered ? "covered" : "unpaid"}</td></tr> : null}
                     </tfoot>
                   </table>
                   <p className="mt-3 rounded-lg bg-linen px-3 py-2 text-sm text-ink/70">

@@ -59,3 +59,15 @@ images). New organizations get them in `createOrganization`, and
 `npm run seed:platforms` backfills existing organizations (idempotent).
 Retire a platform with `is_active = false` instead of deleting it; past
 reservations still reference it.
+Teams manage their list at Settings → Booking platforms (`platforms.*`
+permissions): built-in or used platforms are archived there, only unused
+custom ones are deleted. `collects_payment` marks platforms that take the
+guest's payment (Airbnb, Agoda); the unit's reservation fee
+(`src/lib/reservation-fee.ts`) only applies to the others.
+
+## L1 operators
+
+`system_admins` lists L1 operators, who get owner access to every
+organization without a membership (`listAccessibleOrganizations`). Manage
+them with `npm run l1 -- list | grant <email> | revoke <email>`; there is no
+UI for it by design.

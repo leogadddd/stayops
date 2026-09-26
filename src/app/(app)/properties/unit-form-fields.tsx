@@ -13,7 +13,7 @@ import { useSaveAndReturn } from "@/hooks/use-save-and-return";
 import type { InventoryFormState } from "./actions";
 import { AmenityPicker, type AmenityOption } from "./amenity-picker";
 import { FormAside, FormLayout, FormSection, PesoInput, PhotoField, useFormValues } from "./form-kit";
-import { DayRatesFields, StayTimesFields } from "./unit-pricing-fields";
+import { DayRatesFields, ReservationFeeFields, StayTimesFields, type ReservationFeeChoice } from "./unit-pricing-fields";
 import { stayLengthHours, stayLengthLabel } from "@/lib/stay-times";
 import { dayRateSummary, WEEKDAYS, type DayRates, type Weekday } from "@/lib/rates";
 import { UnitStatusBadge } from "./inventory-display";
@@ -28,6 +28,9 @@ export interface UnitFormValues {
   nightlyRate: string;
   cleaningFee: string;
   securityDeposit: string;
+  reservationFeeType: ReservationFeeChoice;
+  /** Pesos for a fixed fee, a percent for a percentage. */
+  reservationFeeAmount: string;
   /** Weekday rates in pesos, only for days that differ. */
   dayRates?: Partial<Record<Weekday, string>>;
   checkInTime: string;
@@ -218,6 +221,9 @@ export function UnitForm({
           </div>
           <div className="mt-4">
             <DayRatesFields defaults={values.dayRates ?? {}} regularRate={live.nightlyRate ?? values.nightlyRate} />
+          </div>
+          <div className="mt-4">
+            <ReservationFeeFields defaultType={values.reservationFeeType} defaultAmount={values.reservationFeeAmount} />
           </div>
         </FormSection>
 

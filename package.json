@@ -27,6 +27,7 @@
     "storage:migrate-photos": "tsx --tsconfig tsconfig.scripts.json scripts/migrate-photos-to-storage.ts",
     "seed:calendar-demo": "tsx --tsconfig tsconfig.scripts.json scripts/seed-calendar-demo.ts",
     "seed:reservations": "tsx --tsconfig tsconfig.scripts.json scripts/seed-sample-reservations.ts",
+    "l1": "tsx --tsconfig tsconfig.scripts.json scripts/l1.ts",
     "db:reset": "tsx --tsconfig tsconfig.scripts.json scripts/reset-db.ts",
     "db:setup": "npm run db:up && npm run db:migrate && npm run seed:demo"
   },

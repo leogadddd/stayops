@@ -9,6 +9,7 @@ import {
   guests,
   properties,
   paymentEntries,
+  refundEntries,
   reservationCharges,
   reservationOccupants,
   reservationTransitions,
@@ -17,8 +18,9 @@ import {
   type ReservationStatus,
   type Unit,
 } from "@/lib/db/schema";
-import { assertIntegerCentavos, MoneyParseError, pesosToCentavos } from "@/lib/money";
+import { assertIntegerCentavos, formatPHP, MoneyParseError, pesosToCentavos } from "@/lib/money";
 import { computeTotals } from "@/lib/charges";
+import { applicableReservationFee, reservationFeeCents, reservationFeeRule } from "@/lib/reservation-fee";
 import { getUnitOrThrow } from "@/server/inventory/service";
 import {
   checkIntervalAvailability,
@@ -636,6 +638,8 @@ async function createReservation(
       expiresAt: Date | null;
       confirmReason: string | null;
       initialPayment?: CreateConfirmedInput["initialPayment"];
+      /** Confirmed bookings only: confirm even if the reservation fee isn't paid. */
+      acknowledgeUnpaid?: boolean;
     };
   },
 ) {
@@ -747,7 +751,18 @@ async function createReservation(
         throw new ReservationError("This unit is no longer available.", "unitId");
       }
       assertBookableUnit(lockedUnit);
-      await assertPlatform(tx, organizationId, values.platformId);
+      const platform = await assertPlatform(tx, organizationId, values.platformId);
+      const fee = applicableReservationFee(lockedUnit, platform);
+      if (fee && args.status === "confirmed" && !values.acknowledgeUnpaid) {
+        const requiredCents = reservationFeeCents(fee, computeTotals(values.charges).bookingTotalCents);
+        const paidCents = initialPayment?.allocation === "booking" ? initialPayment.amountCents : 0;
+        if (paidCents < requiredCents) {
+          throw new ReservationError(
+            `This unit needs a reservation fee of ${formatPHP(requiredCents)} before a booking is confirmed. Record it as the payment, or tick the acknowledgement to confirm anyway.`,
+            "acknowledgeUnpaid",
+          );
+        }
+      }
 
       let guestId: string;
       if (args.guest.guestId) {
@@ -802,6 +817,8 @@ async function createReservation(
           guestCount: values.guestCount,
           expiresAt: values.expiresAt,
           confirmReason: values.confirmReason,
+          reservationFeeType: fee?.type ?? null,
+          reservationFeeAmount: fee?.amount ?? null,
           platformId: values.platformId ?? null,
           platformReference: values.platformReference || null,
           idempotencyKey: args.idempotencyKey ?? null,
@@ -968,17 +985,62 @@ export async function createConfirmed(
       expiresAt: null,
       confirmReason: null,
       initialPayment: data.initialPayment,
+      acknowledgeUnpaid: data.acknowledgeUnpaid,
     },
   });
 }
 
+/**
+ * The reservation fee still owed on a booking: its rule's amount of the
+ * current booking total, less booking payments net of refunds. Null when no
+ * fee applies.
+ */
+async function reservationFeeOutstanding(
+  executor: Tx | typeof db,
+  reservation: typeof reservations.$inferSelect,
+): Promise<{ requiredCents: number; outstandingCents: number } | null> {
+  const rule = reservationFeeRule(reservation);
+  if (!rule) return null;
+  const scope = (table: typeof paymentEntries | typeof refundEntries) => and(
+    eq(table.organizationId, reservation.organizationId),
+    eq(table.reservationId, reservation.id),
+    eq(table.allocation, "booking"),
+  );
+  const [charges, [paid], [refunded]] = await Promise.all([
+    executor
+      .select({ type: reservationCharges.type, description: reservationCharges.description, quantity: reservationCharges.quantity, unitAmountCents: reservationCharges.unitAmountCents })
+      .from(reservationCharges)
+      .where(and(eq(reservationCharges.organizationId, reservation.organizationId), eq(reservationCharges.reservationId, reservation.id))),
+    executor.select({ cents: sql<number>`coalesce(sum(${paymentEntries.amountCents}), 0)::int` }).from(paymentEntries).where(scope(paymentEntries)),
+    executor.select({ cents: sql<number>`coalesce(sum(${refundEntries.amountCents}), 0)::int` }).from(refundEntries).where(scope(refundEntries)),
+  ]);
+  const requiredCents = reservationFeeCents(rule, computeTotals(charges).bookingTotalCents);
+  const netPaidCents = (paid?.cents ?? 0) - (refunded?.cents ?? 0);
+  return { requiredCents, outstandingCents: Math.max(0, requiredCents - netPaidCents) };
+}
+
+/** The reservation fee required and still owed; null when none applies. */
+export async function getReservationFeeStatus(organizationId: string, reservationId: string) {
+  const [reservation] = await db
+    .select()
+    .from(reservations)
+    .where(and(eq(reservations.id, reservationId), eq(reservations.organizationId, organizationId)))
+    .limit(1);
+  return reservation ? reservationFeeOutstanding(db, reservation) : null;
+}
+
+/**
+ * Confirm a hold. Once the reservation fee is paid no reason is needed;
+ * otherwise (or when the unit has no fee) the owner says why they're
+ * confirming without it.
+ */
 export async function confirmHold(input: {
   organizationId: string;
   actorUserId: string;
   reservationId: string;
-  reason: string;
+  reason?: string;
 }) {
-  const { reason } = confirmHoldSchema.parse({ reason: input.reason });
+  const { reason } = confirmHoldSchema.parse({ reason: input.reason || undefined });
 
   return db.transaction(async (tx) => {
     await expireStaleHolds(tx, input.organizationId);
@@ -1005,13 +1067,23 @@ export async function confirmHold(input: {
         `A ${reservation.status} reservation cannot be confirmed.`,
       );
     }
+    const fee = await reservationFeeOutstanding(tx, reservation);
+    const feePaid = fee !== null && fee.outstandingCents === 0;
+    if (!feePaid && !reason) {
+      throw new ReservationError(
+        fee
+          ? `The reservation fee has ${formatPHP(fee.outstandingCents)} left to pay. Give a reason to confirm without it.`
+          : "Give a short reason for confirming without a recorded deposit.",
+        "reason",
+      );
+    }
 
     const [updated] = await tx
       .update(reservations)
       .set({
         status: "confirmed",
         expiresAt: null,
-        confirmReason: reason,
+        confirmReason: reason ?? null,
         updatedAt: new Date(),
       })
       .where(eq(reservations.id, reservation.id))
@@ -1024,7 +1096,9 @@ export async function confirmHold(input: {
       reservationId: reservation.id,
       fromStatus: reservation.status,
       toStatus: "confirmed",
-      note: `Confirmed without a recorded deposit — ${reason}`,
+      note: reason
+        ? `Confirmed without ${fee ? "the reservation fee" : "a recorded deposit"} — ${reason}`
+        : "Confirmed — reservation fee paid.",
       actorUserId: input.actorUserId,
     });
     await recordAudit(tx, {
@@ -1033,7 +1107,7 @@ export async function confirmHold(input: {
       entity: "reservation",
       entityId: reservation.id,
       action: "reservation.confirmed",
-      metadata: { reason },
+      metadata: { reason: reason ?? null, reservationFeeCents: fee?.requiredCents ?? null },
     });
     return updated;
   });
@@ -1147,12 +1221,18 @@ export async function updateReservation(input: {
     }
     const [unit] = await tx.select().from(units).where(and(eq(units.id, data.unitId), eq(units.organizationId, input.organizationId), isNull(units.deletedAt))).limit(1);
     if (!unit || data.guestCount > unit.capacity) throw new ReservationError(`This unit sleeps ${unit?.capacity ?? 0}; the guest count is too high.`, "guestCount");
-    await assertPlatform(tx, input.organizationId, data.platformId, reservation.platformId);
+    const platformId = data.platformId ?? reservation.platformId;
+    const platform = await assertPlatform(tx, input.organizationId, platformId, reservation.platformId);
+    // A different unit or platform means a different fee; otherwise the
+    // booking keeps the rule it was made with.
+    const fee = unit.id !== reservation.unitId || platformId !== reservation.platformId
+      ? applicableReservationFee(unit, platform)
+      : reservationFeeRule(reservation);
     const guest = await resolvePrimaryGuest(tx, input.organizationId, input.actorUserId, data.guestId, data.primaryGuest);
     const segments = (await getOccupancySegments(input.organizationId, [unit.id], data.checkIn, data.checkOut)).get(unit.id) ?? [];
     const availability = checkIntervalAvailability(segments.filter((segment) => segment.kind !== "reservation" || segment.id !== reservation.id), data.checkIn, data.checkOut);
     if (!availability.available) throw new ReservationError(`Those dates conflict with ${availability.conflict.reason}.`, "checkIn");
-    const [updated] = await tx.update(reservations).set({ unitId: unit.id, guestId: guest.id, checkInDate: data.checkIn, checkOutDate: data.checkOut, guestCount: data.guestCount, platformId: data.platformId ?? reservation.platformId, platformReference: data.platformReference === undefined ? reservation.platformReference : data.platformReference || null, updatedAt: new Date() }).where(eq(reservations.id, reservation.id)).returning();
+    const [updated] = await tx.update(reservations).set({ unitId: unit.id, guestId: guest.id, checkInDate: data.checkIn, checkOutDate: data.checkOut, guestCount: data.guestCount, platformId, platformReference: data.platformReference === undefined ? reservation.platformReference : data.platformReference || null, reservationFeeType: fee?.type ?? null, reservationFeeAmount: fee?.amount ?? null, updatedAt: new Date() }).where(eq(reservations.id, reservation.id)).returning();
     if (!updated) throw new ReservationError("Failed to update the reservation.");
     await tx.delete(reservationOccupants).where(and(eq(reservationOccupants.reservationId, reservation.id), eq(reservationOccupants.organizationId, input.organizationId)));
     if (data.occupantNames.length) await tx.insert(reservationOccupants).values(data.occupantNames.map((name, position) => ({ organizationId: input.organizationId, reservationId: reservation.id, name, position })));

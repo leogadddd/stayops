@@ -34,6 +34,7 @@ import { listUnitAmenities } from "@/server/inventory/amenities";
 import { buttonClassName } from "@/components/ui/button";
 import { RemoveBlockButton } from "../block-forms";
 import { AmenitySummary } from "../../../amenity-summary";
+import { formatPercent, reservationFeeRule } from "@/lib/reservation-fee";
 import {
   Panel,
   SideAction,
@@ -74,6 +75,7 @@ export default async function UnitDetailPage({ params }: { params: Promise<{ pro
   const activity = summarizeUnitActivity(segmentsByUnit.get(unit.id) ?? [], today, addDaysLocal(today, OUTLOOK_DAYS));
   const checklist = normalizeChecklistTemplate(unit.checklistTemplate);
   const dayRates = dayRateSummary(unit.defaultNightlyRateCents, unit.dayRates, formatPHP);
+  const feeRule = reservationFeeRule(unit);
   const unitHref = `/properties/${property.id}/units/${unit.id}`;
   const bookable = unit.status === "active";
   const newReservationHref = `/reservations/new?unit=${unit.id}`;
@@ -329,6 +331,12 @@ export default async function UnitDetailPage({ params }: { params: Promise<{ pro
               {unit.cleaningFeeCents ? <DetailRow label="Cleaning fee" value={formatPHP(unit.cleaningFeeCents)} /> : null}
               {unit.securityDepositCents ? (
                 <DetailRow label="Refundable deposit" value={formatPHP(unit.securityDepositCents)} />
+              ) : null}
+              {feeRule ? (
+                <DetailRow
+                  label="Reservation fee"
+                  value={feeRule.type === "fixed" ? formatPHP(feeRule.amount) : `${formatPercent(feeRule.amount)} of total`}
+                />
               ) : null}
             </dl>
             <AmenitySummary amenities={amenities} editHref={`${unitHref}/edit`} />

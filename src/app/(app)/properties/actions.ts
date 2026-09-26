@@ -53,6 +53,27 @@ function readDayRates(formData: FormData): DayRates {
   return rates;
 }
 
+/**
+ * The unit's reservation fee: `reservationFeeType` is "", "fixed" or
+ * "percent"; `reservationFeeAmount` is pesos for fixed, a percent for
+ * percent ("30" → 3000 basis points).
+ */
+function readReservationFee(formData: FormData): { reservationFeeType: "fixed" | "percent" | null; reservationFeeAmount: number | null } {
+  const type = readString(formData, "reservationFeeType");
+  if (type === "fixed") {
+    return { reservationFeeType: "fixed", reservationFeeAmount: readOptionalPesos(formData, "reservationFeeAmount") };
+  }
+  if (type === "percent") {
+    const raw = readString(formData, "reservationFeeAmount").replace(/%$/, "").trim();
+    const percent = Number(raw);
+    if (raw === "" || !Number.isFinite(percent)) {
+      throw new InventoryError("Enter the reservation fee percentage.", "reservationFeeAmount");
+    }
+    return { reservationFeeType: "percent", reservationFeeAmount: Math.round(percent * 100) };
+  }
+  return { reservationFeeType: null, reservationFeeAmount: null };
+}
+
 function readTurnoverDuration(formData: FormData): number {
   const hours = Number(readString(formData, "turnoverHours") || "0");
   const minutes = Number(readString(formData, "turnoverMinutes") || "0");
@@ -227,6 +248,7 @@ function unitDataFromForm(formData: FormData) {
     dayRates: readDayRates(formData),
     cleaningFeeCents: readOptionalPesos(formData, "cleaningFee"),
     securityDepositCents: readOptionalPesos(formData, "securityDeposit"),
+    ...readReservationFee(formData),
     checkInTime: readString(formData, "checkInTime") || "15:00",
     checkOutTime: readString(formData, "checkOutTime") || "11:00",
     status: readString(formData, "status") as

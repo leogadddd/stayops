@@ -55,7 +55,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/components/ui/sonner", () => ({ setToastAfterNavigation: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/db", () => ({ db: {} }));
-vi.mock("@/server/reservations/service", () => ({ getReservationDetail: vi.fn(), isLiveHold: vi.fn(), listReservations: vi.fn(), ReservationError: class extends Error {} }));
+vi.mock("@/server/reservations/service", () => ({ getReservationDetail: vi.fn(), isLiveHold: vi.fn(), getReservationFeeStatus: vi.fn(async () => null), listReservations: vi.fn(), ReservationError: class extends Error {} }));
 vi.mock("@/server/reservations/platforms", () => ({ listPlatforms: vi.fn(async () => []) }));
 vi.mock("@/server/reservations/holds", () => ({ expireStaleHolds: vi.fn() }));
 vi.mock("@/server/payments/service", () => ({ getReservationLedger: vi.fn(), recordPayment: vi.fn(), dismissProof: vi.fn() }));

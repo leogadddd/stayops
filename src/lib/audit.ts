@@ -9,6 +9,7 @@ export interface AuditDisplayEvent {
 
 const ENTITY_LABELS: Record<string, string> = {
   access_token: "Guest link",
+  booking_platform: "Booking platform",
   damage_report: "Damage report",
   deposit_deduction: "Deposit deduction",
   expense: "Expense",
@@ -99,6 +100,10 @@ export function formatAuditDetails(event: AuditDisplayEvent): string | null {
       return reason ? `Reason: ${reason}` : null;
     case "reservation.expired":
       return "Hold expired automatically.";
+    case "platform.archived":
+      return "Hidden from new reservations; past bookings keep it.";
+    case "platform.updated":
+      return strings(metadata, "fields")?.map(words).join(", ") || null;
     case "payment.recorded":
       return join([
         amount === null ? null : formatPHP(amount),

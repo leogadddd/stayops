@@ -41,6 +41,7 @@ import { getReservationLedger } from "@/server/payments/service";
 import { getTaskForReservation } from "@/server/operations/service";
 import { ReservationStatusBadge } from "@/components/app/reservation-status-badge";
 import { PlatformBadge } from "@/components/app/platform-badge";
+import { reservationFeeCents, reservationFeeRule } from "@/lib/reservation-fee";
 import { buttonClassName } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import {
@@ -148,6 +149,10 @@ export default async function ReservationDetailPage({
   const checkOutTime = unit.checkOutTime ?? property?.checkOutTime ?? null;
   const balances = ledger?.balances ?? null;
   const balanceDue = balances ? Math.max(0, balances.bookingBalanceCents) : 0;
+  // The down payment this booking needs, from the rule it was made with.
+  const feeRule = reservationFeeRule(reservation);
+  const feeRequiredCents = feeRule && balances ? reservationFeeCents(feeRule, balances.bookingTotalCents) : 0;
+  const feePaid = balances ? balances.paidBookingCents - balances.refundedBookingCents >= feeRequiredCents : false;
   const paidShare =
     balances && balances.bookingTotalCents > 0
       ? Math.min(1, balances.paidBookingCents / balances.bookingTotalCents)
@@ -670,6 +675,14 @@ export default async function ReservationDetailPage({
                     {formatPHP(balances.paidBookingCents)}
                   </dd>
                 </div>
+                {feeRule ? (
+                  <div className="flex justify-between gap-3 text-ink/65">
+                    <dt>Reservation fee</dt>
+                    <dd className={cn("tabular-nums", feePaid ? "text-pine" : "text-clay-deep")}>
+                      {formatPHP(feeRequiredCents)} · {feePaid ? "paid" : "unpaid"}
+                    </dd>
+                  </div>
+                ) : null}
                 {balances.depositTotalCents ? (
                   <div className="flex justify-between gap-3 text-ink/65">
                     <dt>Deposit held</dt>

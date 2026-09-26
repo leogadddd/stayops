@@ -101,6 +101,8 @@ type SidebarProps = {
   userEmail: string;
   userImage?: string | null;
   role: RoleKey;
+  /** An L1 operator in an organization they aren't a member of. */
+  viaL1?: boolean;
   /** Only decides which links to show; every page checks access itself. Defaults to the role's. */
   permissions?: readonly Permission[];
   organizationId?: string;
@@ -305,6 +307,7 @@ export function AppHeader({
           userEmail={props.userEmail}
           userImage={props.userImage ?? null}
           role={props.role}
+          viaL1={props.viaL1}
         />
       </div>
       <dialog

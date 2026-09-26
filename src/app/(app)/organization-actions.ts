@@ -3,13 +3,13 @@
 import { cookies } from "next/headers";
 import {
   ACTIVE_ORGANIZATION_COOKIE,
-  listMemberships,
+  listAccessibleOrganizations,
   requireUser,
 } from "@/lib/auth/session";
 
 export async function selectActiveOrganization(organizationId: string) {
   const user = await requireUser();
-  const memberships = await listMemberships(user.id);
+  const memberships = await listAccessibleOrganizations(user.id);
   if (!memberships.some((membership) => membership.organizationId === organizationId)) {
     return { error: "You do not have access to that organization." };
   }

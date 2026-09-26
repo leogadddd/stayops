@@ -58,6 +58,8 @@ const unit = {
   dayRates: {},
   cleaningFeeCents: 50_000,
   securityDepositCents: 200_000,
+  reservationFeeType: null,
+  reservationFeeAmount: null,
   checkInTime: "15:00", checkOutTime: "11:00",
   checklistTemplate: [],
   createdAt: new Date("2026-09-01T00:00:00Z"),

@@ -195,7 +195,7 @@ describe("independent owner page boundaries", () => {
       name: "Test unit", status: "active", capacity: 2, bedrooms: 1, bathrooms: 1,
       imageUrl: null,
       defaultNightlyRateCents: 100_000, dayRates: {}, cleaningFeeCents: null,
-      securityDepositCents: null, checkInTime: "15:00", checkOutTime: "11:00", checklistTemplate: [],
+      securityDepositCents: null, reservationFeeType: null, reservationFeeAmount: null, checkInTime: "15:00", checkOutTime: "11:00", checklistTemplate: [],
       createdAt: new Date("2026-09-01T00:00:00Z"),
       updatedAt: new Date("2026-09-01T00:00:00Z"),
       deletedAt: null,
@@ -258,7 +258,7 @@ describe("new reservation financial boundary", () => {
     expect(form?.props.units).toEqual([{
       id: "unit-a", label: "Test unit", name: "Test unit", propertyName: null, imageUrl: null,
       capacity: 2, bedrooms: 1, bathrooms: 1, checkInTime: "15:00", checkOutTime: "11:00",
-      nightlyRateCents: null, dayRates: null, cleaningFeeCents: null, securityDepositCents: null,
+      nightlyRateCents: null, dayRates: null, cleaningFeeCents: null, securityDepositCents: null, reservationFee: null,
     }]);
   });
 });
